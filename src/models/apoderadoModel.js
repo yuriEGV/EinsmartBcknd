@@ -52,8 +52,8 @@ const apoderadoSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Índice para evitar duplicados de apoderado principal por estudiante
-apoderadoSchema.index({ estudianteId: 1, tipo: 1 }, { 
+// Índice para evitar duplicados de apoderado principal por estudiante dentro del mismo Tenant
+apoderadoSchema.index({ estudianteId: 1, tipo: 1, tenantId: 1 }, {
     unique: true,
     partialFilterExpression: { tipo: 'principal' }
 });

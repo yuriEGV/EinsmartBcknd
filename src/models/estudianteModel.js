@@ -7,12 +7,11 @@ const estudianteSchema = new mongoose.Schema({
   apellidos: { type: String, required: true, trim: true },
   rut: {
     type: String,
-    unique: true,
     sparse: true,
     trim: true,
     match: [/^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/, 'Formato de RUT inválido (ej: 12.345.678-9)']
   },
-  matricula: { type: String, unique: true, sparse: true, trim: true },
+  matricula: { type: String, sparse: true, trim: true },
   email: {
     type: String,
     required: true,
@@ -29,5 +28,9 @@ const estudianteSchema = new mongoose.Schema({
     default: Date.now,
   },
 }, { timestamps: true });
+
+// Índices únicos por Tenant para permitir el mismo RUT en diferentes colegios (si fuera necesario para la SaaS)
+estudianteSchema.index({ rut: 1, tenantId: 1 }, { unique: true, sparse: true });
+estudianteSchema.index({ matricula: 1, tenantId: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model('Estudiante', estudianteSchema);

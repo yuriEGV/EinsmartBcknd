@@ -112,7 +112,28 @@ app.get('/setup-admin', async (req, res) => {
         results.push(`${admin.email} created`);
       }
     }
-    return res.json({ message: 'Setup complete', details: results });
+    // --- INDEX MAINTENANCE (NEW) ---
+    const dropResults = [];
+    try {
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      const hasEstudiantes = collections.some(c => c.name === 'estudiantes');
+      const hasApoderados = collections.some(c => c.name === 'apoderados');
+
+      if (hasEstudiantes) {
+        const studentCollection = mongoose.connection.db.collection('estudiantes');
+        try { await studentCollection.dropIndex('rut_1'); dropResults.push('Dropped rut_1'); } catch (e) { dropResults.push('rut_1 not found or error'); }
+        try { await studentCollection.dropIndex('matricula_1'); dropResults.push('Dropped matricula_1'); } catch (e) { dropResults.push('matricula_1 not found or error'); }
+      }
+      if (hasApoderados) {
+        const guardianCollection = mongoose.connection.db.collection('apoderados');
+        try { await guardianCollection.dropIndex('estudianteId_1_tipo_1'); dropResults.push('Dropped estudianteId_1_tipo_1'); } catch (e) { dropResults.push('estudianteId_1_tipo_1 not found or error'); }
+      }
+    } catch (idxError) {
+      console.warn("Index maintenance error:", idxError.message);
+      dropResults.push(`Index Error: ${idxError.message}`);
+    }
+
+    return res.json({ message: 'Setup complete', details: results, indexes: dropResults });
   } catch (error) {
     console.error("Setup Error:", error);
     return res.status(500).json({ error: error.message || 'Error occurred' });

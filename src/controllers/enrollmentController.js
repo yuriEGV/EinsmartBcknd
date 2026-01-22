@@ -34,16 +34,17 @@ class EnrollmentController {
                 return res.status(400).json({ message: 'ID de curso inválido.' });
             }
 
-            // 1. Logic for New Student Creation (Improved)
+            // 1. Logic for New Student Creation (Improved & Tenant Isolated)
             if (!finalStudentId && newStudent && newStudent.nombres) {
                 const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
 
-                // Check if student already exists by RUT or Email to avoid Duplicate Key Error
+                // Check if student already exists IN THIS TENANT to avoid cross-tenant conflicts
                 const existingStudent = await Estudiante.findOne({
+                    tenantId, // Isolation check
                     $or: [
                         { rut: newStudent.rut },
                         { email: newStudent.email }
-                    ].filter(c => Object.values(c)[0]) // Filter out undefined checks
+                    ].filter(c => Object.values(c)[0])
                 });
 
                 if (existingStudent) {
@@ -59,16 +60,22 @@ class EnrollmentController {
                 }
             }
 
-            // 2. Logic for New Guardian Creation
+            // 2. Logic for New Guardian Creation (Upsert if student already has one)
             if (newGuardian && newGuardian.nombre) {
                 const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
-                const apo = new Apoderado({
-                    ...newGuardian,
-                    estudianteId: finalStudentId,
-                    tenantId,
-                    tipo: 'principal'
-                });
-                await apo.save();
+
+                // Using findOneAndUpdate with upsert to avoid duplicate principal guardians for the same student
+                const apo = await Apoderado.findOneAndUpdate(
+                    { estudianteId: finalStudentId, tipo: 'principal', tenantId },
+                    {
+                        ...newGuardian,
+                        estudianteId: finalStudentId,
+                        tenantId,
+                        tipo: 'principal'
+                    },
+                    { new: true, upsert: true, runValidators: true }
+                );
+
                 finalGuardianId = apo._id;
             }
 
