@@ -17,10 +17,24 @@ const createEstudiante = async (req, res) => {
 
 const getEstudiantes = async (req, res) => {
   try {
-    const estudiantes = await Estudiante.find({
-      tenantId: req.user.tenantId,
-    });
+    const query = (req.user.role === 'admin')
+      ? {}
+      : { tenantId: req.user.tenantId };
 
+    // 3. Optional: Filter by specific course (for attendance/grades)
+    if (req.query.cursoId) {
+      const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+      const enrollments = await Enrollment.find({
+        courseId: req.query.cursoId,
+        tenantId: req.user.tenantId,
+        status: 'confirmada'
+      }).select('estudianteId');
+
+      const enrolledStudentIds = enrollments.map(e => e.estudianteId);
+      query._id = { $in: enrolledStudentIds };
+    }
+
+    const estudiantes = await Estudiante.find(query);
     res.status(200).json(estudiantes);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -29,10 +43,27 @@ const getEstudiantes = async (req, res) => {
 
 const getEstudianteById = async (req, res) => {
   try {
-    const estudiante = await Estudiante.findOne({
+    const query = {
       _id: req.params.id,
       tenantId: req.user.tenantId,
-    });
+    };
+
+    // Role-based restriction
+    if (req.user.role === 'student' && req.user.profileId !== req.params.id) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
+    if (req.user.role === 'apoderado' && req.user.profileId) {
+      const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+      const vinculation = await Apoderado.findById(req.user.profileId);
+      if (!vinculation || vinculation.estudianteId.toString() !== req.params.id) {
+        return res.status(403).json({ message: 'Acceso denegado' });
+      }
+    } else if ((req.user.role === 'student' || req.user.role === 'apoderado') && !req.user.profileId) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
+    const estudiante = await Estudiante.findOne(query);
 
     if (!estudiante)
       return res.status(404).json({ message: 'Estudiante no encontrado' });

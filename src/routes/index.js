@@ -21,6 +21,7 @@ import webhookRoutes from './webhookRoutes.js';
 import eventRoutes from './eventRoutes.js';
 import auditLogRoutes from './auditLogRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
+import messageRoutes from './messageRoutes.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -68,5 +69,6 @@ router.use('/tariffs', tariffRoutes);
 router.use('/events', eventRoutes);
 router.use('/audit-logs', auditLogRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/messages', messageRoutes);
 
 export default router;

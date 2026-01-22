@@ -8,37 +8,35 @@ import { fileURLToPath } from 'url';
 
 const app = express();
 
-// ========================================
-// CORS ABSOLUTAMENTE PRIMERO
-// ========================================
-app.use((req, res, next) => {
-  const allowedOrigins = [
-    'http://localhost:5173',
-    'https://maritimo4-0-frontend.vercel.app',  // Frontend production
-    /^https:\/\/maritimo4-0-frontend-.*\.vercel\.app$/  // Frontend previews
-  ];
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://maritimo4-0-frontend.vercel.app',
+  'https://einsmartfrntnd.vercel.app',
+  'https://einsmart-bcknd.vercel.app',
+  /\.vercel\.app$/
+];
 
-  const origin = req.headers.origin;
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
 
-  // Check if origin is allowed
-  const isAllowed = allowedOrigins.some(allowed =>
-    typeof allowed === 'string' ? allowed === origin : allowed.test(origin)
-  );
+    const isAllowed = allowedOrigins.some(allowed =>
+      typeof allowed === 'string' ? allowed === origin : allowed.test(origin)
+    );
 
-  if (isAllowed) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-tenant-id, X-Requested-With, Accept, X-CSRF-Token');
-  res.setHeader('Access-Control-Max-Age', '86400');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  next();
-});
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.warn(`Blocked by CORS: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'X-Requested-With', 'Accept', 'X-CSRF-Token'],
+  optionsSuccessStatus: 200
+}));
 // Now safe to import routes (after JWT check is non-fatal)
 import apiRoutes from './routes/index.js';
 import errorMiddleware from './middleware/errorMiddleware.js';

@@ -71,18 +71,32 @@ class AttendanceController {
                 ? {}
                 : { tenantId: req.user.tenantId };
 
+            // Restricción para estudiantes y apoderados
+            if (req.user.role === 'student' && req.user.profileId) {
+                query.estudianteId = req.user.profileId;
+            } else if (req.user.role === 'apoderado' && req.user.profileId) {
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const vinculation = await Apoderado.findById(req.user.profileId);
+                if (vinculation) {
+                    query.estudianteId = vinculation.estudianteId;
+                } else {
+                    return res.status(200).json([]);
+                }
+            } else if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                return res.status(200).json([]);
+            }
+
             // Allow filtering by date and student
             if (req.query.fecha) {
-                // Parse date strictly if needed, or range
                 query.fecha = new Date(req.query.fecha);
             }
-            if (req.query.estudianteId) {
+            if (req.query.estudianteId && req.user.role !== 'student' && req.user.role !== 'apoderado') {
                 query.estudianteId = req.query.estudianteId;
             }
 
             const attendances = await Attendance.find(query)
                 .sort({ fecha: -1 })
-                .populate('estudianteId', 'nombre apellido rut');
+                .populate('estudianteId', 'nombres apellidos rut');
 
             res.json(attendances);
         } catch (error) {

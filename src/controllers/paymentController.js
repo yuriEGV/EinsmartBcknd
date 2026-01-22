@@ -34,12 +34,32 @@ class PaymentController {
   }
 
   static async listPayments(req, res) {
-    const query = (req.user.role === 'admin')
-      ? {}
-      : { tenantId: req.user.tenantId };
+    try {
+      const query = (req.user.role === 'admin')
+        ? {}
+        : { tenantId: req.user.tenantId };
 
-    const payments = await Payment.find(query);
-    res.json(payments);
+      if (req.user.role === 'student' && req.user.profileId) {
+        query.estudianteId = req.user.profileId;
+      } else if (req.user.role === 'apoderado' && req.user.profileId) {
+        const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+        const vinculation = await Apoderado.findById(req.user.profileId);
+        if (vinculation) {
+          query.estudianteId = vinculation.estudianteId;
+        } else {
+          return res.status(200).json([]);
+        }
+      } else if (req.user.role === 'student' || req.user.role === 'apoderado') {
+        return res.status(200).json([]);
+      }
+
+      const payments = await Payment.find(query)
+        .populate('estudianteId', 'nombres apellidos')
+        .populate('tariffId', 'name amount');
+      res.json(payments);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
   }
 
   static async getPaymentById(req, res) {

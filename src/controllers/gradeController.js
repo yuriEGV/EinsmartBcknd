@@ -6,12 +6,40 @@ class GradeController {
     // Create a new grade
     static async createGrade(req, res) {
         try {
+            const { estudianteId, evaluationId, score, comments } = req.body;
+            const tenantId = req.user.tenantId;
+
+            // 1. Fetch Evaluation to get courseId
+            const Evaluation = await import('../models/evaluationModel.js').then(m => m.default);
+            const evaluation = await Evaluation.findOne({ _id: evaluationId, tenantId });
+            if (!evaluation) {
+                return res.status(404).json({ message: 'Evaluación no encontrada' });
+            }
+
+            // 2. Check if student is ENROLLED in this course
+            const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+            const enrollment = await Enrollment.findOne({
+                estudianteId,
+                courseId: evaluation.courseId,
+                tenantId,
+                status: 'confirmada' // Only confirmed enrollments can receive grades
+            });
+
+            if (!enrollment) {
+                return res.status(400).json({
+                    message: 'El estudiante no tiene una matrícula confirmada en este curso para recibir calificaciones.'
+                });
+            }
+
             const grade = new Grade({
-                ...req.body,
-                tenantId: req.user.tenantId
+                estudianteId,
+                evaluationId,
+                score,
+                comments,
+                tenantId
             });
             await grade.save();
-            await grade.populate('estudianteId', 'nombre apellido');
+            await grade.populate('estudianteId', 'nombres apellidos');
             await grade.populate('evaluationId', 'title maxScore subject');
 
             // Send notification
@@ -29,11 +57,31 @@ class GradeController {
         }
     }
 
-    // Get all grades (Filtered by Tenant)
+    // Get all grades (Filtered by Tenant and User)
     static async getGrades(req, res) {
         try {
-            const grades = await Grade.find({ tenantId: req.user.tenantId })
-                .populate('estudianteId', 'nombre apellido')
+            const query = { tenantId: req.user.tenantId };
+
+            // If student, filter by their own profileId
+            if (req.user.role === 'student' && req.user.profileId) {
+                query.estudianteId = req.user.profileId;
+            }
+            // If guardian, filter by their linked student
+            else if (req.user.role === 'apoderado' && req.user.profileId) {
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const vinculation = await Apoderado.findById(req.user.profileId);
+                if (vinculation) {
+                    query.estudianteId = vinculation.estudianteId;
+                } else {
+                    return res.status(200).json([]);
+                }
+            }
+            else if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                return res.status(200).json([]);
+            }
+
+            const grades = await Grade.find(query)
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
             res.status(200).json(grades);
         } catch (error) {
@@ -48,7 +96,7 @@ class GradeController {
                 estudianteId: req.params.estudianteId,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
             res.status(200).json(grades);
         } catch (error) {
@@ -63,7 +111,7 @@ class GradeController {
                 evaluationId: req.params.evaluationId,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
             res.status(200).json(grades);
         } catch (error) {
@@ -81,7 +129,7 @@ class GradeController {
             }
 
             const grades = await Grade.find({ tenantId: targetTenant })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
             res.status(200).json(grades);
         } catch (error) {
@@ -96,7 +144,7 @@ class GradeController {
                 _id: req.params.id,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
             if (!grade) {
                 return res.status(404).json({ message: 'Calificación no encontrada' });
@@ -115,7 +163,7 @@ class GradeController {
                 req.body,
                 { new: true }
             )
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
 
             if (!grade) {

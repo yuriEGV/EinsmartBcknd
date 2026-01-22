@@ -22,6 +22,18 @@ class EnrollmentController {
             let finalStudentId = studentId;
             let finalGuardianId = apoderadoId;
 
+            // [VALIDATION] Ensure studentId is a valid ObjectId if provided
+            const mongoose = await import('mongoose').then(m => m.default);
+            if (finalStudentId && !mongoose.Types.ObjectId.isValid(finalStudentId)) {
+                return res.status(400).json({ message: 'ID de estudiante inválido.' });
+            }
+            if (finalGuardianId && !mongoose.Types.ObjectId.isValid(finalGuardianId)) {
+                return res.status(400).json({ message: 'ID de apoderado inválido.' });
+            }
+            if (courseId && !mongoose.Types.ObjectId.isValid(courseId)) {
+                return res.status(400).json({ message: 'ID de curso inválido.' });
+            }
+
             // 1. Logic for New Student Creation (Improved)
             if (!finalStudentId && newStudent && newStudent.nombres) {
                 const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
@@ -47,16 +59,22 @@ class EnrollmentController {
                 }
             }
 
-            // 2. Logic for New Guardian Creation
+            // 2. Logic for New Guardian Creation (Upsert if student already has one)
             if (newGuardian && newGuardian.nombre) {
                 const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
-                const apo = new Apoderado({
-                    ...newGuardian,
-                    estudianteId: finalStudentId,
-                    tenantId,
-                    tipo: 'principal'
-                });
-                await apo.save();
+
+                // Using findOneAndUpdate with upsert to avoid duplicate principal guardians for the same student
+                const apo = await Apoderado.findOneAndUpdate(
+                    { estudianteId: finalStudentId, tipo: 'principal', tenantId },
+                    {
+                        ...newGuardian,
+                        estudianteId: finalStudentId,
+                        tenantId,
+                        tipo: 'principal'
+                    },
+                    { new: true, upsert: true, runValidators: true }
+                );
+
                 finalGuardianId = apo._id;
             }
 
@@ -147,14 +165,21 @@ class EnrollmentController {
                 }
             }
 
+            // [NUEVO] Fetch Tenant Defaults
+            const Tenant = await import('../models/tenantModel.js').then(m => m.default);
+            const tenantConfig = await Tenant.findById(tenantId);
+
+            const finalFee = (tenantConfig?.paymentType === 'free') ? 0 : (fee !== undefined ? fee : (tenantConfig?.annualFee || 0));
+            const finalPeriod = period || tenantConfig?.academicYear || new Date().getFullYear().toString();
+
             const enrollment = new Enrollment({
                 tenantId,
                 estudianteId: finalStudentId,
                 courseId,
-                period,
+                period: finalPeriod,
                 apoderadoId: finalGuardianId,
-                status,
-                fee,
+                status: status || 'pendiente',
+                fee: finalFee,
                 notes
             });
 
@@ -179,7 +204,7 @@ class EnrollmentController {
 
             await enrollment.save();
 
-            await enrollment.populate('estudianteId', 'nombre apellido');
+            await enrollment.populate('estudianteId', 'nombres apellidos');
             await enrollment.populate('courseId', 'name code');
             await enrollment.populate('apoderadoId', 'nombre apellidos');
 
@@ -191,15 +216,30 @@ class EnrollmentController {
     }
 
 
-    // Get all enrollments
+    // Get all enrollments (Filtered by User)
     static async getEnrollments(req, res) {
         try {
             const query = (req.user.role === 'admin')
                 ? {}
                 : { tenantId: req.user.tenantId };
 
+            // Restricción para estudiantes y apoderados
+            if (req.user.role === 'student' && req.user.profileId) {
+                query.estudianteId = req.user.profileId;
+            } else if (req.user.role === 'apoderado' && req.user.profileId) {
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const vinculation = await Apoderado.findById(req.user.profileId);
+                if (vinculation) {
+                    query.estudianteId = vinculation.estudianteId;
+                } else {
+                    return res.status(200).json([]);
+                }
+            } else if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                return res.status(200).json([]);
+            }
+
             const enrollments = await Enrollment.find(query)
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -215,7 +255,7 @@ class EnrollmentController {
                 estudianteId: req.params.studentId || req.params.estudianteId,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -231,7 +271,7 @@ class EnrollmentController {
                 courseId: req.params.courseId,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -249,7 +289,7 @@ class EnrollmentController {
             }
 
             const enrollments = await Enrollment.find({ tenantId: targetTenant })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -265,7 +305,7 @@ class EnrollmentController {
                 period: req.params.period,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -281,7 +321,7 @@ class EnrollmentController {
                 _id: req.params.id,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             if (!enrollment) {
@@ -301,7 +341,7 @@ class EnrollmentController {
                 req.body,
                 { new: true }
             )
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             if (!enrollment) {

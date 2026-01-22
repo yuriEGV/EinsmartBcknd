@@ -59,24 +59,37 @@ class AnotacionController {
         }
     }
 
-    // Obtener todas las anotaciones del tenant
+    // Obtener todas las anotaciones del tenant (Filtrado por Usuario)
     static async getAnotaciones(req, res) {
         try {
             const { tipo, estudianteId } = req.query;
-            const query = (req.user.role === 'admin')
+            let query = (req.user.role === 'admin')
                 ? {}
                 : { tenantId: req.user.tenantId };
+
+            // Restricción para estudiantes y apoderados
+            if (req.user.role === 'student' && req.user.profileId) {
+                query.estudianteId = req.user.profileId;
+            } else if (req.user.role === 'apoderado' && req.user.profileId) {
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const vinculation = await Apoderado.findById(req.user.profileId);
+                if (vinculation) {
+                    query.estudianteId = vinculation.estudianteId;
+                } else {
+                    return res.status(200).json([]);
+                }
+            } else if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                return res.status(200).json([]);
+            } else if (estudianteId) {
+                query.estudianteId = estudianteId;
+            }
 
             if (tipo) {
                 query.tipo = tipo;
             }
 
-            if (estudianteId) {
-                query.estudianteId = estudianteId;
-            }
-
             const anotaciones = await Anotacion.find(query)
-                .populate('estudianteId', 'nombre apellido grado')
+                .populate('estudianteId', 'nombres apellidos grado')
                 .populate('creadoPor', 'name email role')
                 .sort({ fecha: -1 });
 

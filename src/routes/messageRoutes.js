@@ -1,0 +1,13 @@
+import express from 'express';
+import MessageController from '../controllers/messageController.js';
+import authMiddleware from '../middleware/authMiddleware.js';
+
+const router = express.Router();
+
+router.use(authMiddleware);
+
+router.post('/', MessageController.sendMessage);
+router.get('/', MessageController.getMessages);
+router.get('/contacts', MessageController.getContacts);
+
+export default router;
