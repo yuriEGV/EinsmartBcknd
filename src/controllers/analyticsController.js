@@ -12,17 +12,20 @@ class AnalyticsController {
     static async getStudentAnalytics(req, res) {
         try {
             await connectDB();
-            const tenantId = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
-            const courseId = req.query.courseId;
+            const tid = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
+            const tenantId = new mongoose.Types.ObjectId(tid);
+            const courseId = req.query.courseId ? new mongoose.Types.ObjectId(req.query.courseId) : null;
 
-            // Build match criteria
+            // Build match criteria for grades
             const matchCriteria = { tenantId };
             if (courseId) {
-                matchCriteria.courseId = courseId;
+                // If courseId is provided, we filter by it. 
+                // Note: Grade model doesn't have courseId directly, but Evaluation does.
             }
 
             // Aggregate grades by student and subject
             const studentAverages = await Grade.aggregate([
+                { $match: { tenantId } }, // Filter by tenant first for performance
                 {
                     $lookup: {
                         from: 'evaluations',
@@ -32,7 +35,8 @@ class AnalyticsController {
                     }
                 },
                 { $unwind: '$evaluation' },
-                { $match: matchCriteria },
+                // Filter by course if specified
+                ...(courseId ? [{ $match: { 'evaluation.courseId': courseId } }] : []),
                 {
                     $lookup: {
                         from: 'estudiantes',
@@ -87,6 +91,7 @@ class AnalyticsController {
 
             return res.status(200).json(studentAverages);
         } catch (error) {
+            console.error('Analytics Error:', error);
             return res.status(500).json({ message: error.message });
         }
     }
@@ -95,10 +100,12 @@ class AnalyticsController {
     static async getTopStudents(req, res) {
         try {
             await connectDB();
-            const tenantId = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
+            const tid = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
+            const tenantId = new mongoose.Types.ObjectId(tid);
             const limit = parseInt(req.query.limit) || 10;
 
             const topStudents = await Grade.aggregate([
+                { $match: { tenantId } },
                 {
                     $lookup: {
                         from: 'evaluations',
@@ -108,7 +115,6 @@ class AnalyticsController {
                     }
                 },
                 { $unwind: '$evaluation' },
-                { $match: { tenantId } },
                 {
                     $lookup: {
                         from: 'estudiantes',
@@ -134,6 +140,7 @@ class AnalyticsController {
 
             return res.status(200).json(topStudents);
         } catch (error) {
+            console.error('Top Students Error:', error);
             return res.status(500).json({ message: error.message });
         }
     }

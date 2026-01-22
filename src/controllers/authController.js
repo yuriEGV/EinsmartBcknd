@@ -183,7 +183,8 @@ function buildPayload(user) {
     return {
         userId: user._id,
         tenantId: user.tenantId,
-        role: user.role
+        role: user.role,
+        profileId: user.profileId
     };
 }
 

@@ -180,8 +180,13 @@ class UserController {
                 updateData.role = newRole;
             }
 
+            const query = { _id: req.params.id };
+            if (req.user.role !== 'admin') {
+                query.tenantId = req.user.tenantId;
+            }
+
             const user = await User.findOneAndUpdate(
-                { _id: req.params.id, tenantId: req.user.tenantId },
+                query,
                 updateData,
                 { new: true }
             ).select('-passwordHash');
@@ -202,10 +207,12 @@ class UserController {
     ===================================================== */
     static async deleteUser(req, res) {
         try {
-            const user = await User.findOneAndDelete({
-                _id: req.params.id,
-                tenantId: req.user.tenantId
-            });
+            const query = { _id: req.params.id };
+            if (req.user.role !== 'admin') {
+                query.tenantId = req.user.tenantId;
+            }
+
+            const user = await User.findOneAndDelete(query);
 
             if (!user) {
                 return res.status(404).json({ message: 'Usuario no encontrado' });

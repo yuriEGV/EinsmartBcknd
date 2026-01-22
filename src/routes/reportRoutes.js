@@ -40,4 +40,11 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+/**
+ * GENERAR RESUMEN DE ESTUDIANTE (PARA IMPRESIÓN)
+ * GET /api/reports/student/:studentId
+ */
+import ReportController from '../controllers/reportController.js';
+router.get('/student/:studentId', ReportController.getStudentSummary);
+
 export default router;
