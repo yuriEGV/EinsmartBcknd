@@ -14,8 +14,11 @@ const app = express();
 app.use((req, res, next) => {
   const allowedOrigins = [
     'http://localhost:5173',
-    'https://maritimo4-0-frontend.vercel.app',  // Frontend production
-    /^https:\/\/maritimo4-0-frontend-.*\.vercel\.app$/  // Frontend previews
+    'https://maritimo4-0-frontend.vercel.app',  // Legacy frontend
+    'https://einsmartfrntnd.vercel.app',       // New frontend
+    'https://einsmart-bcknd.vercel.app',       // Backend domain (just in case)
+    /^https:\/\/einsmartfrntnd-.*\.vercel\.app$/, // Frontend previews
+    /^https:\/\/maritimo4-0-frontend-.*\.vercel\.app$/ // Legacy previews
   ];
 
   const origin = req.headers.origin;
