@@ -1,0 +1,92 @@
+{
+  "info": {
+    "name": "Maritimo - Webpay & Payment Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "a1b2c3d4-0000-4000-8000-abcdefabcdef"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "bearerToken", "value": "<YOUR_BEARER_TOKEN>" },
+    { "key": "external_reference", "value": "TEST-EXT-{{timestamp}}" },
+    { "key": "timestamp", "value": "{{{{$timestamp}}}}" },
+    { "key": "webpay_signature", "value": "<OPTIONAL_SIGNATURE>" }
+  ],
+  "item": [
+    {
+      "name": "Create Payment (Webpay)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"estudianteId\": \"<ESTUDIANTE_ID>\",\n  \"tariffId\": \"<TARIFF_ID>\",\n  \"provider\": \"webpay\",\n  \"metadata\": {\n    \"external_reference\": \"{{external_reference}}\",\n    \"description\": \"Pago matrícula - prueba Webpay\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/payments",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","payments"]
+        }
+      }
+    },
+    {
+      "name": "Simulate Webpay Webhook (approved)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-webpay-signature", "value": "{{webpay_signature}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"webpay-event-123\",\n  \"status\": \"approved\",\n  \"reference\": \"{{external_reference}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/payments/webhooks/webpay",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","payments","webhooks","webpay"]
+        }
+      }
+    },
+    {
+      "name": "Simulate MercadoLibre Webhook (approved)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-mercadopago-notification", "value": "demo-notif" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"collection\": {\n    \"id\": \"ml-123\",\n    \"status\": \"approved\",\n    \"external_reference\": \"{{external_reference}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/payments/webhooks/mercadolibre",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","payments","webhooks","mercadolibre"]
+        }
+      }
+    },
+    {
+      "name": "Simulate Flow Webhook (approved)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-flow-event-id", "value": "demo-event" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"flow-123\",\n  \"status\": \"approved\",\n  \"reference\": \"{{external_reference}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/payments/webhooks/flow",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","payments","webhooks","flow"]
+        }
+      }
+    }
+  ]
+}

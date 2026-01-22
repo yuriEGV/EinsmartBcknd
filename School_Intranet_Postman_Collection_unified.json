@@ -1,0 +1,184 @@
+{
+  "info": {
+    "_postman_id": "8f9a3b1d-2e4b-4a77-bc3a-9d6fa12a4f2c",
+    "name": "School Intranet API - Vercel (Unified)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Colección unificada para pruebas completas contra https://maritimo4-0.vercel.app. Importar y usar con un environment que contenga `baseUrl` y `token`."
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Si existe token en el environment, añadir Authorization automáticamente",
+          "if (pm.environment.get('token')) {",
+          "  try { pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + pm.environment.get('token') }); } catch (e) { }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Registro",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"test@mail.com\",\n  \"password\": \"123456\",\n  \"nombre\": \"Usuario Prueba\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/registro", "host": [ "{{baseUrl}}" ], "path": [ "auth", "registro" ] }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"test@mail.com\",\n  \"password\": \"123456\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": [ "{{baseUrl}}" ], "path": [ "auth", "login" ] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "  var json = pm.response.json();",
+                  "  var t = null;",
+                  "  if (json.token) t = json.token;",
+                  "  else if (json.data && json.data.token) t = json.data.token;",
+                  "  else if (json.accessToken) t = json.accessToken;",
+                  "  if (t) { pm.environment.set('token', t); pm.test('Token guardado', function () { pm.expect(pm.environment.get('token')).to.not.be.empty; }); }",
+                  "} catch (e) { pm.test('Respuesta no JSON o sin token', function () { pm.expect(false).to.be.true; }); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Perfil",
+          "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/auth/perfil", "host": [ "{{baseUrl}}" ], "path": [ "auth", "perfil" ] } }
+        },
+        {
+          "name": "Logout",
+          "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "url": { "raw": "{{baseUrl}}/auth/logout", "host": [ "{{baseUrl}}" ], "path": [ "auth", "logout" ] } }
+        }
+      ]
+    },
+    {
+      "name": "Estudiantes",
+      "item": [
+        { "name": "Crear Estudiante", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Juan Perez\",\n  \"email\": \"juan@mail.com\",\n  \"dni\": \"12345678\"\n}" }, "url": { "raw": "{{baseUrl}}/estudiantes", "host": [ "{{baseUrl}}" ], "path": [ "estudiantes" ] } } },
+        { "name": "Listar Estudiantes", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/estudiantes", "host": [ "{{baseUrl}}" ], "path": [ "estudiantes" ] } } },
+        { "name": "Obtener Estudiante", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/estudiantes/:id", "host": [ "{{baseUrl}}" ], "path": [ "estudiantes", ":id" ] } } },
+        { "name": "Actualizar Estudiante", "request": { "method": "PUT", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Juan Actualizado\",\n  \"email\": \"juan_actual@mail.com\"\n}" }, "url": { "raw": "{{baseUrl}}/estudiantes/:id", "host": [ "{{baseUrl}}" ], "path": [ "estudiantes", ":id" ] } } },
+        { "name": "Eliminar Estudiante", "request": { "method": "DELETE", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/estudiantes/:id", "host": [ "{{baseUrl}}" ], "path": [ "estudiantes", ":id" ] } } }
+      ]
+    },
+    {
+      "name": "Courses",
+      "item": [
+        { "name": "Crear Curso", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Matemáticas\",\n  \"codigo\": \"MAT101\"\n}" }, "url": { "raw": "{{baseUrl}}/courses", "host": [ "{{baseUrl}}" ], "path": [ "courses" ] } } },
+        { "name": "Listar Cursos", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/courses", "host": [ "{{baseUrl}}" ], "path": [ "courses" ] } } },
+        { "name": "Obtener Curso", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/courses/:id", "host": [ "{{baseUrl}}" ], "path": [ "courses", ":id" ] } } },
+        { "name": "Actualizar Curso", "request": { "method": "PUT", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Matemáticas Avanzadas\"\n}" }, "url": { "raw": "{{baseUrl}}/courses/:id", "host": [ "{{baseUrl}}" ], "path": [ "courses", ":id" ] } } },
+        { "name": "Eliminar Curso", "request": { "method": "DELETE", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/courses/:id", "host": [ "{{baseUrl}}" ], "path": [ "courses", ":id" ] } } }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        { "name": "Crear Usuario", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Admin\",\n  \"email\": \"admin@mail.com\",\n  \"password\": \"admin123\"\n}" }, "url": { "raw": "{{baseUrl}}/users", "host": [ "{{baseUrl}}" ], "path": [ "users" ] } } },
+        { "name": "Listar Usuarios", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/users", "host": [ "{{baseUrl}}" ], "path": [ "users" ] } } },
+        { "name": "Obtener Usuario", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/users/:id", "host": [ "{{baseUrl}}" ], "path": [ "users", ":id" ] } } },
+        { "name": "Actualizar Usuario", "request": { "method": "PUT", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Admin Actualizado\"\n}" }, "url": { "raw": "{{baseUrl}}/users/:id", "host": [ "{{baseUrl}}" ], "path": [ "users", ":id" ] } } },
+        { "name": "Eliminar Usuario", "request": { "method": "DELETE", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/users/:id", "host": [ "{{baseUrl}}" ], "path": [ "users", ":id" ] } } }
+      ]
+    },
+    {
+      "name": "Tenants",
+      "item": [
+        { "name": "Crear Tenant", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Colegio Ejemplo\",\n  \"codigo\": \"CE-001\"\n}" }, "url": { "raw": "{{baseUrl}}/tenants", "host": [ "{{baseUrl}}" ], "path": [ "tenants" ] } } },
+        { "name": "Listar Tenants", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/tenants", "host": [ "{{baseUrl}}" ], "path": [ "tenants" ] } } },
+        { "name": "Obtener Tenant", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/tenants/:id", "host": [ "{{baseUrl}}" ], "path": [ "tenants", ":id" ] } } },
+        { "name": "Actualizar Tenant", "request": { "method": "PUT", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Colegio Actualizado\"\n}" }, "url": { "raw": "{{baseUrl}}/tenants/:id", "host": [ "{{baseUrl}}" ], "path": [ "tenants", ":id" ] } } },
+        { "name": "Eliminar Tenant", "request": { "method": "DELETE", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/tenants/:id", "host": [ "{{baseUrl}}" ], "path": [ "tenants", ":id" ] } } }
+      ]
+    },
+    {
+      "name": "Enrollments",
+      "item": [
+        { "name": "Crear Matrícula", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"estudianteId\": 1,\n  \"cursoId\": 1\n}" }, "url": { "raw": "{{baseUrl}}/enrollments", "host": [ "{{baseUrl}}" ], "path": [ "enrollments" ] } } },
+        { "name": "Listar Matrículas", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/enrollments", "host": [ "{{baseUrl}}" ], "path": [ "enrollments" ] } } },
+        { "name": "Obtener Matrícula", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/enrollments/:id", "host": [ "{{baseUrl}}" ], "path": [ "enrollments", ":id" ] } } },
+        { "name": "Actualizar Matrícula", "request": { "method": "PUT", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"cursoId\": 2\n}" }, "url": { "raw": "{{baseUrl}}/enrollments/:id", "host": [ "{{baseUrl}}" ], "path": [ "enrollments", ":id" ] } } },
+        { "name": "Eliminar Matrícula", "request": { "method": "DELETE", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/enrollments/:id", "host": [ "{{baseUrl}}" ], "path": [ "enrollments", ":id" ] } } }
+      ]
+    },
+    {
+      "name": "Apoderados",
+      "item": [
+        { "name": "Crear Apoderado", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Padre Ejemplo\"\n}" }, "url": { "raw": "{{baseUrl}}/apoderados", "host": [ "{{baseUrl}}" ], "path": [ "apoderados" ] } } },
+        { "name": "Listar Apoderados", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/apoderados", "host": [ "{{baseUrl}}" ], "path": [ "apoderados" ] } } },
+        { "name": "Obtener Apoderado", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/apoderados/:id", "host": [ "{{baseUrl}}" ], "path": [ "apoderados", ":id" ] } } },
+        { "name": "Actualizar Apoderado", "request": { "method": "PUT", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Padre Actualizado\"\n}" }, "url": { "raw": "{{baseUrl}}/apoderados/:id", "host": [ "{{baseUrl}}" ], "path": [ "apoderados", ":id" ] } } },
+        { "name": "Eliminar Apoderado", "request": { "method": "DELETE", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/apoderados/:id", "host": [ "{{baseUrl}}" ], "path": [ "apoderados", ":id" ] } } }
+      ]
+    },
+    {
+      "name": "Anotaciones",
+      "item": [
+        { "name": "Crear Anotación", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"tipo\": \"positiva\",\n  \"descripcion\": \"Ejemplo\"\n}" }, "url": { "raw": "{{baseUrl}}/anotaciones", "host": [ "{{baseUrl}}" ], "path": [ "anotaciones" ] } } },
+        { "name": "Listar Anotaciones", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/anotaciones", "host": [ "{{baseUrl}}" ], "path": [ "anotaciones" ] } } },
+        { "name": "Obtener Anotación", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/anotaciones/:id", "host": [ "{{baseUrl}}" ], "path": [ "anotaciones", ":id" ] } } },
+        { "name": "Actualizar Anotación", "request": { "method": "PUT", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"descripcion\": \"Actualizada\"\n}" }, "url": { "raw": "{{baseUrl}}/anotaciones/:id", "host": [ "{{baseUrl}}" ], "path": [ "anotaciones", ":id" ] } } },
+        { "name": "Eliminar Anotación", "request": { "method": "DELETE", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/anotaciones/:id", "host": [ "{{baseUrl}}" ], "path": [ "anotaciones", ":id" ] } } }
+      ]
+    },
+    {
+      "name": "Attendance",
+      "item": [
+        { "name": "Crear Asistencia", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"estudianteId\": 1,\n  \"fecha\": \"2025-11-14\"\n}" }, "url": { "raw": "{{baseUrl}}/attendance", "host": [ "{{baseUrl}}" ], "path": [ "attendance" ] } } },
+        { "name": "Listar Asistencias", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/attendance", "host": [ "{{baseUrl}}" ], "path": [ "attendance" ] } } },
+        { "name": "Obtener Asistencia", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/attendance/:id", "host": [ "{{baseUrl}}" ], "path": [ "attendance", ":id" ] } } },
+        { "name": "Actualizar Asistencia", "request": { "method": "PUT", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"fecha\": \"2025-11-15\"\n}" }, "url": { "raw": "{{baseUrl}}/attendance/:id", "host": [ "{{baseUrl}}" ], "path": [ "attendance", ":id" ] } } },
+        { "name": "Eliminar Asistencia", "request": { "method": "DELETE", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/attendance/:id", "host": [ "{{baseUrl}}" ], "path": [ "attendance", ":id" ] } } }
+      ]
+    },
+    {
+      "name": "Evaluations",
+      "item": [
+        { "name": "Crear Evaluación", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Prueba 1\",\n  \"fecha\": \"2025-11-20\"\n}" }, "url": { "raw": "{{baseUrl}}/evaluations", "host": [ "{{baseUrl}}" ], "path": [ "evaluations" ] } } },
+        { "name": "Listar Evaluaciones", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/evaluations", "host": [ "{{baseUrl}}" ], "path": [ "evaluations" ] } } },
+        { "name": "Obtener Evaluación", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/evaluations/:id", "host": [ "{{baseUrl}}" ], "path": [ "evaluations", ":id" ] } } },
+        { "name": "Actualizar Evaluación", "request": { "method": "PUT", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Prueba 1 Actualizada\"\n}" }, "url": { "raw": "{{baseUrl}}/evaluations/:id", "host": [ "{{baseUrl}}" ], "path": [ "evaluations", ":id" ] } } },
+        { "name": "Eliminar Evaluación", "request": { "method": "DELETE", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/evaluations/:id", "host": [ "{{baseUrl}}" ], "path": [ "evaluations", ":id" ] } } }
+      ]
+    },
+    {
+      "name": "Grades",
+      "item": [
+        { "name": "Crear Nota", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"estudianteId\": 1,\n  \"evaluationId\": 1,\n  \"valor\": 7\n}" }, "url": { "raw": "{{baseUrl}}/grades", "host": [ "{{baseUrl}}" ], "path": [ "grades" ] } } },
+        { "name": "Listar Notas", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/grades", "host": [ "{{baseUrl}}" ], "path": [ "grades" ] } } },
+        { "name": "Obtener Nota", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/grades/:id", "host": [ "{{baseUrl}}" ], "path": [ "grades", ":id" ] } } },
+        { "name": "Actualizar Nota", "request": { "method": "PUT", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"valor\": 6\n}" }, "url": { "raw": "{{baseUrl}}/grades/:id", "host": [ "{{baseUrl}}" ], "path": [ "grades", ":id" ] } } },
+        { "name": "Eliminar Nota", "request": { "method": "DELETE", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/grades/:id", "host": [ "{{baseUrl}}" ], "path": [ "grades", ":id" ] } } }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        { "name": "Solicitar Reporte", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"tipo\": \"general\"\n}" }, "url": { "raw": "{{baseUrl}}/reports", "host": [ "{{baseUrl}}" ], "path": [ "reports" ] } } },
+        { "name": "Listar Reportes", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ], "url": { "raw": "{{baseUrl}}/reports", "host": [ "{{baseUrl}}" ], "path": [ "reports" ] } } }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://maritimo4-0.vercel.app" },
+    { "key": "token", "value": "" }
+  ]
+}
