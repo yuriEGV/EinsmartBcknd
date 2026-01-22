@@ -53,7 +53,7 @@ class ReportController {
             const Anotacion = await import('../models/anotacionModel.js').then(m => m.default);
 
             const [student, grades, attendance, annotations] = await Promise.all([
-                Estudiante.findById(studentId),
+                Estudiante.findById(studentId).select('nombres apellidos rut grado'),
                 Grade.find({ estudianteId: studentId, tenantId }).populate('evaluationId'),
                 Attendance.find({ estudianteId: studentId, tenantId }).sort({ fecha: -1 }),
                 Anotacion.find({ estudianteId: studentId, tenantId }).populate('creadoPor', 'name').sort({ fecha: -1 })

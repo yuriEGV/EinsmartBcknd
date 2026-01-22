@@ -15,24 +15,30 @@ const createEstudiante = async (req, res) => {
   }
 };
 
-// 3. Optional: Filter by specific course (for attendance/grades)
-if (req.query.cursoId) {
-  const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
-  const enrollments = await Enrollment.find({
-    courseId: req.query.cursoId,
-    tenantId: req.user.tenantId,
-    status: 'confirmada'
-  }).select('estudianteId');
+const getEstudiantes = async (req, res) => {
+  try {
+    const query = (req.user.role === 'admin')
+      ? {}
+      : { tenantId: req.user.tenantId };
 
-  const enrolledStudentIds = enrollments.map(e => e.estudianteId);
-  query._id = { $in: enrolledStudentIds };
-}
+    // 3. Optional: Filter by specific course (for attendance/grades)
+    if (req.query.cursoId) {
+      const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+      const enrollments = await Enrollment.find({
+        courseId: req.query.cursoId,
+        tenantId: req.user.tenantId,
+        status: 'confirmada'
+      }).select('estudianteId');
 
-const estudiantes = await Estudiante.find(query);
-res.status(200).json(estudiantes);
+      const enrolledStudentIds = enrollments.map(e => e.estudianteId);
+      query._id = { $in: enrolledStudentIds };
+    }
+
+    const estudiantes = await Estudiante.find(query);
+    res.status(200).json(estudiantes);
   } catch (error) {
-  res.status(500).json({ message: error.message });
-}
+    res.status(500).json({ message: error.message });
+  }
 };
 
 const getEstudianteById = async (req, res) => {

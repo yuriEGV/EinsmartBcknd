@@ -96,7 +96,7 @@ class GradeController {
                 estudianteId: req.params.estudianteId,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
             res.status(200).json(grades);
         } catch (error) {
@@ -111,7 +111,7 @@ class GradeController {
                 evaluationId: req.params.evaluationId,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
             res.status(200).json(grades);
         } catch (error) {
@@ -129,7 +129,7 @@ class GradeController {
             }
 
             const grades = await Grade.find({ tenantId: targetTenant })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
             res.status(200).json(grades);
         } catch (error) {
@@ -144,7 +144,7 @@ class GradeController {
                 _id: req.params.id,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
             if (!grade) {
                 return res.status(404).json({ message: 'Calificación no encontrada' });
@@ -163,7 +163,7 @@ class GradeController {
                 req.body,
                 { new: true }
             )
-                .populate('estudianteId', 'nombre apellido')
+                .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
 
             if (!grade) {

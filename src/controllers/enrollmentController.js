@@ -198,7 +198,7 @@ class EnrollmentController {
 
             await enrollment.save();
 
-            await enrollment.populate('estudianteId', 'nombre apellido');
+            await enrollment.populate('estudianteId', 'nombres apellidos');
             await enrollment.populate('courseId', 'name code');
             await enrollment.populate('apoderadoId', 'nombre apellidos');
 
