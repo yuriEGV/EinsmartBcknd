@@ -36,7 +36,14 @@ class UserController {
                 alumno: 'student',
                 student: 'student',
                 apoderado: 'apoderado',
-                guardian: 'apoderado'
+                guardian: 'apoderado',
+                psicologo: 'psicologo',
+                orientador: 'orientador',
+                asistente_aula: 'asistente_aula',
+                manipulador_alimento: 'manipulador_alimento',
+                bibliotecario: 'bibliotecario',
+                secretario: 'secretario',
+                paradocente: 'paradocente'
             };
 
             const finalRole = roleMap[rol || role];
@@ -169,7 +176,14 @@ class UserController {
                     student: 'student',
                     sostenedor: 'sostenedor',
                     apoderado: 'apoderado',
-                    guardian: 'apoderado'
+                    guardian: 'apoderado',
+                    psicologo: 'psicologo',
+                    orientador: 'orientador',
+                    asistente_aula: 'asistente_aula',
+                    manipulador_alimento: 'manipulador_alimento',
+                    bibliotecario: 'bibliotecario',
+                    secretario: 'secretario',
+                    paradocente: 'paradocente'
                 };
 
                 const newRole = roleMap[req.body.role || req.body.rol];
