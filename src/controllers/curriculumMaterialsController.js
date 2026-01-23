@@ -58,13 +58,3 @@ export const getBySubject = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
-    // Logic to delete a curriculum material by ID
-};
-
-exports.getByCourse = async (req, res) => {
-    // Logic to get curriculum materials by course ID
-};
-
-exports.getBySubject = async (req, res) => {
-    // Logic to get curriculum materials by subject ID
-};
