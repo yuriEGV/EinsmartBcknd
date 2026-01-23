@@ -405,6 +405,39 @@ class EnrollmentController {
             res.status(500).json({ message: error.message });
         }
     }
+
+    // [NUEVO] Send consolidated institutional email list to Sostenedor
+    static async sendInstitutionalList(req, res) {
+        try {
+            const tenantId = req.user.tenantId;
+            const enrollments = await Enrollment.find({ tenantId })
+                .populate('estudianteId', 'nombres apellidos rut')
+                .populate('courseId', 'name');
+
+            if (enrollments.length === 0) {
+                return res.status(400).json({ message: 'No hay matrículas registradas para este periodo.' });
+            }
+
+            const Tenant = await import('../models/tenantModel.js').then(m => m.default);
+            const tenant = await Tenant.findById(tenantId);
+            const NotificationService = await import('../services/notificationService.js').then(m => m.default);
+
+            await NotificationService.notifyInstitutionalBatch(
+                tenant.contactEmail || 'administracion@einsmart.cl',
+                tenant.name,
+                enrollments.map(e => ({
+                    rut: e.estudianteId?.rut || 'N/A',
+                    nombres: e.estudianteId?.nombres || 'N/A',
+                    apellidos: e.estudianteId?.apellidos || 'N/A',
+                    curso: e.courseId?.name || 'N/A'
+                }))
+            );
+
+            res.status(200).json({ message: `Listado enviado correctamente a ${tenant.contactEmail || 'administracion@einsmart.cl'}` });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
 }
 
 export default EnrollmentController;

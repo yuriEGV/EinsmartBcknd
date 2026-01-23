@@ -104,6 +104,48 @@ class NotificationService {
             console.error('❌ Error in notifyDebtor:', error);
         }
     }
+
+    /**
+     * Send consolidated student list to Sostenedor for institutional accounts
+     */
+    static async notifyInstitutionalBatch(recipientEmail, tenantName, studentList) {
+        try {
+            const tableRows = studentList.map(s => `
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${s.rut}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${s.nombres} ${s.apellidos}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${s.curso}</td>
+                </tr>
+            `).join('');
+
+            const html = `
+                <div style="font-family: Arial, sans-serif; color: #333;">
+                    <h2 style="color: #11355a;">Listado de Nuevos Alumnos - ${tenantName}</h2>
+                    <p>Estimado Sostenedor,</p>
+                    <p>Se adjunta el listado de alumnos matriculados para la creación de sus <strong>correos institucionales</strong> y acceso a plataformas.</p>
+                    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                        <thead>
+                            <tr style="background-color: #f4f7f6;">
+                                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">RUT</th>
+                                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Nombre Completo</th>
+                                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Curso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
+                    <p>Por favor, proceda con el alta en Google Workspace / Office 365 según corresponda.</p>
+                    <p style="margin-top: 20px; font-size: 12px; color: #777;">Maritimo 4.0 - Sistema de Gestión Escolar</p>
+                </div>
+            `;
+
+            await sendEmail(recipientEmail, `Listado Institucional: ${tenantName}`, html);
+            console.log(`📧 Batch institutional list sent to ${recipientEmail}`);
+        } catch (error) {
+            console.error('❌ Error in notifyInstitutionalBatch:', error);
+        }
+    }
 }
 
 export default NotificationService;

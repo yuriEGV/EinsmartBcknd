@@ -20,6 +20,20 @@ class AnotacionController {
                 });
             }
 
+            // [NUEVO] Bloquear si el alumno no tiene matrícula confirmada
+            const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+            const enrollment = await Enrollment.findOne({
+                estudianteId,
+                tenantId: req.user.tenantId,
+                status: 'confirmada'
+            });
+
+            if (!enrollment) {
+                return res.status(400).json({
+                    message: 'El alumno no tiene una matrícula vigente/confirmada. No se pueden registrar anotaciones sin matrícula.'
+                });
+            }
+
             const anotacion = new Anotacion({
                 estudianteId,
                 tipo,
@@ -104,6 +118,20 @@ class AnotacionController {
         try {
             const { estudianteId } = req.params;
             const { tipo } = req.query;
+
+            // Security: If student, check if they are requesting their own ID
+            if (req.user.role === 'student' && req.user.profileId?.toString() !== estudianteId) {
+                return res.status(403).json({ message: 'Acceso denegado: solo puedes ver tus propias anotaciones' });
+            }
+
+            // Security: If guardian, check if the student belongs to them
+            if (req.user.role === 'apoderado' && req.user.profileId) {
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const vinculation = await Apoderado.findOne({ _id: req.user.profileId, estudianteId: estudianteId });
+                if (!vinculation) {
+                    return res.status(403).json({ message: 'Acceso denegado: este estudiante no está vinculado a tu cuenta' });
+                }
+            }
 
             const query = {
                 estudianteId,
@@ -195,6 +223,21 @@ class AnotacionController {
     static async getEstadisticasByEstudiante(req, res) {
         try {
             const { estudianteId } = req.params;
+
+            // Security: If student, check if they are requesting their own ID
+            if (req.user.role === 'student' && req.user.profileId?.toString() !== estudianteId) {
+                return res.status(403).json({ message: 'Acceso denegado' });
+            }
+
+            // Security: If guardian, check if the student belongs to them
+            if (req.user.role === 'apoderado' && req.user.profileId) {
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const vinculation = await Apoderado.findOne({ _id: req.user.profileId, estudianteId: estudianteId });
+                if (!vinculation) {
+                    return res.status(403).json({ message: 'Acceso denegado' });
+                }
+            }
+
             const estadisticas = await Anotacion.aggregate([
                 {
                     $match: {
