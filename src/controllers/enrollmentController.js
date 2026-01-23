@@ -64,19 +64,28 @@ class EnrollmentController {
             if (newGuardian && newGuardian.nombre) {
                 const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
 
-                // Using findOneAndUpdate with upsert to avoid duplicate principal guardians for the same student
-                // We query ONLY by estudianteId and tipo since an old index (estudianteId_1_tipo_1) might exist without tenantId
-                // and estudianteId should be unique enough for this association.
-                const apo = await Apoderado.findOneAndUpdate(
-                    { estudianteId: finalStudentId, tipo: 'principal' },
-                    {
+                // [FIX] Avoid findOneAndUpdate upsert due to potential index mismatch (E11000)
+                let apo = await Apoderado.findOne({ estudianteId: finalStudentId, tipo: 'principal' });
+
+                if (apo) {
+                    // Update existing
+                    apo.nombre = newGuardian.nombre;
+                    apo.apellidos = newGuardian.apellidos;
+                    apo.correo = newGuardian.correo || apo.correo;
+                    apo.telefono = newGuardian.telefono || apo.telefono;
+                    apo.direccion = newGuardian.direccion || apo.direccion;
+                    apo.parentesco = newGuardian.parentesco || apo.parentesco;
+                    await apo.save();
+                } else {
+                    // Create new
+                    apo = new Apoderado({
                         ...newGuardian,
                         estudianteId: finalStudentId,
                         tenantId,
                         tipo: 'principal'
-                    },
-                    { new: true, upsert: true, runValidators: true }
-                );
+                    });
+                    await apo.save();
+                }
 
                 finalGuardianId = apo._id;
             }

@@ -8,7 +8,7 @@ class TenantController {
         try {
             await connectDB(); // 🔥 NECESARIO
 
-            const { name, domain } = req.body;
+            const { name, domain, theme } = req.body;
 
             if (!name) {
                 return res.status(400).json({
@@ -18,7 +18,8 @@ class TenantController {
 
             const tenant = new Tenant({
                 name,
-                domain: domain || null
+                domain: domain || null,
+                theme: theme || {}
             });
 
             await tenant.save();
