@@ -95,13 +95,13 @@ app.use(express.urlencoded({ extended: true }));
             results.push(`${admin.email} updated`);
           } else {
             await User.create({
-              name: admin.name,
-              email: admin.email,
-              passwordHash,
-              role: 'admin',
-              tenantId: tenant._id,
-              rut: admin.rut
-            });
+          name: admin.name,
+          email: admin.email,
+          passwordHash,
+          role: 'admin',
+          tenantId: tenant._id,
+          rut: admin.rut
+        });
             results.push(`${admin.email} created`);
           }
         }

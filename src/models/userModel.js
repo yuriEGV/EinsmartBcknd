@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
         unique: true,
         sparse: true,
         trim: true,
-        match: [/^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/, 'Formato de RUT inválido (ej: 12.345.678-9)']
+        // match: [/^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/, 'Formato de RUT inválido (ej: 12.345.678-9)'] // Deshabilitado temporalmente para depuración
     },
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ['admin', 'sostenedor', 'teacher', 'student', 'apoderado'], required: true },
