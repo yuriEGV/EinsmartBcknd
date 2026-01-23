@@ -59,6 +59,11 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Test endpoint
+app.get('/test', (req, res) => {
+  res.json({ message: 'Backend is working', timestamp: new Date().toISOString() });
+});
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({ message: 'API funcionando correctamente 🚀', version: '5.0.0' });
