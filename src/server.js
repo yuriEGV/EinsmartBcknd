@@ -84,7 +84,8 @@ app.get('/setup-admin', async (req, res) => {
     }
 
     const admins = [
-      { name: 'Yuri Admin', email: 'yuri@einsmart.cl', rut: '1-9' },
+      { name: 'Yuri Admin', email: 'yuri@gmail.com', rut: '1-9' },
+      { name: 'Yuri Admin Einsmart', email: 'yuri@einsmart.cl', rut: '1-9' },
       { name: 'Vicente Admin', email: 'vicente@einsmart.cl', rut: '2-7' }
     ];
 
