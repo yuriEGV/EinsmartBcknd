@@ -76,9 +76,9 @@ app.use(express.urlencoded({ extended: true }));
         }
 
         const admins = [
-          { name: 'Yuri Admin', email: 'yuri@gmail.com', rut: '12.345.678-9' },
-          { name: 'Yuri Admin Einsmart', email: 'yuri@einsmart.cl', rut: '12.345.679-8' },
-          { name: 'Vicente Admin', email: 'vicente@einsmart.cl', rut: '12.345.680-7' }
+          { name: 'Yuri Admin', email: 'yuri@gmail.com', rut: '12.345.678-K' },
+          { name: 'Yuri Admin Einsmart', email: 'yuri@einsmart.cl', rut: '11.222.333-4' },
+          { name: 'Vicente Admin', email: 'vicente@einsmart.cl', rut: '22.333.444-5' }
         ];
 
         const results = [];
