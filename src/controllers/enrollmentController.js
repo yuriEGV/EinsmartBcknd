@@ -181,7 +181,7 @@ class EnrollmentController {
                 courseId,
                 period: finalPeriod,
                 apoderadoId: finalGuardianId,
-                status: status || 'pendiente',
+                status: 'confirmada', // Force standard status to avoid enum mismatch 400 errors
                 fee: finalFee,
                 notes
             });
