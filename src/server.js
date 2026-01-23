@@ -6,6 +6,11 @@ import morgan from 'morgan';
 import connectDB from './config/db.js';
 import { fileURLToPath } from 'url';
 
+// Import routes and middleware
+import apiRoutes from './routes/index.js';
+import reportRoutes from './routes/reportRoutes.js';
+import authMiddleware from './middleware/authMiddleware.js';
+
 // Import models for setup route
 import User from './models/userModel.js';
 import Tenant from './models/tenantModel.js';
