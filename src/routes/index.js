@@ -71,6 +71,6 @@ router.use('/events', eventRoutes);
 router.use('/audit-logs', auditLogRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/messages', messageRoutes);
-router.use('/api/curriculum-materials', curriculumMaterialsRoutes);
+router.use('/curriculum-materials', curriculumMaterialsRoutes);
 
 export default router;

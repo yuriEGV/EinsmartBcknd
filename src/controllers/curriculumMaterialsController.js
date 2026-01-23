@@ -1,6 +1,6 @@
-const CurriculumMaterial = require('../models/curriculumMaterialModel');
+import CurriculumMaterial from '../models/curriculumMaterialModel.js';
 
-exports.create = async (req, res) => {
+export const create = async (req, res) => {
     try {
         const newMaterial = new CurriculumMaterial(req.body);
         await newMaterial.save();
@@ -10,8 +10,7 @@ exports.create = async (req, res) => {
     }
 };
 
-// Get all curriculum materials
-exports.getAll = async (req, res) => {
+export const getAll = async (req, res) => {
     try {
         const materials = await CurriculumMaterial.find();
         res.status(200).json(materials);
@@ -20,8 +19,7 @@ exports.getAll = async (req, res) => {
     }
 };
 
-// Update a curriculum material
-exports.update = async (req, res) => {
+export const update = async (req, res) => {
     try {
         const { id } = req.params;
         const updatedMaterial = await CurriculumMaterial.findByIdAndUpdate(id, req.body, { new: true });
@@ -32,8 +30,7 @@ exports.update = async (req, res) => {
     }
 };
 
-// Delete a curriculum material
-exports.delete = async (req, res) => {
+export const deleteOne = async (req, res) => {
     try {
         const { id } = req.params;
         const deletedMaterial = await CurriculumMaterial.findByIdAndDelete(id);
@@ -42,33 +39,9 @@ exports.delete = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
-};}
 };
 
-// Update a curriculum material by ID
-exports.update = async (req, res) => {
-    try {
-        const updatedMaterial = await CurriculumMaterial.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        if (!updatedMaterial) return res.status(404).json({ message: 'Material not found' });
-        res.status(200).json(updatedMaterial);
-    } catch (error) {
-        res.status(400).json({ message: error.message });
-    }
-};
-
-// Delete a curriculum material by ID
-exports.delete = async (req, res) => {
-    try {
-        const deletedMaterial = await CurriculumMaterial.findByIdAndDelete(req.params.id);
-        if (!deletedMaterial) return res.status(404).json({ message: 'Material not found' });
-        res.status(204).send();
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-// Get curriculum materials by course ID
-exports.getByCourse = async (req, res) => {
+export const getByCourse = async (req, res) => {
     try {
         const materials = await CurriculumMaterial.find({ courseId: req.params.courseId });
         res.status(200).json(materials);
@@ -77,8 +50,7 @@ exports.getByCourse = async (req, res) => {
     }
 };
 
-// Get curriculum materials by subject ID
-exports.getBySubject = async (req, res) => {
+export const getBySubject = async (req, res) => {
     try {
         const materials = await CurriculumMaterial.find({ subjectId: req.params.subjectId });
         res.status(200).json(materials);
@@ -86,18 +58,6 @@ exports.getBySubject = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
-    // Logic to create a curriculum material
-};
-
-exports.getAll = async (req, res) => {
-    // Logic to get all curriculum materials
-};
-
-exports.update = async (req, res) => {
-    // Logic to update a curriculum material by ID
-};
-
-exports.delete = async (req, res) => {
     // Logic to delete a curriculum material by ID
 };
 

@@ -1,13 +1,14 @@
-const express = require('express');
+import express from 'express';
+import { create, getAll, update, deleteOne, getByCourse, getBySubject } from '../controllers/curriculumMaterialsController.js';
+
 const router = express.Router();
-const curriculumMaterialsController = require('../controllers/curriculumMaterialsController');
 
 // Define the routes
-router.post('/', curriculumMaterialsController.create);
-router.get('/', curriculumMaterialsController.getAll);
-router.put('/:id', curriculumMaterialsController.update);
-router.delete('/:id', curriculumMaterialsController.delete);
-router.get('/course/:courseId', curriculumMaterialsController.getByCourse);
-router.get('/subject/:subjectId', curriculumMaterialsController.getBySubject);
+router.post('/', create);
+router.get('/', getAll);
+router.put('/:id', update);
+router.delete('/:id', deleteOne);
+router.get('/course/:courseId', getByCourse);
+router.get('/subject/:subjectId', getBySubject);
 
-module.exports = router;
+export default router;

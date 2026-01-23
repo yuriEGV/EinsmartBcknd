@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const curriculumMaterialSchema = new mongoose.Schema({
     title: { type: String, required: true },
@@ -8,4 +8,4 @@ const curriculumMaterialSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('CurriculumMaterial', curriculumMaterialSchema);
+export default mongoose.model('CurriculumMaterial', curriculumMaterialSchema);
