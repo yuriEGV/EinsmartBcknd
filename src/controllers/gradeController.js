@@ -92,8 +92,24 @@ class GradeController {
     // Get grades by student (Secure)
     static async getGradesByStudent(req, res) {
         try {
+            const requestedStudentId = req.params.estudianteId;
+
+            // Security: If student, check if they are requesting their own ID
+            if (req.user.role === 'student' && req.user.profileId?.toString() !== requestedStudentId) {
+                return res.status(403).json({ message: 'Acceso denegado: solo puedes ver tus propias calificaciones' });
+            }
+
+            // Security: If guardian, check if the student belongs to them
+            if (req.user.role === 'apoderado' && req.user.profileId) {
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const vinculation = await Apoderado.findOne({ _id: req.user.profileId, estudianteId: requestedStudentId });
+                if (!vinculation) {
+                    return res.status(403).json({ message: 'Acceso denegado: este estudiante no está vinculado a tu cuenta' });
+                }
+            }
+
             const grades = await Grade.find({
-                estudianteId: req.params.estudianteId,
+                estudianteId: requestedStudentId,
                 tenantId: req.user.tenantId
             })
                 .populate('estudianteId', 'nombres apellidos')
@@ -146,9 +162,25 @@ class GradeController {
             })
                 .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
+
             if (!grade) {
                 return res.status(404).json({ message: 'Calificación no encontrada' });
             }
+
+            // Security: Students can only see their own
+            if (req.user.role === 'student' && req.user.profileId?.toString() !== grade.estudianteId._id.toString()) {
+                return res.status(403).json({ message: 'Acceso denegado' });
+            }
+
+            // Security: Guardians can only see their linked student
+            if (req.user.role === 'apoderado' && req.user.profileId) {
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const vinculation = await Apoderado.findOne({ _id: req.user.profileId, estudianteId: grade.estudianteId._id });
+                if (!vinculation) {
+                    return res.status(403).json({ message: 'Acceso denegado' });
+                }
+            }
+
             res.status(200).json(grade);
         } catch (error) {
             res.status(500).json({ message: error.message });

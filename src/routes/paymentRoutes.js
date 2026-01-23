@@ -19,4 +19,9 @@ router.get('/', authMiddleware, PaymentController.listPayments);
  */
 router.get('/:id', authMiddleware, PaymentController.getPaymentById);
 
+/**
+ * Asignar cobro masivo (Especial para Sostenedores)
+ */
+router.post('/bulk-assign', authMiddleware, PaymentController.assignBulkTariff);
+
 export default router;

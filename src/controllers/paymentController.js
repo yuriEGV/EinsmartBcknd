@@ -74,6 +74,66 @@ class PaymentController {
 
     res.json(payment);
   }
+
+  static async assignBulkTariff(req, res) {
+    try {
+      const { courseId, tariffId, studentIds, dueDate, metadata } = req.body;
+      const tenantId = req.user.tenantId;
+
+      if (!tariffId) {
+        return res.status(400).json({ message: 'tariffId es obligatorio' });
+      }
+
+      const Tariff = await import('../models/tariffModel.js').then(m => m.default);
+      const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+      const Payment = await import('../models/paymentModel.js').then(m => m.default);
+
+      const tariff = await Tariff.findOne({ _id: tariffId, tenantId });
+      if (!tariff) return res.status(404).json({ message: 'Tarifa no encontrada' });
+
+      let targetStudentIds = studentIds || [];
+
+      // If courseId is provided, get all enrolled students in that course
+      if (courseId) {
+        const enrollments = await Enrollment.find({
+          courseId,
+          tenantId,
+          status: 'confirmada'
+        }).select('estudianteId');
+
+        const courseStudentIds = enrollments.map(e => e.estudianteId.toString());
+        targetStudentIds = [...new Set([...targetStudentIds, ...courseStudentIds])];
+      }
+
+      if (targetStudentIds.length === 0) {
+        return res.status(400).json({ message: 'No se encontraron alumnos para asignar el cobro' });
+      }
+
+      const paymentsToCreate = targetStudentIds.map(sid => ({
+        tenantId,
+        estudianteId: sid,
+        tariffId: tariff._id,
+        amount: tariff.amount,
+        currency: tariff.currency || 'CLP',
+        status: 'vencido', // Typically bulk assignment creates a debt
+        fechaVencimiento: dueDate ? new Date(dueDate) : new Date(),
+        metadata: { ...metadata, bulkAssign: true }
+      }));
+
+      // Avoid duplicates for the same student, same tariff, same month? 
+      // For now, simple bulk insert.
+      const result = await Payment.insertMany(paymentsToCreate);
+
+      res.status(201).json({
+        message: `Se han generado ${result.length} cobros exitosamente.`,
+        count: result.length
+      });
+
+    } catch (error) {
+      console.error('Bulk assign error:', error);
+      res.status(500).json({ message: error.message });
+    }
+  }
 }
 
 export default PaymentController;
