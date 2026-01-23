@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import apiRoutes from './routes/index.js';
 import reportRoutes from './routes/reportRoutes.js';
 import authMiddleware from './middleware/authMiddleware.js';
+import payrollRoutes from './routes/payrollRoutes.js';
 
 // Import models for setup route
 import User from './models/userModel.js';
@@ -146,6 +147,7 @@ app.use(express.urlencoded({ extended: true }));
     // Register API routes
     app.use('/api/reports', authMiddleware, reportRoutes);
     app.use('/api', apiRoutes);
+    app.use('/api/payroll', payrollRoutes);
 
     // Middleware de errores SIEMPRE AL FINAL (with proper signature)
     app.use((err, req, res, next) => {
