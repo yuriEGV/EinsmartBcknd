@@ -6,10 +6,10 @@ import morgan from 'morgan';
 import connectDB from './config/db.js';
 import { fileURLToPath } from 'url';
 
-// Import routes and middleware at module level
-import apiRoutes from './routes/index.js';
-import reportRoutes from './routes/reportRoutes.js';
-import authMiddleware from './middleware/authMiddleware.js';
+// Import models for setup route
+import User from './models/userModel.js';
+import Tenant from './models/tenantModel.js';
+import bcrypt from 'bcryptjs';
 
 const app = express();
 
@@ -80,11 +80,6 @@ app.use((err, req, res, next) => {
 // --- TEMPORARY SETUP ROUTE ---
 app.get('/setup-admin', async (req, res) => {
   try {
-    const { default: User } = await import('./models/userModel.js');
-    const { default: Tenant } = await import('./models/tenantModel.js');
-    const bcryptModule = await import('bcryptjs');
-    const bcrypt = bcryptModule.default;
-
     await connectDB();
 
     let tenant = await Tenant.findOne({ name: 'Einsmart' });
@@ -127,27 +122,16 @@ app.get('/setup-admin', async (req, res) => {
       }
     }
 
-    const dropResults = [];
-    try {
-      const collections = await mongoose.connection.db.listCollections().toArray();
-      const hasEstudiantes = collections.some(c => c.name === 'estudiantes');
-      const hasApoderados = collections.some(c => c.name === 'apoderados');
-
-      if (hasEstudiantes) {
-        const studentCollection = mongoose.connection.db.collection('estudiantes');
-        try { await studentCollection.dropIndex('rut_1'); dropResults.push('Dropped rut_1'); } catch (e) { dropResults.push('rut_1 not found or error'); }
-        try { await studentCollection.dropIndex('matricula_1'); dropResults.push('Dropped matricula_1'); } catch (e) { dropResults.push('matricula_1 not found or error'); }
+    console.log('✅ Setup admin completed successfully');
+    return res.json({
+      message: 'Setup complete',
+      details: results,
+      admin_credentials: {
+        email: 'yuri@gmail.com',
+        password: '123456',
+        role: 'admin'
       }
-      if (hasApoderados) {
-        const guardianCollection = mongoose.connection.db.collection('apoderados');
-        try { await guardianCollection.dropIndex('estudianteId_1_tipo_1'); dropResults.push('Dropped estudianteId_1_tipo_1'); } catch (e) { dropResults.push('estudianteId_1_tipo_1 not found or error'); }
-      }
-    } catch (idxError) {
-      console.warn("Index maintenance error:", idxError.message);
-      dropResults.push(`Index Error: ${idxError.message}`);
-    }
-
-    return res.json({ message: 'Setup complete', details: results, indexes: dropResults });
+    });
   } catch (error) {
     console.error("Setup Error:", error);
     return res.status(500).json({ error: error.message || 'Error occurred' });
