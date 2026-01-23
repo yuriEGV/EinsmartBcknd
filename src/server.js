@@ -6,6 +6,11 @@ import morgan from 'morgan';
 import connectDB from './config/db.js';
 import { fileURLToPath } from 'url';
 
+// Import routes and middleware at module level
+import apiRoutes from './routes/index.js';
+import reportRoutes from './routes/reportRoutes.js';
+import authMiddleware from './middleware/authMiddleware.js';
+
 const app = express();
 
 const allowedOrigins = [
@@ -54,26 +59,15 @@ app.get('/', (req, res) => {
   res.json({ message: 'API funcionando correctamente 🚀', version: '5.0.0' });
 });
 
-// Lazy load routes to avoid circular dependencies and import errors
-(async () => {
-  try {
-    console.log('Setting up routes...');
-    
-    const { default: apiRoutes } = await import('./routes/index.js');
-    const { default: reportRoutes } = await import('./routes/reportRoutes.js');
-    const { default: authMiddleware } = await import('./middleware/authMiddleware.js');
-    
-    // Rutas protegidas específicas PRIMERO
-    app.use('/api/reports', authMiddleware, reportRoutes);
-    
-    // Rutas generales DESPUÉS
-    app.use('/api', apiRoutes);
-    
-    console.log('Routes loaded successfully');
-  } catch (error) {
-    console.error('Error loading routes:', error);
-  }
-})();
+// Register routes - Imported at the top level
+try {
+  console.log('Registering routes...');
+  app.use('/api/reports', authMiddleware, reportRoutes);
+  app.use('/api', apiRoutes);
+  console.log('✅ Routes registered successfully');
+} catch (error) {
+  console.error('❌ Error registering routes:', error.message);
+}
 
 // Middleware de errores SIEMPRE AL FINAL (with proper signature)
 app.use((err, req, res, next) => {
