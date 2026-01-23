@@ -6,6 +6,11 @@ import morgan from 'morgan';
 import connectDB from './config/db.js';
 import { fileURLToPath } from 'url';
 
+// Import routes and middleware at module level
+import apiRoutes from './routes/index.js';
+import reportRoutes from './routes/reportRoutes.js';
+import authMiddleware from './middleware/authMiddleware.js';
+
 const app = express();
 
 const allowedOrigins = [
@@ -37,42 +42,50 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'X-Requested-With', 'Accept', 'X-CSRF-Token'],
   optionsSuccessStatus: 200
 }));
-// Now safe to import routes (after JWT check is non-fatal)
-import apiRoutes from './routes/index.js';
-import errorMiddleware from './middleware/errorMiddleware.js';
-import reportRoutes from './routes/reportRoutes.js';
-import authMiddleware from './middleware/authMiddleware.js';
-
-
-
 
 // Middleware
 // Capture raw body for webhook signature verification
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
+app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// Rutas protegidas específicas PRIMERO
-app.use('/api/reports', authMiddleware, reportRoutes);
-
-// Rutas generales DESPUÉS
-app.use('/api', apiRoutes);
-
-// Endpoint raíz
-app.get('/', (req, res) => {
-  res.json({ message: 'API funcionando correctamente 🚀' });
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Middleware de errores SIEMPRE AL FINAL
-app.use(errorMiddleware);
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ message: 'API funcionando correctamente 🚀', version: '5.0.0' });
+});
+
+// Register routes - Imported at the top level
+try {
+  console.log('Registering routes...');
+  app.use('/api/reports', authMiddleware, reportRoutes);
+  app.use('/api', apiRoutes);
+  console.log('✅ Routes registered successfully');
+} catch (error) {
+  console.error('❌ Error registering routes:', error.message);
+}
+
+// Middleware de errores SIEMPRE AL FINAL (with proper signature)
+app.use((err, req, res, next) => {
+  console.error('Error caught by middleware:', err);
+  const status = err.status || 500;
+  const message = err.message || 'Error interno del servidor';
+  res.status(status).json({ message });
+});
 
 // --- TEMPORARY SETUP ROUTE ---
-import User from './models/userModel.js';
-import Tenant from './models/tenantModel.js';
-import bcrypt from 'bcryptjs';
-
 app.get('/setup-admin', async (req, res) => {
   try {
-    await connectDB(); // Ensure DB is connected for Vercel
+    const { default: User } = await import('./models/userModel.js');
+    const { default: Tenant } = await import('./models/tenantModel.js');
+    const bcryptModule = await import('bcryptjs');
+    const bcrypt = bcryptModule.default;
+
+    await connectDB();
 
     let tenant = await Tenant.findOne({ name: 'Einsmart' });
     if (!tenant) {
@@ -113,7 +126,7 @@ app.get('/setup-admin', async (req, res) => {
         results.push(`${admin.email} created`);
       }
     }
-    // --- INDEX MAINTENANCE (NEW) ---
+
     const dropResults = [];
     try {
       const collections = await mongoose.connection.db.listCollections().toArray();

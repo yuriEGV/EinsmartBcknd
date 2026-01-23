@@ -47,6 +47,14 @@ router.post('/registro', registrar);
 router.post('/login', login);
 router.post('/recover-password', recuperarPassword);
 router.post('/reset-password', resetPassword);
+router.post('/bootstrap', async (req, res) => {
+    // Forward to users bootstrap endpoint
+    // This is a convenience endpoint - the actual logic is in userRoutes
+    return res.status(302).json({ 
+        message: 'Use POST /api/users/bootstrap instead',
+        endpoint: '/api/users/bootstrap'
+    });
+});
 
 /* ===============================
    RUTAS PROTEGIDAS
