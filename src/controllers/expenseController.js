@@ -1,7 +1,7 @@
-const Expense = require('../models/expenseModel');
+import Expense from '../models/expenseModel.js';
 
 // Get all expenses
-exports.getExpenses = async (req, res) => {
+export const getExpenses = async (req, res) => {
     try {
         const { category, startDate, endDate } = req.query;
         const query = { tenantId: req.user.tenantId };
@@ -19,7 +19,7 @@ exports.getExpenses = async (req, res) => {
 };
 
 // Create a new expense
-exports.createExpense = async (req, res) => {
+export const createExpense = async (req, res) => {
     try {
         const expense = new Expense({
             ...req.body,
@@ -34,7 +34,7 @@ exports.createExpense = async (req, res) => {
 };
 
 // Update an expense
-exports.updateExpense = async (req, res) => {
+export const updateExpense = async (req, res) => {
     try {
         const expense = await Expense.findOneAndUpdate(
             { _id: req.params.id, tenantId: req.user.tenantId },
@@ -49,7 +49,7 @@ exports.updateExpense = async (req, res) => {
 };
 
 // Delete an expense
-exports.deleteExpense = async (req, res) => {
+export const deleteExpense = async (req, res) => {
     try {
         const expense = await Expense.findOneAndDelete({ _id: req.params.id, tenantId: req.user.tenantId });
         if (!expense) return res.status(404).json({ message: 'Gasto no encontrado' });
@@ -60,7 +60,7 @@ exports.deleteExpense = async (req, res) => {
 };
 
 // Get Expense Statistics
-exports.getExpenseStats = async (req, res) => {
+export const getExpenseStats = async (req, res) => {
     try {
         const stats = await Expense.aggregate([
             { $match: { tenantId: req.user.tenantId } },

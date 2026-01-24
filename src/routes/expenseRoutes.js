@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import * as expenseController from '../controllers/expenseController.js';
+import authMiddleware from '../middleware/authMiddleware.js';
+
 const router = express.Router();
-const expenseController = require('../controllers/expenseController');
-const authMiddleware = require('../middleware/authMiddleware');
 
 router.use(authMiddleware);
 
@@ -11,4 +12,4 @@ router.get('/stats', expenseController.getExpenseStats);
 router.put('/:id', expenseController.updateExpense);
 router.delete('/:id', expenseController.deleteExpense);
 
-module.exports = router;
+export default router;
