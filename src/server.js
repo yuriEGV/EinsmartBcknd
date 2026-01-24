@@ -12,6 +12,7 @@ import reportRoutes from './routes/reportRoutes.js';
 import authMiddleware from './middleware/authMiddleware.js';
 import payrollRoutes from './routes/payrollRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
 
 // Import models for setup route
 import User from './models/userModel.js';
@@ -24,24 +25,22 @@ const allowedOrigins = [
   'http://localhost:5173',
   'https://maritimo4-0-frontend.vercel.app',
   'https://einsmartfrntnd.vercel.app',
-  'https://einsmart-bcknd.vercel.app',
-  /\.vercel\.app$/
+  'https://einsmart-bcknd.vercel.app'
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
 
-    const isAllowed = allowedOrigins.some(allowed =>
-      typeof allowed === 'string' ? allowed === origin : allowed.test(origin)
-    );
+    const isVercel = origin.endsWith('.vercel.app');
+    const isLocal = origin.startsWith('http://localhost:');
+    const isExplicitlyAllowed = allowedOrigins.includes(origin);
 
-    if (isAllowed) {
+    if (isVercel || isLocal || isExplicitlyAllowed) {
       callback(null, true);
     } else {
       console.warn(`Blocked by CORS: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true,
@@ -51,30 +50,21 @@ app.use(cors({
 }));
 
 // Middleware
-// Capture raw body for webhook signature verification
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
 // --- TEMPORARY SETUP ROUTE ---
-// Esta ruta debe ir ANTES de cualquier app.use('/api', ...)
 app.get('/setup-admin', async (req, res) => {
   try {
-    console.log('Attempting to connect to MongoDB for setup-admin...');
     await connectDB();
-    console.log('✅ Connected to MongoDB for setup-admin.');
-
     let tenant = await Tenant.findOne({ name: 'Einsmart' });
     if (!tenant) {
-      console.log('Creating Tenant "Einsmart"...');
       tenant = await Tenant.create({
         name: 'Einsmart',
         domain: 'einsmart.cl',
         theme: { primaryColor: '#3b82f6', secondaryColor: '#1e293b' }
       });
-      console.log('✅ Tenant "Einsmart" created.');
-    } else {
-      console.log('✅ Tenant "Einsmart" found.');
     }
 
     const admins = [
@@ -85,10 +75,8 @@ app.get('/setup-admin', async (req, res) => {
 
     const results = [];
     for (const admin of admins) {
-      const password = '123456';
-      const passwordHash = await bcrypt.hash(password, 10);
+      const passwordHash = await bcrypt.hash('123456', 10);
       let user = await User.findOne({ email: admin.email });
-
       if (user) {
         user.passwordHash = passwordHash;
         user.role = 'admin';
@@ -107,80 +95,36 @@ app.get('/setup-admin', async (req, res) => {
         results.push(`${admin.email} created`);
       }
     }
-
-    console.log('✅ Setup admin completed successfully');
-    return res.json({
-      message: 'Setup complete',
-      details: results,
-      admin_credentials: {
-        email: 'yuri@gmail.com',
-        password: '123456',
-        role: 'admin'
-      }
-    });
+    return res.json({ message: 'Setup complete', details: results });
   } catch (error) {
-    console.error("❌ Setup Error in /setup-admin:", error);
-    // Aquí podemos diferenciar el error de conexión a la BD
-    if (error.name === 'MongooseError' || error.name === 'MongoNetworkError') {
-      return res.status(500).json({ message: 'Error de conexión a la base de datos durante el setup', error: error.message });
-    } else {
-      return res.status(500).json({ message: 'Error interno del servidor durante el setup', error: error.message || 'Error occurred' });
-    }
+    return res.status(500).json({ message: 'Setup Error', error: error.message });
   }
 });
-// -----------------------------
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
-});
+// Health & Test
+app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
+app.get('/test', (req, res) => res.json({ message: 'Backend is working' }));
+app.get('/', (req, res) => res.json({ message: 'API funcionando correctamente 🚀', version: '5.1.0' }));
 
-// Test endpoint
-app.get('/test', (req, res) => {
-  res.json({ message: 'Backend is working', timestamp: new Date().toISOString() });
-});
-
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({ message: 'API funcionando correctamente 🚀', version: '5.0.0' });
-});
-
-import notificationRoutes from './routes/notificationRoutes.js';
-
-// ...
-// Register API routes
+// Register routes
 app.use('/api/reports', authMiddleware, reportRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/payments', paymentRoutes);
 
-// Middleware de errores SIEMPRE AL FINAL (with proper signature)
+// Error handling
 app.use((err, req, res, next) => {
-  console.error('Error caught by middleware:', err);
-  const status = err.status || 500;
-  const message = err.message || 'Error interno del servidor';
-  res.status(status).json({ message });
+  console.error('Error:', err);
+  res.status(err.status || 500).json({ message: err.message || 'Error interno del servidor' });
 });
-// -----------------------------
 
-
-// Iniciar servidor solo en local
 const __filename = fileURLToPath(import.meta.url);
-
 if (process.argv[1] === __filename) {
   const PORT = process.env.PORT || 5000;
-
-  connectDB()
-    .then(() => {
-      console.log(`✅ MongoDB conectado a: ${mongoose.connection.host} `);
-
-      app.listen(PORT, () => {
-        console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
-      });
-    })
-    .catch(err => {
-      console.error('❌ Error conectando a MongoDB:', err.message);
-    });
+  connectDB().then(() => {
+    app.listen(PORT, () => console.log(`Server at http://localhost:${PORT}`));
+  });
 }
 
 export default app;
