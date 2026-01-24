@@ -11,6 +11,7 @@ import apiRoutes from './routes/index.js';
 import reportRoutes from './routes/reportRoutes.js';
 import authMiddleware from './middleware/authMiddleware.js';
 import payrollRoutes from './routes/payrollRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 
 // Import models for setup route
 import User from './models/userModel.js';
@@ -53,49 +54,49 @@ app.use(cors({
 // Capture raw body for webhook signature verification
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
 app.use(express.urlencoded({ extended: true }));
-    app.use(morgan('dev'));
-    
-    // --- TEMPORARY SETUP ROUTE ---
-    // Esta ruta debe ir ANTES de cualquier app.use('/api', ...)
-    app.get('/setup-admin', async (req, res) => {
-      try {
-        console.log('Attempting to connect to MongoDB for setup-admin...');
-        await connectDB();
-        console.log('✅ Connected to MongoDB for setup-admin.');
+app.use(morgan('dev'));
 
-        let tenant = await Tenant.findOne({ name: 'Einsmart' });
-        if (!tenant) {
-          console.log('Creating Tenant "Einsmart"...');
-          tenant = await Tenant.create({
-            name: 'Einsmart',
-            domain: 'einsmart.cl',
-            theme: { primaryColor: '#3b82f6', secondaryColor: '#1e293b' }
-          });
-          console.log('✅ Tenant "Einsmart" created.');
-        } else {
-          console.log('✅ Tenant "Einsmart" found.');
-        }
+// --- TEMPORARY SETUP ROUTE ---
+// Esta ruta debe ir ANTES de cualquier app.use('/api', ...)
+app.get('/setup-admin', async (req, res) => {
+  try {
+    console.log('Attempting to connect to MongoDB for setup-admin...');
+    await connectDB();
+    console.log('✅ Connected to MongoDB for setup-admin.');
 
-        const admins = [
-          { name: 'Yuri Admin', email: 'yuri@gmail.com', rut: '12.345.678-K' },
-          { name: 'Yuri Admin Einsmart', email: 'yuri@einsmart.cl', rut: '11.222.333-4' },
-          { name: 'Vicente Admin', email: 'vicente@einsmart.cl', rut: '22.333.444-5' }
-        ];
+    let tenant = await Tenant.findOne({ name: 'Einsmart' });
+    if (!tenant) {
+      console.log('Creating Tenant "Einsmart"...');
+      tenant = await Tenant.create({
+        name: 'Einsmart',
+        domain: 'einsmart.cl',
+        theme: { primaryColor: '#3b82f6', secondaryColor: '#1e293b' }
+      });
+      console.log('✅ Tenant "Einsmart" created.');
+    } else {
+      console.log('✅ Tenant "Einsmart" found.');
+    }
 
-        const results = [];
-        for (const admin of admins) {
-          const password = '123456';
-          const passwordHash = await bcrypt.hash(password, 10);
-          let user = await User.findOne({ email: admin.email });
+    const admins = [
+      { name: 'Yuri Admin', email: 'yuri@gmail.com', rut: '12.345.678-K' },
+      { name: 'Yuri Admin Einsmart', email: 'yuri@einsmart.cl', rut: '11.222.333-4' },
+      { name: 'Vicente Admin', email: 'vicente@einsmart.cl', rut: '22.333.444-5' }
+    ];
 
-          if (user) {
-            user.passwordHash = passwordHash;
-            user.role = 'admin';
-            user.tenantId = tenant._id;
-            await user.save();
-            results.push(`${admin.email} updated`);
-          } else {
-            await User.create({
+    const results = [];
+    for (const admin of admins) {
+      const password = '123456';
+      const passwordHash = await bcrypt.hash(password, 10);
+      let user = await User.findOne({ email: admin.email });
+
+      if (user) {
+        user.passwordHash = passwordHash;
+        user.role = 'admin';
+        user.tenantId = tenant._id;
+        await user.save();
+        results.push(`${admin.email} updated`);
+      } else {
+        await User.create({
           name: admin.name,
           email: admin.email,
           passwordHash,
@@ -103,59 +104,63 @@ app.use(express.urlencoded({ extended: true }));
           tenantId: tenant._id,
           rut: admin.rut
         });
-            results.push(`${admin.email} created`);
-          }
-        }
+        results.push(`${admin.email} created`);
+      }
+    }
 
-        console.log('✅ Setup admin completed successfully');
-        return res.json({
-          message: 'Setup complete',
-          details: results,
-          admin_credentials: {
-            email: 'yuri@gmail.com',
-            password: '123456',
-            role: 'admin'
-          }
-        });
-      } catch (error) {
-        console.error("❌ Setup Error in /setup-admin:", error);
-        // Aquí podemos diferenciar el error de conexión a la BD
-        if (error.name === 'MongooseError' || error.name === 'MongoNetworkError') {
-          return res.status(500).json({ message: 'Error de conexión a la base de datos durante el setup', error: error.message });
-        } else {
-          return res.status(500).json({ message: 'Error interno del servidor durante el setup', error: error.message || 'Error occurred' });
-        }
+    console.log('✅ Setup admin completed successfully');
+    return res.json({
+      message: 'Setup complete',
+      details: results,
+      admin_credentials: {
+        email: 'yuri@gmail.com',
+        password: '123456',
+        role: 'admin'
       }
     });
-    // -----------------------------
+  } catch (error) {
+    console.error("❌ Setup Error in /setup-admin:", error);
+    // Aquí podemos diferenciar el error de conexión a la BD
+    if (error.name === 'MongooseError' || error.name === 'MongoNetworkError') {
+      return res.status(500).json({ message: 'Error de conexión a la base de datos durante el setup', error: error.message });
+    } else {
+      return res.status(500).json({ message: 'Error interno del servidor durante el setup', error: error.message || 'Error occurred' });
+    }
+  }
+});
+// -----------------------------
 
-    // Health check endpoint
-    app.get('/health', (req, res) => {
-      res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
-    });
-    
-    // Test endpoint
-    app.get('/test', (req, res) => {
-      res.json({ message: 'Backend is working', timestamp: new Date().toISOString() });
-    });
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
 
-    // Root endpoint
-    app.get('/', (req, res) => {
-      res.json({ message: 'API funcionando correctamente 🚀', version: '5.0.0' });
-    });
+// Test endpoint
+app.get('/test', (req, res) => {
+  res.json({ message: 'Backend is working', timestamp: new Date().toISOString() });
+});
 
-    // Register API routes
-    app.use('/api/reports', authMiddleware, reportRoutes);
-    app.use('/api', apiRoutes);
-    app.use('/api/payroll', payrollRoutes);
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ message: 'API funcionando correctamente 🚀', version: '5.0.0' });
+});
 
-    // Middleware de errores SIEMPRE AL FINAL (with proper signature)
-    app.use((err, req, res, next) => {
-      console.error('Error caught by middleware:', err);
-      const status = err.status || 500;
-      const message = err.message || 'Error interno del servidor';
-      res.status(status).json({ message });
-    });
+import notificationRoutes from './routes/notificationRoutes.js';
+
+// ...
+// Register API routes
+app.use('/api/reports', authMiddleware, reportRoutes);
+app.use('/api', apiRoutes);
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/notifications', notificationRoutes);
+
+// Middleware de errores SIEMPRE AL FINAL (with proper signature)
+app.use((err, req, res, next) => {
+  console.error('Error caught by middleware:', err);
+  const status = err.status || 500;
+  const message = err.message || 'Error interno del servidor';
+  res.status(status).json({ message });
+});
 // -----------------------------
 
 

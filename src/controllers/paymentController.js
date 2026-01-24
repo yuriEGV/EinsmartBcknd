@@ -1,7 +1,12 @@
+
 import Payment from '../models/paymentModel.js';
 import Tariff from '../models/tariffModel.js';
 import paymentService from '../services/paymentService.js';
 import mongoose from 'mongoose';
+import { sendEmail } from '../utils/emailService.js';
+import User from '../models/userModel.js';
+import Apoderado from '../models/apoderadoModel.js';
+import Estudiante from '../models/estudianteModel.js';
 
 class PaymentController {
 
@@ -21,15 +26,85 @@ class PaymentController {
         tenantId,
         estudianteId,
         tariffId,
-        provider: provider || 'manual', // default to manual/transfer if not specified? Or enforce?
-        // If provider is 'mercadopago', service handles preference creation
+        provider: provider || 'manual', // default to manual/transfer if not specified
         metadata: { ...metadata, apoderadoId }
       });
+
+      // NOTIFICATION LOGIC
+      // 1. Fetch relevant emails
+      const student = await Estudiante.findById(estudianteId);
+      const apoderado = await Apoderado.findOne({ estudianteId, tipo: 'principal' });
+
+      const financeUsers = await User.find({ tenantId, role: { $in: ['sostenedor', 'admin', 'secretary'] } });
+      const financeEmails = financeUsers.map(u => u.email);
+
+      // 2. Logic based on provider/status
+      if (provider === 'manual' || provider === 'efectivo') {
+        // If cash, it requires human verification if "pagado" is attempted, or it starts as "en_revision"
+        let subject = `Aviso de Cobro - ${student?.nombres}`;
+        let body = `<p>Se ha generado un cobro por: ${result.concepto} ($${result.amount})</p>`;
+
+        if (result.status === 'en_revision') {
+          subject = `Pago en Revisión - ${student?.nombres}`;
+          body = `<p>Hemos recibido un pago en efectivo por $${result.amount}. El estado se actualizará una vez verificado.</p>`;
+        } else if (result.status === 'pagado') {
+          subject = `Comprobante de Pago - ${student?.nombres}`;
+          body = `<p>Pago confirmado por $${result.amount}. Concepto: ${result.concepto}.</p>`;
+        }
+
+        if (apoderado?.email) {
+          await sendEmail(apoderado.email, subject, body).catch(e => console.error(e));
+        }
+        // Always notify finance/holder
+        for (const femail of financeEmails) {
+          await sendEmail(femail, `[ADMIN] ${subject}`, body + `<p>Apoderado: ${apoderado?.nombres || 'Desc.'}</p>`).catch(e => console.error(e));
+        }
+      } else {
+        // Online Payment 
+        if (apoderado?.email) {
+          await sendEmail(apoderado.email, `Nuevo Cobro Asignado - ${student?.nombres}`, `<p>Se ha asignado un nuevo cobro por $${result.amount}. Puede pagar en línea desde su portal.</p>`).catch(e => console.error(e));
+        }
+      }
 
       res.status(201).json(result);
 
     } catch (error) {
       console.error('Payment error:', error);
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  // Webhook or Update Payment Status (Approved)
+  static async updatePaymentStatus(req, res) {
+    try {
+      const { id } = req.params;
+      const { status, verificationNote } = req.body; // 'pagado', 'rechazado'
+      const tenantId = req.user.tenantId;
+
+      const payment = await Payment.findOne({ _id: id, tenantId });
+      if (!payment) return res.status(404).json({ message: 'Pago no encontrado' });
+
+      payment.status = status;
+      if (verificationNote) payment.metadata = { ...payment.metadata, verificationNote };
+
+      await payment.save();
+
+      // Notify if approved
+      if (status === 'pagado' || status === 'approved') {
+        const student = await Estudiante.findById(payment.estudianteId);
+        const apoderado = await Apoderado.findOne({ estudianteId: payment.estudianteId, tipo: 'principal' });
+        const financeUsers = await User.find({ tenantId, role: { $in: ['sostenedor', 'admin', 'secretary'] } });
+
+        if (apoderado?.email) {
+          await sendEmail(apoderado.email, `Pago Aprobado - ${student?.nombres}`, `<p>Su pago de $${payment.amount} ha sido verificado y aprobado.</p>`);
+        }
+        for (const u of financeUsers) {
+          await sendEmail(u.email, `[ALERTA] Pago Online/Verificado - ${student?.nombres}`, `<p>Pago de $${payment.amount} aprobado.</p>`);
+        }
+      }
+
+      res.json(payment);
+    } catch (error) {
       res.status(500).json({ message: error.message });
     }
   }
@@ -178,5 +253,3 @@ class PaymentController {
 }
 
 export default PaymentController;
-
-

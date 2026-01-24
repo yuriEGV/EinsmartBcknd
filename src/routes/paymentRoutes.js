@@ -29,4 +29,7 @@ router.get('/stats/debt', authMiddleware, PaymentController.getDebtStats);
 
 router.post('/bulk-assign', authMiddleware, PaymentController.assignBulkTariff);
 
+// Update status (e.g. approve cash payment)
+router.put('/:id/status', authMiddleware, PaymentController.updatePaymentStatus);
+
 export default router;
