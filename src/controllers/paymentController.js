@@ -1,6 +1,7 @@
 import Payment from '../models/paymentModel.js';
 import Tariff from '../models/tariffModel.js';
 import paymentService from '../services/paymentService.js';
+import mongoose from 'mongoose';
 
 class PaymentController {
 
