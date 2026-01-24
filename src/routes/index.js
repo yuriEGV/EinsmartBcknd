@@ -25,6 +25,7 @@ import messageRoutes from './messageRoutes.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 import curriculumMaterialsRoutes from './curriculumMaterialsRoutes.js';
 import expenseRoutes from './expenseRoutes.js';
+import objectiveRoutes from './objectiveRoutes.js';
 
 const router = express.Router();
 
@@ -74,5 +75,6 @@ router.use('/analytics', analyticsRoutes);
 router.use('/messages', messageRoutes);
 router.use('/curriculum-materials', curriculumMaterialsRoutes);
 router.use('/expenses', expenseRoutes);
+router.use('/objectives', objectiveRoutes);
 
 export default router;
