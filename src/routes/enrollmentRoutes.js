@@ -29,4 +29,6 @@ router.post('/:id/documents', authorizeRoles(...STAFF_ROLES), upload.array('docu
 // Delete
 router.delete('/:id', authorizeRoles(...STAFF_ROLES), enrollmentController.deleteEnrollment);
 
+router.post('/send-institutional-list', authMiddleware, EnrollmentController.sendInstitutionalList);
+
 export default router;

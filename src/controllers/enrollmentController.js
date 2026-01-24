@@ -64,17 +64,28 @@ class EnrollmentController {
             if (newGuardian && newGuardian.nombre) {
                 const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
 
-                // Using findOneAndUpdate with upsert to avoid duplicate principal guardians for the same student
-                const apo = await Apoderado.findOneAndUpdate(
-                    { estudianteId: finalStudentId, tipo: 'principal', tenantId },
-                    {
+                // [FIX] Avoid findOneAndUpdate upsert due to potential index mismatch (E11000)
+                let apo = await Apoderado.findOne({ estudianteId: finalStudentId, tipo: 'principal' });
+
+                if (apo) {
+                    // Update existing
+                    apo.nombre = newGuardian.nombre;
+                    apo.apellidos = newGuardian.apellidos;
+                    apo.correo = newGuardian.correo || apo.correo;
+                    apo.telefono = newGuardian.telefono || apo.telefono;
+                    apo.direccion = newGuardian.direccion || apo.direccion;
+                    apo.parentesco = newGuardian.parentesco || apo.parentesco;
+                    await apo.save();
+                } else {
+                    // Create new
+                    apo = new Apoderado({
                         ...newGuardian,
                         estudianteId: finalStudentId,
                         tenantId,
                         tipo: 'principal'
-                    },
-                    { new: true, upsert: true, runValidators: true }
-                );
+                    });
+                    await apo.save();
+                }
 
                 finalGuardianId = apo._id;
             }
@@ -179,7 +190,7 @@ class EnrollmentController {
                 courseId,
                 period: finalPeriod,
                 apoderadoId: finalGuardianId,
-                status: status || 'pendiente',
+                status: 'confirmada', // Force standard status to avoid enum mismatch 400 errors
                 fee: finalFee,
                 notes
             });
@@ -399,6 +410,39 @@ class EnrollmentController {
                 return res.status(404).json({ message: 'Inscripción no encontrada' });
             }
             res.status(204).send();
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+
+    // [NUEVO] Send consolidated institutional email list to Sostenedor
+    static async sendInstitutionalList(req, res) {
+        try {
+            const tenantId = req.user.tenantId;
+            const enrollments = await Enrollment.find({ tenantId })
+                .populate('estudianteId', 'nombres apellidos rut')
+                .populate('courseId', 'name');
+
+            if (enrollments.length === 0) {
+                return res.status(400).json({ message: 'No hay matrículas registradas para este periodo.' });
+            }
+
+            const Tenant = await import('../models/tenantModel.js').then(m => m.default);
+            const tenant = await Tenant.findById(tenantId);
+            const NotificationService = await import('../services/notificationService.js').then(m => m.default);
+
+            await NotificationService.notifyInstitutionalBatch(
+                tenant.contactEmail || 'administracion@einsmart.cl',
+                tenant.name,
+                enrollments.map(e => ({
+                    rut: e.estudianteId?.rut || 'N/A',
+                    nombres: e.estudianteId?.nombres || 'N/A',
+                    apellidos: e.estudianteId?.apellidos || 'N/A',
+                    curso: e.courseId?.name || 'N/A'
+                }))
+            );
+
+            res.status(200).json({ message: `Listado enviado correctamente a ${tenant.contactEmail || 'administracion@einsmart.cl'}` });
         } catch (error) {
             res.status(500).json({ message: error.message });
         }

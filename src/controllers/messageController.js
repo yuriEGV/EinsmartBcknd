@@ -12,6 +12,12 @@ class MessageController {
                 return res.status(400).json({ message: 'Receptor y contenido son obligatorios' });
             }
 
+            // [SECURITY] Validate that receiver belongs to the same tenant
+            const receiver = await User.findById(receiverId);
+            if (!receiver || receiver.tenantId?.toString() !== tenantId.toString()) {
+                return res.status(403).json({ message: 'No se puede enviar mensajes a usuarios de otros colegios.' });
+            }
+
             const message = new Message({
                 tenantId,
                 senderId,

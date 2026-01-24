@@ -6,7 +6,7 @@ const enrollmentSchema = new mongoose.Schema({
     apoderadoId: { type: mongoose.Types.ObjectId, ref: 'Apoderado' },
     courseId: { type: mongoose.Types.ObjectId, ref: 'Course', required: true },
     period: { type: String, required: true },
-    status: { type: String, enum: ['pendiente', 'confirmada', 'rechazada'], default: 'pendiente' },
+    status: { type: String, enum: ['pendiente', 'confirmada', 'rechazada', 'activo', 'activa'], default: 'confirmada' },
     fee: { type: Number, default: 0 },
     notes: { type: String, default: '' },
     documents: [{

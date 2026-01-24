@@ -12,6 +12,20 @@ class AttendanceController {
                 });
             }
 
+            // [NUEVO] Bloquear si el alumno no tiene matrícula confirmada
+            const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+            const enrollment = await Enrollment.findOne({
+                estudianteId,
+                tenantId: req.user.tenantId,
+                status: 'confirmada'
+            });
+
+            if (!enrollment) {
+                return res.status(400).json({
+                    message: 'El alumno no tiene una matrícula vigente/confirmada. No se puede registrar asistencia.'
+                });
+            }
+
             const attendance = await Attendance.create({
                 estudianteId,
                 fecha,
@@ -38,22 +52,33 @@ class AttendanceController {
                 return res.status(400).json({ message: 'Datos inválidos' });
             }
 
-            const operations = students.map(s => ({
-                updateOne: {
-                    filter: {
-                        estudianteId: s.estudianteId,
-                        fecha: new Date(fecha), // Normalizar fecha es importante (ignorando hora si es diario)
-                        tenantId: req.user.tenantId
-                    },
-                    update: {
-                        $set: {
-                            estado: s.estado,
-                            registradoPor: req.user.userId
-                        }
-                    },
-                    upsert: true
-                }
-            }));
+            // [NUEVO] Solo procesar alumnos con matrícula confirmada
+            const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+            const enrolledStudents = await Enrollment.find({
+                tenantId: req.user.tenantId,
+                status: 'confirmada'
+            }).select('estudianteId');
+
+            const enrolledIds = enrolledStudents.map(e => e.estudianteId.toString());
+
+            const operations = students
+                .filter(s => enrolledIds.includes(s.estudianteId.toString()))
+                .map(s => ({
+                    updateOne: {
+                        filter: {
+                            estudianteId: s.estudianteId,
+                            fecha: new Date(fecha), // Normalizar fecha es importante (ignorando hora si es diario)
+                            tenantId: req.user.tenantId
+                        },
+                        update: {
+                            $set: {
+                                estado: s.estado,
+                                registradoPor: req.user.userId
+                            }
+                        },
+                        upsert: true
+                    }
+                }));
 
             await Attendance.bulkWrite(operations);
 

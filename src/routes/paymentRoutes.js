@@ -19,4 +19,14 @@ router.get('/', authMiddleware, PaymentController.listPayments);
  */
 router.get('/:id', authMiddleware, PaymentController.getPaymentById);
 
+/**
+ * Asignar cobro masivo (Especial para Sostenedores)
+ */
+/**
+ * Estadísticas de Deuda
+ */
+router.get('/stats/debt', authMiddleware, PaymentController.getDebtStats);
+
+router.post('/bulk-assign', authMiddleware, PaymentController.assignBulkTariff);
+
 export default router;
