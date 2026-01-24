@@ -23,6 +23,8 @@ import auditLogRoutes from './auditLogRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
 import messageRoutes from './messageRoutes.js';
 import authMiddleware from '../middleware/authMiddleware.js';
+import curriculumMaterialsRoutes from './curriculumMaterialsRoutes.js';
+import expenseRoutes from './expenseRoutes.js';
 
 const router = express.Router();
 
@@ -70,5 +72,7 @@ router.use('/events', eventRoutes);
 router.use('/audit-logs', auditLogRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/messages', messageRoutes);
+router.use('/curriculum-materials', curriculumMaterialsRoutes);
+router.use('/expenses', expenseRoutes);
 
 export default router;

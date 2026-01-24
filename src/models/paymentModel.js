@@ -42,7 +42,7 @@ const paymentSchema = new mongoose.Schema({
 
   estado: {
     type: String,
-    enum: ['pendiente', 'pagado', 'vencido'],
+    enum: ['pendiente', 'pagado', 'vencido', 'en_revision'],
     default: 'pendiente'
   },
 

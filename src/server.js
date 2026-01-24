@@ -6,30 +6,41 @@ import morgan from 'morgan';
 import connectDB from './config/db.js';
 import { fileURLToPath } from 'url';
 
+// Import routes and middleware
+import apiRoutes from './routes/index.js';
+import reportRoutes from './routes/reportRoutes.js';
+import authMiddleware from './middleware/authMiddleware.js';
+import payrollRoutes from './routes/payrollRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
+
+// Import models for setup route
+import User from './models/userModel.js';
+import Tenant from './models/tenantModel.js';
+import bcrypt from 'bcryptjs';
+
 const app = express();
 
 const allowedOrigins = [
   'http://localhost:5173',
   'https://maritimo4-0-frontend.vercel.app',
   'https://einsmartfrntnd.vercel.app',
-  'https://einsmart-bcknd.vercel.app',
-  /\.vercel\.app$/
+  'https://einsmart-bcknd.vercel.app'
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
 
-    const isAllowed = allowedOrigins.some(allowed =>
-      typeof allowed === 'string' ? allowed === origin : allowed.test(origin)
-    );
+    const isVercel = origin.endsWith('.vercel.app');
+    const isLocal = origin.startsWith('http://localhost:');
+    const isExplicitlyAllowed = allowedOrigins.includes(origin);
 
-    if (isAllowed) {
+    if (isVercel || isLocal || isExplicitlyAllowed) {
       callback(null, true);
     } else {
       console.warn(`Blocked by CORS: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true,
@@ -37,43 +48,16 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'X-Requested-With', 'Accept', 'X-CSRF-Token'],
   optionsSuccessStatus: 200
 }));
-// Now safe to import routes (after JWT check is non-fatal)
-import apiRoutes from './routes/index.js';
-import errorMiddleware from './middleware/errorMiddleware.js';
-import reportRoutes from './routes/reportRoutes.js';
-import authMiddleware from './middleware/authMiddleware.js';
-
-
-
 
 // Middleware
-// Capture raw body for webhook signature verification
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
+app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// Rutas protegidas específicas PRIMERO
-app.use('/api/reports', authMiddleware, reportRoutes);
-
-// Rutas generales DESPUÉS
-app.use('/api', apiRoutes);
-
-// Endpoint raíz
-app.get('/', (req, res) => {
-  res.json({ message: 'API funcionando correctamente 🚀' });
-});
-
-// Middleware de errores SIEMPRE AL FINAL
-app.use(errorMiddleware);
-
 // --- TEMPORARY SETUP ROUTE ---
-import User from './models/userModel.js';
-import Tenant from './models/tenantModel.js';
-import bcrypt from 'bcryptjs';
-
 app.get('/setup-admin', async (req, res) => {
   try {
-    await connectDB(); // Ensure DB is connected for Vercel
-
+    await connectDB();
     let tenant = await Tenant.findOne({ name: 'Einsmart' });
     if (!tenant) {
       tenant = await Tenant.create({
@@ -84,16 +68,15 @@ app.get('/setup-admin', async (req, res) => {
     }
 
     const admins = [
-      { name: 'Yuri Admin', email: 'yuri@einsmart.cl', rut: '1-9' },
-      { name: 'Vicente Admin', email: 'vicente@einsmart.cl', rut: '2-7' }
+      { name: 'Yuri Admin', email: 'yuri@gmail.com', rut: '12.345.678-K' },
+      { name: 'Yuri Admin Einsmart', email: 'yuri@einsmart.cl', rut: '11.222.333-4' },
+      { name: 'Vicente Admin', email: 'vicente@einsmart.cl', rut: '22.333.444-5' }
     ];
 
     const results = [];
     for (const admin of admins) {
-      const password = '123456';
-      const passwordHash = await bcrypt.hash(password, 10);
+      const passwordHash = await bcrypt.hash('123456', 10);
       let user = await User.findOne({ email: admin.email });
-
       if (user) {
         user.passwordHash = passwordHash;
         user.role = 'admin';
@@ -112,53 +95,36 @@ app.get('/setup-admin', async (req, res) => {
         results.push(`${admin.email} created`);
       }
     }
-    // --- INDEX MAINTENANCE (NEW) ---
-    const dropResults = [];
-    try {
-      const collections = await mongoose.connection.db.listCollections().toArray();
-      const hasEstudiantes = collections.some(c => c.name === 'estudiantes');
-      const hasApoderados = collections.some(c => c.name === 'apoderados');
-
-      if (hasEstudiantes) {
-        const studentCollection = mongoose.connection.db.collection('estudiantes');
-        try { await studentCollection.dropIndex('rut_1'); dropResults.push('Dropped rut_1'); } catch (e) { dropResults.push('rut_1 not found or error'); }
-        try { await studentCollection.dropIndex('matricula_1'); dropResults.push('Dropped matricula_1'); } catch (e) { dropResults.push('matricula_1 not found or error'); }
-      }
-      if (hasApoderados) {
-        const guardianCollection = mongoose.connection.db.collection('apoderados');
-        try { await guardianCollection.dropIndex('estudianteId_1_tipo_1'); dropResults.push('Dropped estudianteId_1_tipo_1'); } catch (e) { dropResults.push('estudianteId_1_tipo_1 not found or error'); }
-      }
-    } catch (idxError) {
-      console.warn("Index maintenance error:", idxError.message);
-      dropResults.push(`Index Error: ${idxError.message}`);
-    }
-
-    return res.json({ message: 'Setup complete', details: results, indexes: dropResults });
+    return res.json({ message: 'Setup complete', details: results });
   } catch (error) {
-    console.error("Setup Error:", error);
-    return res.status(500).json({ error: error.message || 'Error occurred' });
+    return res.status(500).json({ message: 'Setup Error', error: error.message });
   }
 });
-// -----------------------------
 
+// Health & Test
+app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
+app.get('/test', (req, res) => res.json({ message: 'Backend is working' }));
+app.get('/', (req, res) => res.json({ message: 'API funcionando correctamente 🚀', version: '5.1.0' }));
 
-// Iniciar servidor solo en local
+// Register routes
+app.use('/api/reports', authMiddleware, reportRoutes);
+app.use('/api', apiRoutes);
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/payments', paymentRoutes);
+
+// Error handling
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(err.status || 500).json({ message: err.message || 'Error interno del servidor' });
+});
+
 const __filename = fileURLToPath(import.meta.url);
-
 if (process.argv[1] === __filename) {
   const PORT = process.env.PORT || 5000;
-
-  connectDB()
-    .then(() => {
-      console.log(`✅ MongoDB conectado a: ${mongoose.connection.host} `);
-
-      app.listen(PORT, () => {
-        console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
-      });
-    })
-    .catch(err => {
-      console.error('❌ Error conectando a MongoDB:', err.message);
-    });
+  connectDB().then(() => {
+    app.listen(PORT, () => console.log(`Server at http://localhost:${PORT}`));
+  });
 }
 
 export default app;

@@ -22,4 +22,7 @@ router.get('/student/:studentId', analyticsController.getStudentPerformance);
 // Get dashboard main stats
 router.get('/dashboard-stats', analyticsController.getDashboardStats);
 
+// Get debtor ranking
+router.get('/debtors', analyticsController.getDebtorRanking);
+
 export default router;
