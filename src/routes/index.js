@@ -26,6 +26,8 @@ import authMiddleware from '../middleware/authMiddleware.js';
 import curriculumMaterialsRoutes from './curriculumMaterialsRoutes.js';
 import expenseRoutes from './expenseRoutes.js';
 import objectiveRoutes from './objectiveRoutes.js';
+import classLogRoutes from './classLogRoutes.js';
+import questionRoutes from './questionRoutes.js';
 
 const router = express.Router();
 
@@ -76,5 +78,7 @@ router.use('/messages', messageRoutes);
 router.use('/curriculum-materials', curriculumMaterialsRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/objectives', objectiveRoutes);
+router.use('/class-logs', classLogRoutes);
+router.use('/questions', questionRoutes);
 
 export default router;

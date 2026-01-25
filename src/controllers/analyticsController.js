@@ -405,6 +405,43 @@ class AnalyticsController {
             return res.status(500).json({ message: error.message });
         }
     }
+
+    static async getPerformanceTrends(req, res) {
+        try {
+            await connectDB();
+            const tid = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
+            const tenantId = new mongoose.Types.ObjectId(tid);
+
+            // Group grades by month
+            const trends = await Grade.aggregate([
+                { $match: { tenantId } },
+                {
+                    $group: {
+                        _id: {
+                            month: { $month: '$createdAt' },
+                            year: { $year: '$createdAt' }
+                        },
+                        averageScore: { $avg: '$score' },
+                        count: { $sum: 1 }
+                    }
+                },
+                { $sort: { '_id.year': 1, '_id.month': 1 } }
+            ]);
+
+            // Format for charts: { month: 'Mar', average: 5.4 }
+            const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+            const formattedTrends = trends.map(t => ({
+                month: `${monthNames[t._id.month - 1]} ${t._id.year}`,
+                average: parseFloat(t.averageScore.toFixed(2)),
+                count: t.count
+            }));
+
+            return res.status(200).json(formattedTrends);
+        } catch (error) {
+            console.error('Trends Error:', error);
+            return res.status(500).json({ message: error.message });
+        }
+    }
 }
 
 export default AnalyticsController;
