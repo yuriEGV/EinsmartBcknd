@@ -1,7 +1,9 @@
 import Estudiante from '../models/estudianteModel.js';
+import connectDB from '../config/db.js';
 
 const createEstudiante = async (req, res) => {
   try {
+    await connectDB();
     const tenantId = req.user.tenantId;
 
     const estudiante = await Estudiante.create({
@@ -17,6 +19,7 @@ const createEstudiante = async (req, res) => {
 
 const getEstudiantes = async (req, res) => {
   try {
+    await connectDB();
     const query = (req.user.role === 'admin')
       ? {}
       : { tenantId: req.user.tenantId };
@@ -60,10 +63,12 @@ const getEstudiantes = async (req, res) => {
 
 const getEstudianteById = async (req, res) => {
   try {
+    await connectDB();
     const query = {
       _id: req.params.id,
       tenantId: req.user.tenantId,
     };
+    // ... logic remains same
 
     // Role-based restriction
     if (req.user.role === 'student' && req.user.profileId !== req.params.id) {
@@ -93,9 +98,12 @@ const getEstudianteById = async (req, res) => {
 
 const updateEstudiante = async (req, res) => {
   try {
+    await connectDB();
+    const { _id, guardian, tenantId, ...updateData } = req.body;
+
     const estudiante = await Estudiante.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.user.tenantId },
-      req.body,
+      updateData,
       { new: true }
     );
 
@@ -110,6 +118,7 @@ const updateEstudiante = async (req, res) => {
 
 const deleteEstudiante = async (req, res) => {
   try {
+    await connectDB();
     const estudiante = await Estudiante.findOneAndDelete({
       _id: req.params.id,
       tenantId: req.user.tenantId,

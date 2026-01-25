@@ -1,5 +1,6 @@
 // controllers/courseController.js
 import Course from '../models/courseModel.js';
+import connectDB from '../config/db.js';
 
 export default class CourseController {
     static async createCourse(req, res) {
@@ -46,6 +47,7 @@ export default class CourseController {
 
     static async getCourses(req, res) {
         try {
+            await connectDB();
             const query = (req.user.role === 'admin' && req.query.tenantId)
                 ? { tenantId: req.query.tenantId }
                 : (req.user.role === 'admin' ? {} : { tenantId: req.user.tenantId });
@@ -91,6 +93,7 @@ export default class CourseController {
 
     static async getCourseById(req, res) {
         try {
+            await connectDB();
             const { id } = req.params;
 
             const course = await Course.findOne({
@@ -117,6 +120,7 @@ export default class CourseController {
 
     static async updateCourse(req, res) {
         try {
+            await connectDB();
             const { id } = req.params;
             const { name, description, teacherId } = req.body;
 
@@ -145,6 +149,7 @@ export default class CourseController {
 
     static async deleteCourse(req, res) {
         try {
+            await connectDB();
             const { id } = req.params;
 
             const course = await Course.findOneAndDelete({

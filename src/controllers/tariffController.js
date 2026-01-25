@@ -1,8 +1,10 @@
 import Tariff from '../models/tariffModel.js';
+import connectDB from '../config/db.js';
 
 class TariffController {
   static async createTariff(req, res) {
     try {
+      await connectDB();
       const { name, description, amount, currency, active } = req.body;
 
       const tariff = new Tariff({
@@ -24,11 +26,22 @@ class TariffController {
 
   static async listTariffs(req, res) {
     try {
-      const query = (req.user.role === 'admin')
-        ? {}
-        : { tenantId: req.user.tenantId };
+      await connectDB();
+      const tid = req.user.tenantId;
+      const query = (req.user.role === 'admin') ? {} : { tenantId: tid };
 
-      const tariffs = await Tariff.find(query).sort({ createdAt: -1 });
+      let tariffs = await Tariff.find(query).sort({ createdAt: -1 });
+
+      // Seeding defaults if empty for this tenant
+      if (tariffs.length === 0 && tid && (req.user.role === 'sostenedor' || req.user.role === 'admin')) {
+        const defaults = [
+          { tenantId: tid, name: 'Matrícula Anual', description: 'Costo de incorporación y registro', amount: 80000, currency: 'CLP', active: true },
+          { tenantId: tid, name: 'Mensualidad (Colegiatura)', description: 'Pago mensual por servicios educativos', amount: 150000, currency: 'CLP', active: true },
+          { tenantId: tid, name: 'Seguro Escolar', description: 'Cobertura de accidentes anual', amount: 25000, currency: 'CLP', active: true }
+        ];
+        tariffs = await Tariff.insertMany(defaults);
+      }
+
       res.status(200).json(tariffs);
     } catch (error) {
       res.status(500).json({ message: error.message });
@@ -37,6 +50,7 @@ class TariffController {
 
   static async getTariff(req, res) {
     try {
+      await connectDB();
       const tariff = await Tariff.findOne({
         _id: req.params.id,
         tenantId: req.user.tenantId,
@@ -52,6 +66,7 @@ class TariffController {
 
   static async updateTariff(req, res) {
     try {
+      await connectDB();
       const tariff = await Tariff.findOneAndUpdate(
         { _id: req.params.id, tenantId: req.user.tenantId },
         req.body,
@@ -68,6 +83,7 @@ class TariffController {
 
   static async deleteTariff(req, res) {
     try {
+      await connectDB();
       const tariff = await Tariff.findOneAndDelete({
         _id: req.params.id,
         tenantId: req.user.tenantId,
