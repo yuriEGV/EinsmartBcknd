@@ -47,6 +47,11 @@ const apoderadoSchema = new mongoose.Schema({
         type: String,
         trim: true,
         default: '' // ej: 'Padre', 'Madre', 'Tutor', etc.
+    },
+    financialStatus: {
+        type: String,
+        enum: ['solvente', 'moroso', 'exento'],
+        default: 'solvente'
     }
 }, {
     timestamps: true
@@ -57,6 +62,24 @@ apoderadoSchema.index({ estudianteId: 1, tipo: 1, tenantId: 1 }, {
     unique: true,
     partialFilterExpression: { tipo: 'principal' }
 });
+
+// Método para sincronizar su estado financiero basado en deudas de sus pupilos
+apoderadoSchema.statics.syncFinancialStatus = async function (apoderadoId) {
+    const Payment = mongoose.model('Payment');
+    const apoderado = await this.findById(apoderadoId);
+    if (!apoderado) return;
+
+    // Buscar si tiene algún pago pendiente QUE ESTÉ VENCIDO
+    const hasDebt = await Payment.exists({
+        apoderadoId: apoderado._id,
+        status: { $in: ['pendiente', 'vencido', 'en_revision'] },
+        fechaVencimiento: { $lt: new Date() }
+    });
+
+    apoderado.financialStatus = hasDebt ? 'moroso' : 'solvente';
+    await apoderado.save();
+    return apoderado.financialStatus;
+};
 
 export default mongoose.model('Apoderado', apoderadoSchema);
 

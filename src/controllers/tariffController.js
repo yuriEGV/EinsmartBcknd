@@ -32,8 +32,8 @@ class TariffController {
 
       let tariffs = await Tariff.find(query).sort({ createdAt: -1 });
 
-      // Seeding defaults if empty for this tenant
-      if (tariffs.length === 0 && tid && (req.user.role === 'sostenedor' || req.user.role === 'admin')) {
+      // Seeding defaults if empty for this tenant (Any educational role can trigger this to avoid empty UI)
+      if (tariffs.length === 0 && tid && (['sostenedor', 'admin', 'teacher'].includes(req.user.role))) {
         const defaults = [
           { tenantId: tid, name: 'Matrícula Anual', description: 'Costo de incorporación y registro', amount: 80000, currency: 'CLP', active: true },
           { tenantId: tid, name: 'Mensualidad (Colegiatura)', description: 'Pago mensual por servicios educativos', amount: 150000, currency: 'CLP', active: true },

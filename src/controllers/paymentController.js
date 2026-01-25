@@ -101,9 +101,12 @@ class PaymentController {
         if (apoderado?.email) {
           await sendEmail(apoderado.email, `Pago Aprobado - ${student?.nombres}`, `<p>Su pago de $${payment.amount} ha sido verificado y aprobado.</p>`);
         }
-        for (const u of financeUsers) {
-          await sendEmail(u.email, `[ALERTA] Pago Online/Verificado - ${student?.nombres}`, `<p>Pago de $${payment.amount} aprobado.</p>`);
-        }
+      }
+
+      // [NUEVO] Sincronizar estado financiero del apoderado
+      if (payment.apoderadoId) {
+        const ApoderadoModel = await import('../models/apoderadoModel.js').then(m => m.default);
+        await ApoderadoModel.syncFinancialStatus(payment.apoderadoId);
       }
 
       res.json(payment);

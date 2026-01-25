@@ -293,6 +293,10 @@ class EnrollmentController {
                         fechaVencimiento: new Date() // O una fecha por defecto
                     }));
                     await Payment.insertMany(paymentsToCreate);
+
+                    // [NUEVO] Sincronizar estado financiero del apoderado
+                    const ApoderadoModel = await import('../models/apoderadoModel.js').then(m => m.default);
+                    await ApoderadoModel.syncFinancialStatus(finalGuardianId);
                 }
             }
 
