@@ -145,16 +145,63 @@ const updateEstudiante = async (req, res) => {
 const deleteEstudiante = async (req, res) => {
   try {
     await connectDB();
-    const estudiante = await Estudiante.findOneAndDelete({
-      _id: req.params.id,
-      tenantId: req.user.tenantId,
-    });
+    const { id } = req.params;
+    const tenantId = req.user.tenantId;
 
-    if (!estudiante)
+    const estudiante = await Estudiante.findOne({ _id: id, tenantId });
+
+    if (!estudiante) {
       return res.status(404).json({ message: 'Estudiante no encontrado' });
+    }
 
-    res.status(204).send();
+    // 1. Delete Enrollments
+    const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+    await Enrollment.deleteMany({ estudianteId: id, tenantId });
+
+    // 2. Delete Payments
+    const Payment = await import('../models/paymentModel.js').then(m => m.default);
+    await Payment.deleteMany({ estudianteId: id, tenantId });
+
+    // 3. Delete Grades
+    const Grade = await import('../models/gradeModel.js').then(m => m.default);
+    await Grade.deleteMany({ studentId: id, tenantId });
+
+    // 4. Delete Attendance Records
+    const Attendance = await import('../models/attendanceModel.js').then(m => m.default);
+    await Attendance.deleteMany({ studentId: id, tenantId });
+
+    // 5. Delete Annotations
+    const Anotacion = await import('../models/anotacionModel.js').then(m => m.default);
+    await Anotacion.deleteMany({ estudianteId: id, tenantId });
+
+    // 6. Delete Payment Promises
+    const PaymentPromise = await import('../models/paymentPromiseModel.js').then(m => m.default);
+    await PaymentPromise.deleteMany({ studentId: id, tenantId });
+
+    // 7. Unlink or Delete Apoderado
+    const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+    // Find apoderados linked to this student
+    const apoderadosCoords = await Apoderado.find({ estudianteId: id, tenantId });
+
+    for (const apo of apoderadosCoords) {
+      // Check if this apoderado has other students. 
+      // Since our schema currently links 1:1 via estudianteId (based on previous simplistic model), 
+      // we effectively delete the relationship record. 
+      // If "Apoderado" is a unique person entity linked to multiple students via array, we would pull.
+      // But looking at the schema: estudianteId is a single Ref. So one Apoderado record = one link.
+      await Apoderado.findByIdAndDelete(apo._id);
+
+      // Also delete User account if it exists and is only for this profileId? 
+      // Maybe too aggressive. Let's keep the User for now, or just leave it. 
+      // Ideally we check if User.profileId matches.
+    }
+
+    // Finally delete student
+    await Estudiante.findByIdAndDelete(id);
+
+    res.status(200).json({ message: 'Estudiante y datos relacionados eliminados correctamente' });
   } catch (error) {
+    console.error('Error deleting student:', error);
     res.status(500).json({ message: error.message });
   }
 };

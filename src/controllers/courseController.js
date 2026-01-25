@@ -27,7 +27,7 @@ export default class CourseController {
 
             // Crear curso asociado al tenant
             const course = await Course.create({
-                name,
+                name: name.trim(),
                 description,
                 teacherId,
                 tenantId: req.user.tenantId
@@ -126,7 +126,7 @@ export default class CourseController {
 
             const course = await Course.findOneAndUpdate(
                 { _id: id, tenantId: req.user.tenantId },
-                { name, description, teacherId },
+                { name: name ? name.trim() : undefined, description, teacherId },
                 { new: true, runValidators: true }
             ).populate('teacherId', 'name email');
 
