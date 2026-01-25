@@ -10,7 +10,7 @@ class ClassLogController {
                 tenantId: req.user.tenantId,
                 courseId,
                 subjectId,
-                teacherId: req.user._id,
+                teacherId: req.user.userId,
                 date: date || new Date(),
                 topic,
                 activities,
@@ -37,7 +37,7 @@ class ClassLogController {
 
             // Security: Teachers can only see their own logs unless they are admin
             if (req.user.role === 'teacher') {
-                query.teacherId = req.user._id;
+                query.teacherId = req.user.userId;
             }
 
             if (startDate || endDate) {
@@ -70,7 +70,7 @@ class ClassLogController {
             if (!log) return res.status(404).json({ message: 'Registro no encontrado' });
 
             // Security: Only the assigned teacher or an admin can sign
-            if (req.user.role === 'teacher' && log.teacherId.toString() !== req.user._id.toString()) {
+            if (req.user.role === 'teacher' && log.teacherId.toString() !== req.user.userId.toString()) {
                 return res.status(403).json({ message: 'No autorizado para firmar este registro' });
             }
 
@@ -91,7 +91,7 @@ class ClassLogController {
 
             // Teachers can only delete their unsigned logs
             if (req.user.role === 'teacher') {
-                query.teacherId = req.user._id;
+                query.teacherId = req.user.userId;
                 query.isSigned = false;
             }
 

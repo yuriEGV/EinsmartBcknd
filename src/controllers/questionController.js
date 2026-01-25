@@ -14,7 +14,7 @@ class QuestionController {
                 options,
                 difficulty,
                 tags,
-                createdBy: req.user._id
+                createdBy: req.user.userId
             });
 
             await question.save();

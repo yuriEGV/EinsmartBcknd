@@ -61,9 +61,25 @@ class AnalyticsController {
                     }
                 },
                 {
+                    $lookup: {
+                        from: 'apoderados',
+                        localField: '_id.studentId',
+                        foreignField: 'estudianteId',
+                        as: 'guardian'
+                    }
+                },
+                {
                     $group: {
                         _id: '$_id.studentId',
                         studentName: { $first: '$studentName' },
+                        guardianName: {
+                            $first: {
+                                $let: {
+                                    vars: { g: { $arrayElemAt: ['$guardian', 0] } },
+                                    in: { $concat: ['$$g.nombres', ' ', '$$g.apellidos'] }
+                                }
+                            }
+                        },
                         subjectAverages: {
                             $push: {
                                 subject: '$subject',
@@ -133,6 +149,24 @@ class AnalyticsController {
                         grado: { $first: '$student.grado' },
                         overallAverage: { $avg: '$score' },
                         totalGrades: { $sum: 1 }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'apoderados',
+                        localField: '_id',
+                        foreignField: 'estudianteId',
+                        as: 'guardian'
+                    }
+                },
+                {
+                    $addFields: {
+                        guardianName: {
+                            $let: {
+                                vars: { g: { $arrayElemAt: ['$guardian', 0] } },
+                                in: { $concat: ['$$g.nombres', ' ', '$$g.apellidos'] }
+                            }
+                        }
                     }
                 },
                 { $sort: { overallAverage: -1 } },

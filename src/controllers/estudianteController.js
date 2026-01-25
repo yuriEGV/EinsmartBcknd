@@ -34,7 +34,24 @@ const getEstudiantes = async (req, res) => {
       query._id = { $in: enrolledStudentIds };
     }
 
-    const estudiantes = await Estudiante.find(query);
+    const pipeline = [
+      { $match: query },
+      {
+        $lookup: {
+          from: 'apoderados',
+          localField: '_id',
+          foreignField: 'estudianteId',
+          as: 'guardian'
+        }
+      },
+      {
+        $addFields: {
+          guardian: { $arrayElemAt: ['$guardian', 0] }
+        }
+      }
+    ];
+
+    const estudiantes = await Estudiante.aggregate(pipeline);
     res.status(200).json(estudiantes);
   } catch (error) {
     res.status(500).json({ message: error.message });
