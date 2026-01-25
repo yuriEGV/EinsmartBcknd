@@ -124,6 +124,7 @@ const createPaymentFromTariff = async ({ tenantId, estudianteId, tariffId, provi
       tenantId,
       estudianteId,
       tariffId,
+      concepto: tarifa.name, // Fixed: Added missing concepto
       amount: tarifa.amount,
       currency: tarifa.currency || "CLP",
       provider,
@@ -161,6 +162,7 @@ const createPaymentFromTariff = async ({ tenantId, estudianteId, tariffId, provi
     tenantId,
     estudianteId,
     tariffId,
+    concepto: tarifa.name, // Fixed: Added missing concepto
     amount: tarifa.amount,
     currency: tarifa.currency || 'CLP',
     provider: null,
