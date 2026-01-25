@@ -16,6 +16,7 @@ class EnrollmentController {
                 status,
                 fee,
                 notes,
+                metodoPago,    // [NUEVO] Método de pago inicial
                 tariffIds,     // [NUEVO] Array de IDs de tarifas a asignar
                 newStudent,   // { nombres, apellidos, rut, email, grado, edad }
                 newGuardian   // { nombre, apellidos, correo, telefono, direccion, parentesco }
@@ -60,6 +61,24 @@ class EnrollmentController {
                     });
                     await std.save();
                     finalStudentId = std._id;
+                }
+
+                // [NUEVO] Crear Usuario para el Alumno si no existe
+                if (newStudent && newStudent.email) {
+                    let studentUser = await User.findOne({ email: newStudent.email.toLowerCase().trim() });
+                    if (!studentUser) {
+                        const passwordHash = await bcrypt.hash('123456', 10);
+                        studentUser = await User.create({
+                            tenantId,
+                            name: `${newStudent.nombres} ${newStudent.apellidos}`,
+                            email: newStudent.email.toLowerCase().trim(),
+                            rut: newStudent.rut,
+                            passwordHash,
+                            role: 'student',
+                            profileId: finalStudentId
+                        });
+                        console.log(`User account created for student: ${newStudent.email}`);
+                    }
                 }
             }
 
@@ -264,10 +283,12 @@ class EnrollmentController {
                     const paymentsToCreate = selectedTariffs.map(t => ({
                         tenantId,
                         estudianteId: finalStudentId,
+                        apoderadoId: finalGuardianId, // ✅ Corregido: Vincular apoderado al cobro
                         tariffId: t._id,
                         amount: t.amount,
                         currency: t.currency || 'CLP',
                         status: 'pending',
+                        metodoPago: metodoPago || 'transferencia', // ✅ Asignar método de pago
                         concepto: t.name,
                         fechaVencimiento: new Date() // O una fecha por defecto
                     }));
