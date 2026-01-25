@@ -1,6 +1,8 @@
 import Enrollment from '../models/enrollmentModel.js';
 import { saveStreamToFile } from '../services/storageService.js';
 import { Readable } from 'stream';
+import bcrypt from 'bcryptjs';
+import User from '../models/userModel.js';
 
 class EnrollmentController {
     // Create a new enrollment
@@ -89,6 +91,31 @@ class EnrollmentController {
                 }
 
                 finalGuardianId = apo._id;
+
+                // [NUEVO] Crear Usuario para el Apoderamiento si no existe
+                if (apo.correo || apo.rut) {
+                    const normalizedEmail = apo.correo ? apo.correo.toLowerCase().trim() : undefined;
+                    const query = normalizedEmail ? { email: normalizedEmail } : { rut: apo.rut };
+
+                    let userAccount = await User.findOne(query);
+                    if (!userAccount) {
+                        const passwordHash = await bcrypt.hash('123456', 10);
+                        userAccount = await User.create({
+                            tenantId,
+                            name: `${apo.nombre} ${apo.apellidos}`,
+                            email: normalizedEmail,
+                            rut: apo.rut,
+                            passwordHash,
+                            role: 'apoderado',
+                            profileId: apo._id
+                        });
+                        console.log(`User account created for guardian: ${normalizedEmail || apo.rut}`);
+                    } else if (!userAccount.profileId) {
+                        // Link existing user if not linked
+                        userAccount.profileId = apo._id;
+                        await userAccount.save();
+                    }
+                }
             } else if (finalGuardianId && finalStudentId) {
                 // [NUEVO] Si se seleccionó un apoderado existente, asegurémonos de que el Estudiante 
                 // tenga este apoderado vinculado si aún no tiene uno principal.
