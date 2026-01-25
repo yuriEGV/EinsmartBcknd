@@ -24,6 +24,23 @@ const getEstudiantes = async (req, res) => {
       ? {}
       : { tenantId: req.user.tenantId };
 
+    // [NUEVO] Restricción por Perfil (Seguridad e Incongruencia)
+    if (req.user.role === 'student' && req.user.profileId) {
+      query._id = req.user.profileId;
+    } else if (req.user.role === 'apoderado' && req.user.profileId) {
+      const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+      const vinculation = await Apoderado.findById(req.user.profileId);
+      if (vinculation) {
+        // Un apoderado puede tener múltiples alumnos vinculados en el futuro, 
+        // pero por ahora usamos el estudianteId principal.
+        query._id = vinculation.estudianteId;
+      } else {
+        return res.status(200).json([]);
+      }
+    } else if ((req.user.role === 'student' || req.user.role === 'apoderado') && !req.user.profileId) {
+      return res.status(200).json([]);
+    }
+
     // 3. Optional: Filter by specific course (for attendance/grades)
     if (req.query.cursoId) {
       const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
@@ -34,7 +51,16 @@ const getEstudiantes = async (req, res) => {
       }).select('estudianteId');
 
       const enrolledStudentIds = enrollments.map(e => e.estudianteId);
-      query._id = { $in: enrolledStudentIds };
+
+      if (query._id) {
+        // Intersection if both filters exist
+        // (Simplified for single ID vs array)
+        if (Array.isArray(enrolledStudentIds) && !enrolledStudentIds.map(id => id.toString()).includes(query._id.toString())) {
+          return res.status(200).json([]);
+        }
+      } else {
+        query._id = { $in: enrolledStudentIds };
+      }
     }
 
     const pipeline = [

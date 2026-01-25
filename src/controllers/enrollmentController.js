@@ -14,6 +14,7 @@ class EnrollmentController {
                 status,
                 fee,
                 notes,
+                tariffIds,     // [NUEVO] Array de IDs de tarifas a asignar
                 newStudent,   // { nombres, apellidos, rut, email, grado, edad }
                 newGuardian   // { nombre, apellidos, correo, telefono, direccion, parentesco }
             } = req.body;
@@ -88,6 +89,15 @@ class EnrollmentController {
                 }
 
                 finalGuardianId = apo._id;
+            } else if (finalGuardianId && finalStudentId) {
+                // [NUEVO] Si se seleccionó un apoderado existente, asegurémonos de que el Estudiante 
+                // tenga este apoderado vinculado si aún no tiene uno principal.
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const apo = await Apoderado.findById(finalGuardianId);
+                if (apo && !apo.estudianteId) {
+                    apo.estudianteId = finalStudentId;
+                    await apo.save();
+                }
             }
 
             if (!finalStudentId || !courseId || !period) {
@@ -215,6 +225,28 @@ class EnrollmentController {
             }
 
             await enrollment.save();
+
+            // [NUEVO] Generar cobros automáticos si se enviaron tariffIds
+            if (tariffIds && Array.isArray(tariffIds) && tariffIds.length > 0) {
+                const Tariff = await import('../models/tariffModel.js').then(m => m.default);
+                const Payment = await import('../models/paymentModel.js').then(m => m.default);
+
+                const selectedTariffs = await Tariff.find({ _id: { $in: tariffIds }, tenantId });
+
+                if (selectedTariffs.length > 0) {
+                    const paymentsToCreate = selectedTariffs.map(t => ({
+                        tenantId,
+                        estudianteId: finalStudentId,
+                        tariffId: t._id,
+                        amount: t.amount,
+                        currency: t.currency || 'CLP',
+                        status: 'pending',
+                        concepto: t.name,
+                        fechaVencimiento: new Date() // O una fecha por defecto
+                    }));
+                    await Payment.insertMany(paymentsToCreate);
+                }
+            }
 
             await enrollment.populate('estudianteId', 'nombres apellidos');
             await enrollment.populate('courseId', 'name code');
