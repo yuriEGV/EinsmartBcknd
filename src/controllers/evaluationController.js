@@ -11,6 +11,10 @@ class EvaluationController {
             });
             await evaluation.save();
             await evaluation.populate('courseId', 'name code');
+            // Populate subject if it was sent as ID, but currently it's stored as plain string often?
+            // Model says ref: 'Subject'. Front sends name string. 
+            // We should find the Subject by name/course if it's not an ID.
+            // But for now, let's keep as is to avoid breaking changes, just adding category flow.
 
             // Notify Students
             NotificationService.notifyCourseAssessment(

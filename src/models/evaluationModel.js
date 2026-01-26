@@ -9,6 +9,11 @@ const evaluationSchema = new mongoose.Schema({
         enum: ['formativa', 'sumativa', 'diagnostica'],
         default: 'sumativa'
     },
+    category: {
+        type: String,
+        enum: ['planificada', 'sorpresa'],
+        default: 'planificada'
+    },
     maxScore: { type: Number, required: true, default: 7.0 },
     subjectId: { type: mongoose.Types.ObjectId, ref: 'Subject', required: true },
     period: { type: String, enum: ['1_semestre', '2_semestre', 'anual'], default: '1_semestre' },

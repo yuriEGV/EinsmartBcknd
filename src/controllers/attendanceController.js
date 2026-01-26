@@ -1,4 +1,5 @@
 import Attendance from '../models/attendanceModel.js';
+import mongoose from 'mongoose';
 
 class AttendanceController {
 
@@ -55,7 +56,7 @@ class AttendanceController {
             // [NUEVO] Solo procesar alumnos con matrícula confirmada
             const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
             const enrolledStudents = await Enrollment.find({
-                tenantId: req.user.tenantId,
+                tenantId: new mongoose.Types.ObjectId(req.user.tenantId),
                 status: 'confirmada'
             }).select('estudianteId');
 
@@ -135,8 +136,8 @@ class AttendanceController {
             const { courseId, startDate, endDate } = req.query;
             const tenantId = req.user.tenantId;
 
-            // Basic match stage
-            const matchStage = { tenantId: tenantId }; // Adjust for ObjectId if needed
+            // Basic match stage - Cast to ObjectId for aggregation!
+            const matchStage = { tenantId: new mongoose.Types.ObjectId(tenantId) };
 
             // Filter by date range
             if (startDate || endDate) {
