@@ -20,28 +20,39 @@ const createEstudiante = async (req, res) => {
 const getEstudiantes = async (req, res) => {
   try {
     await connectDB();
-    const query = (req.user.role === 'admin')
-      ? {}
-      : { tenantId: req.user.tenantId };
+    console.log('GET ESTUDIANTES - User Role:', req.user.role, 'TenantId:', req.user.tenantId);
 
-    // [NUEVO] Restricción por Perfil (Seguridad e Incongruencia)
-    if (req.user.role === 'student' && req.user.profileId) {
-      query._id = req.user.profileId;
-    } else if (req.user.role === 'apoderado' && req.user.profileId) {
-      const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
-      const vinculation = await Apoderado.findById(req.user.profileId);
-      if (vinculation) {
-        // Un apoderado puede tener múltiples alumnos vinculados en el futuro, 
-        // pero por ahora usamos el estudianteId principal.
-        query._id = vinculation.estudianteId;
-      } else {
-        return res.status(200).json([]);
-      }
-    } else if ((req.user.role === 'student' || req.user.role === 'apoderado') && !req.user.profileId) {
-      return res.status(200).json([]);
+    // Base query: Admin sees all, others are filtered by tenant
+    const query = {};
+
+    if (req.user.role !== 'admin') {
+      query.tenantId = req.user.tenantId;
     }
 
-    // 3. Optional: Filter by specific course (for attendance/grades)
+    // RESTRICTIVE FILTERS: Apply ONLY to student/apoderado roles
+    // Teachers, sostenedor, and other staff should see ALL students in their tenant
+    const restrictiveRoles = ['student', 'apoderado'];
+
+    if (restrictiveRoles.includes(req.user.role)) {
+      if (req.user.role === 'student' && req.user.profileId) {
+        query._id = req.user.profileId;
+      } else if (req.user.role === 'apoderado' && req.user.profileId) {
+        const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+        const vinculation = await Apoderado.findById(req.user.profileId);
+        if (vinculation) {
+          query._id = vinculation.estudianteId;
+        } else {
+          console.log('GET ESTUDIANTES - Apoderado without vinculation, returning empty');
+          return res.status(200).json([]);
+        }
+      } else if (!req.user.profileId) {
+        // Student or guardian without profileId = no access
+        console.log('GET ESTUDIANTES - Student/Guardian without profileId, returning empty');
+        return res.status(200).json([]);
+      }
+    }
+
+    // Optional: Filter by specific course (for attendance/grades)
     if (req.query.cursoId) {
       const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
       const enrollments = await Enrollment.find({
@@ -51,17 +62,20 @@ const getEstudiantes = async (req, res) => {
       }).select('estudianteId');
 
       const enrolledStudentIds = enrollments.map(e => e.estudianteId);
+      console.log('GET ESTUDIANTES - Course filter:', req.query.cursoId, 'Found:', enrolledStudentIds.length, 'enrolled');
 
       if (query._id) {
         // Intersection if both filters exist
-        // (Simplified for single ID vs array)
         if (Array.isArray(enrolledStudentIds) && !enrolledStudentIds.map(id => id.toString()).includes(query._id.toString())) {
+          console.log('GET ESTUDIANTES - Student not enrolled in course, returning empty');
           return res.status(200).json([]);
         }
       } else {
         query._id = { $in: enrolledStudentIds };
       }
     }
+
+    console.log('GET ESTUDIANTES - Final Query:', JSON.stringify(query));
 
     const pipeline = [
       { $match: query },
@@ -81,6 +95,7 @@ const getEstudiantes = async (req, res) => {
     ];
 
     const estudiantes = await Estudiante.aggregate(pipeline);
+    console.log('GET ESTUDIANTES - Results:', estudiantes.length, 'students found');
     res.status(200).json(estudiantes);
   } catch (error) {
     res.status(500).json({ message: error.message });
