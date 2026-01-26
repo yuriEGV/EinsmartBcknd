@@ -8,7 +8,7 @@ class UserNotificationController {
             await connectDB();
             const notifications = await UserNotification.find({
                 tenantId: req.user.tenantId,
-                userId: req.user._id
+                userId: req.user.userId
             })
                 .sort({ createdAt: -1 })
                 .limit(50);
@@ -25,7 +25,7 @@ class UserNotificationController {
             await connectDB();
             const { id } = req.params;
             const notification = await UserNotification.findOneAndUpdate(
-                { _id: id, userId: req.user._id, tenantId: req.user.tenantId },
+                { _id: id, userId: req.user.userId, tenantId: req.user.tenantId },
                 { isRead: true },
                 { new: true }
             );
@@ -45,7 +45,7 @@ class UserNotificationController {
         try {
             await connectDB();
             await UserNotification.updateMany(
-                { userId: req.user._id, tenantId: req.user.tenantId, isRead: false },
+                { userId: req.user.userId, tenantId: req.user.tenantId, isRead: false },
                 { isRead: true }
             );
 
