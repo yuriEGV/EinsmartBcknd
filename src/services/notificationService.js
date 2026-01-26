@@ -1,6 +1,7 @@
-import { sendEmail } from './emailService.js';
 import Apoderado from '../models/apoderadoModel.js';
 import Estudiante from '../models/estudianteModel.js';
+import UserNotification from '../models/userNotificationModel.js';
+import User from '../models/userModel.js';
 
 class NotificationService {
     /**
@@ -144,6 +145,51 @@ class NotificationService {
             console.log(`📧 Batch institutional list sent to ${recipientEmail}`);
         } catch (error) {
             console.error('❌ Error in notifyInstitutionalBatch:', error);
+        }
+    }
+    /**
+     * Create an internal notification for a specific user
+     */
+    static async createInternalNotification({ tenantId, userId, title, message, type = 'system', link = '' }) {
+        try {
+            const notification = await UserNotification.create({
+                tenantId,
+                userId,
+                title,
+                message,
+                type,
+                link
+            });
+            return notification;
+        } catch (error) {
+            console.error('❌ Error creating internal notification:', error);
+        }
+    }
+
+    /**
+     * Broadcast an internal notification to all admins/sostenedores of a tenant
+     */
+    static async broadcastToAdmins({ tenantId, title, message, type = 'system', link = '' }) {
+        try {
+            const admins = await User.find({
+                tenantId,
+                role: { $in: ['admin', 'sostenedor'] }
+            });
+
+            const notifications = admins.map(admin => ({
+                tenantId,
+                userId: admin._id,
+                title,
+                message,
+                type,
+                link
+            }));
+
+            if (notifications.length > 0) {
+                await UserNotification.insertMany(notifications);
+            }
+        } catch (error) {
+            console.error('❌ Error broadcasting to admins:', error);
         }
     }
 }

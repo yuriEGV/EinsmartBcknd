@@ -1,6 +1,7 @@
 import AdminDay from '../models/adminDayModel.js';
 import User from '../models/userModel.js';
 import connectDB from '../config/db.js';
+import NotificationService from '../services/notificationService.js';
 
 class AdminDayController {
     static async createRequest(req, res) {
@@ -12,6 +13,10 @@ class AdminDayController {
 
             // Check if user has days left
             const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({ message: 'Usuario no encontrado' });
+            }
+
             const usedDays = await AdminDay.countDocuments({
                 userId,
                 tenantId,
@@ -29,6 +34,15 @@ class AdminDayController {
                 date,
                 type,
                 reason
+            });
+
+            // Broadcast to Admins
+            await NotificationService.broadcastToAdmins({
+                tenantId,
+                title: 'Nueva Solicitud Administrativa',
+                message: `El funcionario ${user.name} ha solicitado un día administrativo para el ${new Date(date).toLocaleDateString()}.`,
+                type: 'admin_day_request',
+                link: '/admin-days'
             });
 
             res.status(201).json(request);
@@ -84,6 +98,18 @@ class AdminDayController {
 
             if (!request) return res.status(404).json({ message: 'Solicitud no encontrada' });
 
+            // Notify User
+            await NotificationService.createInternalNotification({
+                tenantId: req.user.tenantId,
+                userId: request.userId,
+                title: 'Actualización de Día Administrativo',
+                message: `Tu solicitud para el día ${new Date(request.date).toLocaleDateString()} ha sido ${status}.`,
+                type: 'admin_day_update',
+                link: '/admin-days'
+            });
+
+            // Optional: Broadcast update to other admins? Probably not necessary unless requested.
+
             res.json(request);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -97,6 +123,10 @@ class AdminDayController {
             const tenantId = req.user.tenantId;
 
             const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({ message: 'Usuario no encontrado' });
+            }
+
             const usedDays = await AdminDay.countDocuments({
                 userId,
                 tenantId,

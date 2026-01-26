@@ -212,6 +212,15 @@ class GradeController {
                 tenantId: req.user.tenantId
             });
 
+            // Notify Admins
+            await NotificationService.broadcastToAdmins({
+                tenantId: req.user.tenantId,
+                title: 'Cambio de Calificación',
+                message: `Se ha modificado la nota de ${grade.estudianteId.nombres} ${grade.estudianteId.apellidos} en ${grade.evaluationId.title}. Nueva nota: ${req.body.score}`,
+                type: 'grade_change',
+                link: '/grades'
+            });
+
             res.status(200).json(grade);
         } catch (error) {
             res.status(400).json({ message: error.message });
@@ -238,6 +247,15 @@ class GradeController {
                 user: req.user.userId,
                 details: { score: grade.score, student: grade.estudianteId, evaluation: grade.evaluationId },
                 tenantId: req.user.tenantId
+            });
+
+            // Notify Admins
+            await NotificationService.broadcastToAdmins({
+                tenantId: req.user.tenantId,
+                title: 'Eliminación de Calificación',
+                message: `Se ha eliminado una nota de ${grade.score} para la evaluación ${grade.evaluationId.title}.`,
+                type: 'grade_change',
+                link: '/grades'
             });
 
             res.status(204).send();
