@@ -31,9 +31,9 @@ const getEstudiantes = async (req, res) => {
       query.tenantId = new mongoose.Types.ObjectId(req.user.tenantId);
     }
 
-    // RESTRICTIVE FILTERS: Apply ONLY to student/apoderado roles
-    // Teachers, sostenedor, and other staff should see ALL students in their tenant
-    const restrictiveRoles = ['student', 'apoderado'];
+    // RESTRICTIVE FILTERS: Apply to student/apoderado AND teachers
+    const restrictiveRoles = ['student', 'apoderado', 'teacher'];
+    const isTeacher = req.user.role === 'teacher';
 
     if (restrictiveRoles.includes(req.user.role)) {
       if (req.user.role === 'student' && req.user.profileId) {
@@ -47,6 +47,29 @@ const getEstudiantes = async (req, res) => {
           console.log('GET ESTUDIANTES - Apoderado without vinculation, returning empty');
           return res.status(200).json([]);
         }
+      } else if (isTeacher) {
+        // Teachers only see students from courses they teach
+        const Subject = await import('../models/subjectModel.js').then(m => m.default);
+        const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+
+        // Find all courses where this teacher has subjects
+        const teacherSubjects = await Subject.find({ teacherId: req.user._id, tenantId: req.user.tenantId }).select('courseId');
+        const courseIds = [...new Set(teacherSubjects.map(s => s.courseId.toString()))];
+
+        if (courseIds.length === 0) {
+          console.log('GET ESTUDIANTES - Teacher has no assigned courses, returning empty');
+          return res.status(200).json([]);
+        }
+
+        const enrollments = await Enrollment.find({
+          courseId: { $in: courseIds },
+          tenantId: req.user.tenantId,
+          status: { $in: ['confirmada', 'activo', 'activa'] }
+        }).select('estudianteId');
+
+        const allowedStudentIds = enrollments.map(e => e.estudianteId);
+        query._id = { $in: allowedStudentIds };
+        console.log(`GET ESTUDIANTES - Teacher filter: found ${allowedStudentIds.length} allowed students across ${courseIds.length} courses`);
       } else if (!req.user.profileId) {
         // Student or guardian without profileId = no access
         console.log('GET ESTUDIANTES - Student/Guardian without profileId, returning empty');
