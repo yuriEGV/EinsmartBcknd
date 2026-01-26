@@ -48,13 +48,25 @@ const getEstudiantes = async (req, res) => {
           return res.status(200).json([]);
         }
       } else if (isTeacher) {
-        // Teachers only see students from courses they teach
+        // Teachers see students from courses they teach OR where they are head teacher
         const Subject = await import('../models/subjectModel.js').then(m => m.default);
         const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+        const Course = await import('../models/courseModel.js').then(m => m.default);
 
-        // Find all courses where this teacher has subjects
-        const teacherSubjects = await Subject.find({ teacherId: req.user._id, tenantId: req.user.tenantId }).select('courseId');
-        const courseIds = [...new Set(teacherSubjects.map(s => s.courseId.toString()))];
+        // Find all courses where this teacher has subjects OR is head teacher
+        const [teacherSubjects, headCourses] = await Promise.all([
+          Subject.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('courseId'),
+          Course.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('_id')
+        ]);
+
+        const courseIds = [
+          ...new Set([
+            ...teacherSubjects.map(s => s.courseId.toString()),
+            ...headCourses.map(c => c._id.toString())
+          ])
+        ];
+
+        console.log('GET ESTUDIANTES - Teacher courses:', courseIds);
 
         if (courseIds.length === 0) {
           console.log('GET ESTUDIANTES - Teacher has no assigned courses, returning empty');
@@ -110,6 +122,7 @@ const getEstudiantes = async (req, res) => {
 
     const pipeline = [
       { $match: query },
+      { $sort: { apellidos: 1, nombres: 1 } },
       {
         $lookup: {
           from: 'apoderados',
