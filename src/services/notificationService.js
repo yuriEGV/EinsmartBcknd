@@ -2,6 +2,7 @@ import Apoderado from '../models/apoderadoModel.js';
 import Estudiante from '../models/estudianteModel.js';
 import UserNotification from '../models/userNotificationModel.js';
 import User from '../models/userModel.js';
+import { sendMail } from '../../emailService.js';
 
 class NotificationService {
     /**
@@ -32,7 +33,7 @@ class NotificationService {
                     </div>
                 `;
 
-                await sendEmail(guardian.correo, `Nueva Nota: ${student.nombres} - ${subject}`, html);
+                await sendMail(guardian.correo, `Nueva Nota: ${student.nombres} - ${subject}`, html);
             }
         } catch (error) {
             console.error('❌ Error in notifyNewGrade:', error);
@@ -69,7 +70,7 @@ class NotificationService {
                     </div>
                 `;
 
-                await sendEmail(guardian.correo, `Anotación ${typeLabel}: ${student.nombres}`, html);
+                await sendMail(guardian.correo, `Anotación ${typeLabel}: ${student.nombres}`, html);
             }
         } catch (error) {
             console.error('❌ Error in notifyNewAnnotation:', error);
@@ -99,7 +100,7 @@ class NotificationService {
                 </div>
             `;
 
-            await sendEmail(guardian.correo, `Aviso Importante: Morosidad ${studentName}`, html);
+            await sendMail(guardian.correo, `Aviso Importante: Morosidad ${studentName}`, html);
             console.log(`📧 Debt notification sent to ${guardian.correo}`);
         } catch (error) {
             console.error('❌ Error in notifyDebtor:', error);
@@ -141,7 +142,7 @@ class NotificationService {
                 </div>
             `;
 
-            await sendEmail(recipientEmail, `Listado Institucional: ${tenantName}`, html);
+            await sendMail(recipientEmail, `Listado Institucional: ${tenantName}`, html);
             console.log(`📧 Batch institutional list sent to ${recipientEmail}`);
         } catch (error) {
             console.error('❌ Error in notifyInstitutionalBatch:', error);
