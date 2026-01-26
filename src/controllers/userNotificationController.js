@@ -6,10 +6,17 @@ class UserNotificationController {
     static async getMyNotifications(req, res) {
         try {
             await connectDB();
-            const notifications = await UserNotification.find({
+            const query = {
                 tenantId: req.user.tenantId,
                 userId: req.user.userId
-            })
+            };
+
+            // [SECURITY] If student, prevent seeing internal teacher/admin types even if mis-sent
+            if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                query.type = { $nin: ['admin_day_request', 'admin_day_update', 'grade_change'] };
+            }
+
+            const notifications = await UserNotification.find(query)
                 .sort({ createdAt: -1 })
                 .limit(50);
 
