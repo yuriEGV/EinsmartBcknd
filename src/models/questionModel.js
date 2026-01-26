@@ -12,8 +12,7 @@ const questionSchema = new mongoose.Schema({
         required: true
     },
     grade: {
-        type: String,
-        required: true
+        type: String
     },
     questionText: {
         type: String,

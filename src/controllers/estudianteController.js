@@ -55,8 +55,14 @@ const getEstudiantes = async (req, res) => {
 
         // Find all courses where this teacher has subjects OR is head teacher
         const [teacherSubjects, headCourses] = await Promise.all([
-          Subject.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('courseId'),
-          Course.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('_id')
+          Subject.find({
+            teacherId: new mongoose.Types.ObjectId(req.user.userId),
+            tenantId: new mongoose.Types.ObjectId(req.user.tenantId)
+          }).select('courseId'),
+          Course.find({
+            teacherId: new mongoose.Types.ObjectId(req.user.userId),
+            tenantId: new mongoose.Types.ObjectId(req.user.tenantId)
+          }).select('_id')
         ]);
 
         const courseIds = [
@@ -98,23 +104,26 @@ const getEstudiantes = async (req, res) => {
         status: { $in: ['confirmada', 'activo', 'activa'] }
       }).select('estudianteId');
 
-      const enrolledStudentIds = enrollments.map(e => e.estudianteId.toString());
+      const enrolledStudentIds = enrollments.map(e => e.estudianteId);
       console.log('GET ESTUDIANTES - Course filter:', req.query.cursoId, 'Found:', enrolledStudentIds.length, 'enrolled');
 
       if (query._id && query._id.$in) {
         // Teacher case: query._id is already { $in: [allowedIds] }
-        const allowedIds = query._id.$in.map(id => id.toString());
-        const filteredIds = enrolledStudentIds.filter(id => allowedIds.includes(id));
+        const allowedIdsStrings = query._id.$in.map(id => id.toString());
+        const filteredIds = enrolledStudentIds
+          .filter(id => allowedIdsStrings.includes(id.toString()))
+          .map(id => new mongoose.Types.ObjectId(id));
+
         query._id = { $in: filteredIds };
         console.log(`GET ESTUDIANTES - Teacher + Course filter: intersection found ${filteredIds.length} students`);
       } else if (query._id) {
         // Single student case (student/apoderado)
-        if (!enrolledStudentIds.includes(query._id.toString())) {
+        if (!enrolledStudentIds.some(id => id.toString() === query._id.toString())) {
           console.log('GET ESTUDIANTES - Student not enrolled in course, returning empty');
           return res.status(200).json([]);
         }
       } else {
-        query._id = { $in: enrolledStudentIds };
+        query._id = { $in: enrolledStudentIds.map(id => new mongoose.Types.ObjectId(id)) };
       }
     }
 
