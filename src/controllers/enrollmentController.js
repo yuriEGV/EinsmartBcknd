@@ -335,7 +335,7 @@ class EnrollmentController {
             }
 
             const enrollments = await Enrollment.find(query)
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -351,7 +351,7 @@ class EnrollmentController {
                 estudianteId: req.params.studentId || req.params.estudianteId,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -367,7 +367,7 @@ class EnrollmentController {
                 courseId: req.params.courseId,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -385,7 +385,7 @@ class EnrollmentController {
             }
 
             const enrollments = await Enrollment.find({ tenantId: targetTenant })
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -401,7 +401,7 @@ class EnrollmentController {
                 period: req.params.period,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -417,7 +417,7 @@ class EnrollmentController {
                 _id: req.params.id,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             if (!enrollment) {
@@ -437,7 +437,7 @@ class EnrollmentController {
                 req.body,
                 { new: true }
             )
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             if (!enrollment) {
