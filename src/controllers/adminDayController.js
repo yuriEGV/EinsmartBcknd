@@ -9,7 +9,7 @@ class AdminDayController {
             await connectDB();
             const { date, type, reason } = req.body;
             const tenantId = req.user.tenantId;
-            const userId = req.user._id;
+            const userId = req.user.userId;
 
             // Check if user has days left
             const user = await User.findById(userId);
@@ -55,7 +55,7 @@ class AdminDayController {
         try {
             await connectDB();
             const requests = await AdminDay.find({
-                userId: req.user._id,
+                userId: req.user.userId,
                 tenantId: req.user.tenantId
             }).populate('userId', 'name role').sort({ date: -1 });
 
@@ -90,7 +90,7 @@ class AdminDayController {
                 {
                     status,
                     rejectionReason,
-                    reviewedBy: req.user._id,
+                    reviewedBy: req.user.userId,
                     reviewDate: new Date()
                 },
                 { new: true }
@@ -119,7 +119,7 @@ class AdminDayController {
     static async getStats(req, res) {
         try {
             await connectDB();
-            const userId = req.query.userId || req.user._id;
+            const userId = req.query.userId || req.user.userId;
             const tenantId = req.user.tenantId;
 
             const user = await User.findById(userId);
