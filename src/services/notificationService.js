@@ -3,6 +3,7 @@ import Estudiante from '../models/estudianteModel.js';
 import UserNotification from '../models/userNotificationModel.js';
 import User from '../models/userModel.js';
 import { sendMail } from '../../emailService.js';
+import Enrollment from '../models/enrollmentModel.js';
 
 class NotificationService {
     /**
@@ -191,6 +192,49 @@ class NotificationService {
             }
         } catch (error) {
             console.error('❌ Error broadcasting to admins:', error);
+        }
+    }
+
+    /**
+     * Notify students of a new assessment/evaluation in their course
+     */
+    static async notifyCourseAssessment(courseId, assessmentTitle, date, tenantId) {
+        try {
+            // 1. Find all confirmed students in the course
+            const enrollments = await Enrollment.find({
+                courseId,
+                tenantId,
+                status: 'confirmada'
+            }).select('estudianteId');
+
+            if (enrollments.length === 0) return;
+
+            const studentIds = enrollments.map(e => e.estudianteId);
+
+            // 2. Find User accounts for these students
+            const studentUsers = await User.find({
+                role: 'student',
+                profileId: { $in: studentIds },
+                tenantId
+            });
+
+            if (studentUsers.length === 0) return;
+
+            // 3. Create Notifications
+            const notifications = studentUsers.map(user => ({
+                tenantId,
+                userId: user._id,
+                title: 'Nueva Evaluación Programada',
+                message: `Se ha programado una nueva evaluación: "${assessmentTitle}" para el día ${new Date(date).toLocaleDateString()}. Revisa tu calendario.`,
+                type: 'system',
+                link: '/evaluations'
+            }));
+
+            await UserNotification.insertMany(notifications);
+            console.log(`✅ Notified ${notifications.length} students about assessment: ${assessmentTitle}`);
+
+        } catch (error) {
+            console.error('❌ Error in notifyCourseAssessment:', error);
         }
     }
 }
