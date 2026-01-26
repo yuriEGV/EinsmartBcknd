@@ -86,12 +86,18 @@ const getEstudiantes = async (req, res) => {
         status: { $in: ['confirmada', 'activo', 'activa'] }
       }).select('estudianteId');
 
-      const enrolledStudentIds = enrollments.map(e => e.estudianteId);
+      const enrolledStudentIds = enrollments.map(e => e.estudianteId.toString());
       console.log('GET ESTUDIANTES - Course filter:', req.query.cursoId, 'Found:', enrolledStudentIds.length, 'enrolled');
 
-      if (query._id) {
-        // Intersection if both filters exist
-        if (Array.isArray(enrolledStudentIds) && !enrolledStudentIds.map(id => id.toString()).includes(query._id.toString())) {
+      if (query._id && query._id.$in) {
+        // Teacher case: query._id is already { $in: [allowedIds] }
+        const allowedIds = query._id.$in.map(id => id.toString());
+        const filteredIds = enrolledStudentIds.filter(id => allowedIds.includes(id));
+        query._id = { $in: filteredIds };
+        console.log(`GET ESTUDIANTES - Teacher + Course filter: intersection found ${filteredIds.length} students`);
+      } else if (query._id) {
+        // Single student case (student/apoderado)
+        if (!enrolledStudentIds.includes(query._id.toString())) {
           console.log('GET ESTUDIANTES - Student not enrolled in course, returning empty');
           return res.status(200).json([]);
         }
