@@ -1,5 +1,6 @@
 import Estudiante from '../models/estudianteModel.js';
 import connectDB from '../config/db.js';
+import mongoose from 'mongoose';
 
 const createEstudiante = async (req, res) => {
   try {
@@ -26,7 +27,8 @@ const getEstudiantes = async (req, res) => {
     const query = {};
 
     if (req.user.role !== 'admin') {
-      query.tenantId = req.user.tenantId;
+      // Aggregation does not auto-cast string to ObjectId, so we must do it manually
+      query.tenantId = new mongoose.Types.ObjectId(req.user.tenantId);
     }
 
     // RESTRICTIVE FILTERS: Apply ONLY to student/apoderado roles

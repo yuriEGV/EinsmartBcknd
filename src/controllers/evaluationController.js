@@ -1,4 +1,5 @@
 import Evaluation from '../models/evaluationModel.js';
+import NotificationService from '../services/notificationService.js';
 
 class EvaluationController {
     // Create a new evaluation
@@ -10,6 +11,15 @@ class EvaluationController {
             });
             await evaluation.save();
             await evaluation.populate('courseId', 'name code');
+
+            // Notify Students
+            NotificationService.notifyCourseAssessment(
+                evaluation.courseId._id,
+                evaluation.title,
+                evaluation.date, // Assuming date is passed in body
+                evaluation.tenantId
+            );
+
             res.status(201).json(evaluation);
         } catch (error) {
             res.status(400).json({ message: error.message });
