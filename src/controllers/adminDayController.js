@@ -57,7 +57,7 @@ class AdminDayController {
             const requests = await AdminDay.find({
                 userId: req.user._id,
                 tenantId: req.user.tenantId
-            }).sort({ date: -1 });
+            }).populate('userId', 'name role').sort({ date: -1 });
 
             res.json(requests);
         } catch (error) {
