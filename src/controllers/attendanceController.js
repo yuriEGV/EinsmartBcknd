@@ -112,9 +112,21 @@ class AttendanceController {
                 return res.status(200).json([]);
             }
 
-            // Allow filtering by date and student
+            // Allow filtering by date, student and COURSE
             if (req.query.fecha) {
                 query.fecha = new Date(req.query.fecha);
+            }
+            if (req.query.cursoId || req.query.courseId) {
+                const cId = req.query.cursoId || req.query.courseId;
+                const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+                const enrollments = await Enrollment.find({
+                    courseId: cId,
+                    tenantId: req.user.tenantId,
+                    status: { $in: ['confirmada', 'activo', 'activa'] }
+                }).select('estudianteId');
+
+                const studentIds = enrollments.map(e => e.estudianteId);
+                query.estudianteId = { $in: studentIds };
             }
             if (req.query.estudianteId && req.user.role !== 'student' && req.user.role !== 'apoderado') {
                 query.estudianteId = req.query.estudianteId;
