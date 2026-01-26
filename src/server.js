@@ -13,6 +13,8 @@ import authMiddleware from './middleware/authMiddleware.js';
 import payrollRoutes from './routes/payrollRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import adminDayRoutes from './routes/adminDayRoutes.js';
+import userNotificationRoutes from './routes/userNotificationRoutes.js';
 
 // Import models for setup route
 import User from './models/userModel.js';
@@ -112,6 +114,8 @@ app.use('/api', apiRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/admin-days', adminDayRoutes);
+app.use('/api/user-notifications', userNotificationRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {
