@@ -52,11 +52,24 @@ export default class CourseController {
                 ? { tenantId: req.query.tenantId }
                 : (req.user.role === 'admin' ? {} : { tenantId: req.user.tenantId });
 
-            const courses = await Course.find(query)
+            const allCourses = await Course.find(query)
                 .populate('teacherId', 'name email')
                 .sort({ createdAt: -1 });
 
-            return res.status(200).json(courses);
+            // Deduplicate courses by name - keep only the most recent one for each name
+            const uniqueCourses = [];
+            const seenNames = new Set();
+
+            for (const course of allCourses) {
+                const normalizedName = course.name.trim().toLowerCase();
+                if (!seenNames.has(normalizedName)) {
+                    seenNames.add(normalizedName);
+                    uniqueCourses.push(course);
+                }
+            }
+
+            console.log(`COURSES: Found ${allCourses.length} total, returning ${uniqueCourses.length} unique`);
+            return res.status(200).json(uniqueCourses);
 
         } catch (error) {
             console.error('Error getCourses:', error);

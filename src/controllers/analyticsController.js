@@ -380,11 +380,13 @@ class AnalyticsController {
             await connectDB();
             const tenantId = new mongoose.Types.ObjectId(req.user.tenantId);
 
+            console.log('DEBTOR RANKING - Fetching for tenant:', tenantId);
+
             const ranking = await Payment.aggregate([
                 {
                     $match: {
                         tenantId,
-                        status: { $in: ['vencido', 'pendiente'] } // Include pending as potentially owed? Or just overdue? User said "morosos", implies overdue. Let's stick to overdue mainly, or both separated. User "debe mas dinero". Total debt.
+                        status: { $in: ['pending', 'rejected'] } // Pending = unpaid debts, rejected = failed payments
                     }
                 },
                 {
@@ -392,12 +394,12 @@ class AnalyticsController {
                         _id: '$estudianteId',
                         totalDebt: { $sum: '$amount' },
                         overdueCount: {
-                            $sum: { $cond: [{ $eq: ['$status', 'vencido'] }, 1, 0] }
+                            $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] }
                         },
                         pendingCount: {
-                            $sum: { $cond: [{ $eq: ['$status', 'pendiente'] }, 1, 0] }
+                            $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] }
                         },
-                        lastPaymentDate: { $max: '$createdAt' } // Or due date?
+                        lastPaymentDate: { $max: '$createdAt' }
                     }
                 },
                 {
@@ -411,28 +413,48 @@ class AnalyticsController {
                 { $unwind: '$student' },
                 {
                     $lookup: {
-                        from: 'apoderados', // Assuming Apoderado is linked to Student or Payment? Payment has apoderadoId too but grouping by student is safer for total debt per student
-                        localField: 'student._id', // We need to find the guardian of this student
-                        foreignField: 'estudianteId', // This assumes 1:1 or we pick the 'principal' one
+                        from: 'apoderados',
+                        localField: 'student._id',
+                        foreignField: 'estudianteId',
                         as: 'guardians'
                     }
                 },
-                // We might have multiple guardians. Let's just take the first one or filter for principal.
                 {
                     $addFields: {
                         guardianName: {
-                            $let: {
-                                vars: { principal: { $arrayElemAt: [{ $filter: { input: '$guardians', as: 'g', cond: { $eq: ['$$g.tipo', 'principal'] } } }, 0] } },
-                                in: { $concat: ['$$principal.nombre', ' ', '$$principal.apellidos'] }
+                            $cond: {
+                                if: { $gt: [{ $size: '$guardians' }, 0] },
+                                then: {
+                                    $let: {
+                                        vars: {
+                                            principal: {
+                                                $arrayElemAt: [
+                                                    { $filter: { input: '$guardians', as: 'g', cond: { $eq: ['$$g.tipo', 'principal'] } } },
+                                                    0
+                                                ]
+                                            },
+                                            anyGuardian: { $arrayElemAt: ['$guardians', 0] }
+                                        },
+                                        in: {
+                                            $cond: {
+                                                if: { $ne: ['$$principal', null] },
+                                                then: { $concat: ['$$principal.nombre', ' ', '$$principal.apellidos'] },
+                                                else: { $concat: ['$$anyGuardian.nombre', ' ', '$$anyGuardian.apellidos'] }
+                                            }
+                                        }
+                                    }
+                                },
+                                else: 'Sin Apoderado'
                             }
                         },
                         studentName: { $concat: ['$student.nombres', ' ', '$student.apellidos'] }
                     }
                 },
-                { $sort: { totalDebt: -1 } }, // Highest debt first
+                { $sort: { totalDebt: -1 } },
                 { $limit: 50 }
             ]);
 
+            console.log('DEBTOR RANKING - Found', ranking.length, 'debtors');
             return res.status(200).json(ranking);
         } catch (error) {
             console.error('Debtor Ranking Error:', error);

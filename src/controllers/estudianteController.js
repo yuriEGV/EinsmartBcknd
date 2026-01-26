@@ -125,19 +125,27 @@ const getEstudianteById = async (req, res) => {
 const updateEstudiante = async (req, res) => {
   try {
     await connectDB();
+    console.log('UPDATE ESTUDIANTE - Params ID:', req.params.id);
+    console.log('UPDATE ESTUDIANTE - Request Body:', JSON.stringify(req.body));
+    console.log('UPDATE ESTUDIANTE - User TenantId:', req.user.tenantId);
+
     const { _id, guardian, tenantId, ...updateData } = req.body;
 
     const estudiante = await Estudiante.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.user.tenantId },
       updateData,
-      { new: true }
+      { new: true, runValidators: true }
     );
 
-    if (!estudiante)
+    if (!estudiante) {
+      console.log('UPDATE ESTUDIANTE - Not found or wrong tenant');
       return res.status(404).json({ message: 'Estudiante no encontrado' });
+    }
 
+    console.log('UPDATE ESTUDIANTE - Success:', estudiante._id);
     res.status(200).json(estudiante);
   } catch (error) {
+    console.error('UPDATE ESTUDIANTE - Error:', error.message);
     res.status(400).json({ message: error.message });
   }
 };
