@@ -141,8 +141,22 @@ class AttendanceController {
             // Filter by date range
             if (startDate || endDate) {
                 matchStage.fecha = {};
-                if (startDate) matchStage.fecha.$gte = new Date(startDate);
-                if (endDate) matchStage.fecha.$lte = new Date(endDate);
+                if (startDate) {
+                    // Force start of day in local time -> UTC could be previous day
+                    const start = new Date(startDate);
+                    start.setHours(0, 0, 0, 0);
+                    // Subtract 4 hours to handle UTC offset (Chile is UTC-3/UTC-4) where stored date might be midnight UTC
+                    // But if stored as UTC midnight (e.g. 2026-01-22T00:00:00Z), then simple new Date('2026-01-22') works.
+                    // However, if searching for Jan 22 and record is Jan 24 (mis-saved) we can't fix that.
+                    // But assuming data IS there but possibly shifted:
+                    // Let's ensure we encompass the whole day in UTC.
+                    matchStage.fecha.$gte = start;
+                }
+                if (endDate) {
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    matchStage.fecha.$lte = end;
+                }
             }
 
             // Note: courseId filtering requires looking up students first or using aggregate lookup.
