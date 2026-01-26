@@ -237,6 +237,69 @@ class NotificationService {
             console.error('❌ Error in notifyCourseAssessment:', error);
         }
     }
+
+    /**
+     * Send weekly performance report to Sostenedor
+     */
+    static async notifyWeeklyPerformance(tenantId, performanceData) {
+        try {
+            const sostenedores = await User.find({ tenantId, role: 'sostenedor' });
+            if (sostenedores.length === 0) return;
+
+            const tableRows = performanceData.map(p => `
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #eee;">${p._id.teacherName}</td>
+                    <td style="padding: 10px; border: 1px solid #eee;">${p._id.courseName} - ${p._id.subjectName}</td>
+                    <td style="padding: 10px; border: 1px solid #eee; text-align: center;">${p.classesCount}</td>
+                    <td style="padding: 10px; border: 1px solid #eee; text-align: right; color: #11355a; font-weight: bold;">${p.totalMinutes} min</td>
+                </tr>
+            `).join('');
+
+            const html = `
+                <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #444; max-width: 650px; margin: auto;">
+                    <div style="background: linear-gradient(135deg, #11355a 0%, #1e4d8c 100%); padding: 40px; border-radius: 20px 20px 0 0; text-align: center; color: white;">
+                        <h1 style="margin: 0; font-size: 24px;">Reporte de Performance Semanal</h1>
+                        <p style="opacity: 0.8; margin-top: 10px;">Control de Carga Académica y Rendimiento</p>
+                    </div>
+                    <div style="padding: 40px; background: white; border: 1px solid #f0f0f0; border-radius: 0 0 20px 20px;">
+                        <p>Estimado Sostenedor,</p>
+                        <p>Se ha generado el resumen de actividad pedagógica de la última semana. A continuación se detallan los tiempos de instrucción registrados mediante firma digital:</p>
+                        
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 25px;">
+                            <thead>
+                                <tr style="background-color: #f8fafc; color: #64748b; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <th style="padding: 15px; border: 1px solid #eee; text-align: left;">Docente</th>
+                                    <th style="padding: 15px; border: 1px solid #eee; text-align: left;">Asignatura</th>
+                                    <th style="padding: 15px; border: 1px solid #eee; text-align: center;">Clases</th>
+                                    <th style="padding: 15px; border: 1px solid #eee; text-align: right;">Total Tiempo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRows}
+                            </tbody>
+                        </table>
+                        
+                        <div style="margin-top: 40px; padding: 20px; background-color: #f0f9ff; border-radius: 15px; border: 1px solid #e0f2fe; font-size: 13px; color: #0369a1;">
+                            <strong>Nota:</strong> Los tiempos se calculan desde el inicio de la clase mediante el cronómetro hasta el momento de la firma digital del libro leccionario.
+                        </div>
+                        
+                        <p style="margin-top: 40px; text-align: center; font-size: 11px; color: #999;">
+                            Maritimo 4.0 - Plataforma de Gestión Educativa de Alto Rendimiento
+                        </p>
+                    </div>
+                </div>
+            `;
+
+            for (const sostenedor of sostenedores) {
+                if (sostenedor.email) {
+                    await sendMail(sostenedor.email, '📊 Reporte de Performance Académica Semanal', html);
+                }
+            }
+            console.log(`✅ Weekly performance report sent to ${sostenedores.length} Sostenedores`);
+        } catch (error) {
+            console.error('❌ Error in notifyWeeklyPerformance:', error);
+        }
+    }
 }
 
 export default NotificationService;

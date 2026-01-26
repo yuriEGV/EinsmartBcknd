@@ -47,6 +47,13 @@ const classLogSchema = new mongoose.Schema({
     digitalSignaturePin: {
         type: String,
         select: false // Only for verification
+    },
+    startTime: {
+        type: Date
+    },
+    duration: {
+        type: Number, // in minutes
+        default: 0
     }
 }, { timestamps: true });
 

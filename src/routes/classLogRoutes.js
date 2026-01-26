@@ -7,6 +7,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 router.post('/', ClassLogController.create);
+router.post('/start', ClassLogController.startClass);
 router.get('/', ClassLogController.list);
 router.post('/:id/sign', ClassLogController.sign);
 router.delete('/:id', ClassLogController.delete);
