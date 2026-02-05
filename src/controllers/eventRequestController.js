@@ -5,6 +5,9 @@ import connectDB from '../config/db.js';
 class EventRequestController {
     static async createRequest(req, res) {
         try {
+            if (req.user.role === 'student') {
+                return res.status(403).json({ message: 'Los alumnos no pueden proponer eventos.' });
+            }
             await connectDB();
             const { title, description, date, location } = req.body;
             const tenantId = req.user.tenantId;

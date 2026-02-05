@@ -3,6 +3,9 @@ import Event from '../models/eventModel.js';
 class EventController {
     static async createEvent(req, res) {
         try {
+            if (req.user.role === 'student') {
+                return res.status(403).json({ message: 'Los alumnos no pueden crear eventos.' });
+            }
             const event = new Event({
                 ...req.body,
                 creadoPor: req.user.userId,
@@ -31,6 +34,9 @@ class EventController {
 
     static async deleteEvent(req, res) {
         try {
+            if (req.user.role === 'student') {
+                return res.status(403).json({ message: 'No tienes permisos para eliminar eventos.' });
+            }
             const event = await Event.findOneAndDelete({
                 _id: req.params.id,
                 tenantId: req.user.tenantId
