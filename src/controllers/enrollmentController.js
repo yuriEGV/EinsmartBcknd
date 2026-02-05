@@ -60,10 +60,12 @@ class EnrollmentController {
                     if (newStudent.grado) existingStudent.grado = newStudent.grado;
                     if (newStudent.email) existingStudent.email = newStudent.email.toLowerCase().trim();
                     if (newStudent.edad) existingStudent.edad = newStudent.edad;
+                    if (newStudent.direccion) existingStudent.direccion = newStudent.direccion;
                     await existingStudent.save();
                 } else {
                     const std = new Estudiante({
                         ...newStudent,
+                        direccion: newStudent.direccion,
                         tenantId
                     });
                     await std.save();

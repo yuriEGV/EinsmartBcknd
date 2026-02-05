@@ -21,6 +21,11 @@ const apoderadoSchema = new mongoose.Schema({
         required: [true, 'Los apellidos son obligatorios'],
         trim: true
     },
+    rut: {
+        type: String,
+        trim: true,
+        match: [/^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/, 'Formato de RUT inválido (ej: 12.345.678-9)']
+    },
     direccion: {
         type: String,
         trim: true,

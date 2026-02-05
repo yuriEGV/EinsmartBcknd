@@ -36,6 +36,11 @@ export default class SubjectController {
             if (req.query.courseId) query.courseId = req.query.courseId;
             if (req.query.teacherId) query.teacherId = req.query.teacherId;
 
+            // [STRICT ISOLATION] Teachers only see their own subjects
+            if (req.user.role === 'teacher') {
+                query.teacherId = req.user.userId;
+            }
+
             const subjects = await Subject.find(query)
                 .populate('courseId', 'name')
                 .populate('teacherId', 'name email')
@@ -51,13 +56,19 @@ export default class SubjectController {
     static async updateSubject(req, res) {
         try {
             const { id } = req.params;
-            const updated = await Subject.findOneAndUpdate(
-                { _id: id, tenantId: req.user.tenantId },
+            const subject = await Subject.findOne({ _id: id, tenantId: req.user.tenantId });
+            if (!subject) return res.status(404).json({ message: 'Asignatura no encontrada' });
+
+            // [STRICT ISOLATION] Only assigned teacher or admin can update
+            if (req.user.role === 'teacher' && subject.teacherId.toString() !== req.user.userId) {
+                return res.status(403).json({ message: 'Acceso denegado: no eres el profesor asignado a esta asignatura' });
+            }
+
+            const updated = await Subject.findByIdAndUpdate(
+                id,
                 req.body,
                 { new: true }
             );
-
-            if (!updated) return res.status(404).json({ message: 'Asignatura no encontrada' });
 
             return res.json(updated);
         } catch (error) {
@@ -69,12 +80,15 @@ export default class SubjectController {
     static async deleteSubject(req, res) {
         try {
             const { id } = req.params;
-            const deleted = await Subject.findOneAndDelete({
-                _id: id,
-                tenantId: req.user.tenantId
-            });
+            const subject = await Subject.findOne({ _id: id, tenantId: req.user.tenantId });
+            if (!subject) return res.status(404).json({ message: 'Asignatura no encontrada' });
 
-            if (!deleted) return res.status(404).json({ message: 'Asignatura no encontrada' });
+            // [STRICT ISOLATION] Only assigned teacher or admin can delete
+            if (req.user.role === 'teacher' && subject.teacherId.toString() !== req.user.userId) {
+                return res.status(403).json({ message: 'Acceso denegado: no eres el profesor asignado a esta asignatura' });
+            }
+
+            const deleted = await Subject.findByIdAndDelete(id);
 
             return res.status(204).send();
         } catch (error) {

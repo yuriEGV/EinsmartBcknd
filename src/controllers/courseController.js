@@ -78,6 +78,27 @@ export default class CourseController {
                     return res.status(200).json([]);
                 }
             }
+            else if (req.user.role === 'teacher') {
+                const Subject = await import('../models/subjectModel.js').then(m => m.default);
+                const teacherSubjects = await Subject.find({
+                    teacherId: req.user.userId,
+                    tenantId: req.user.tenantId
+                }).select('courseId');
+
+                // Also include courses where they are head teacher
+                const headCourses = await Course.find({
+                    teacherId: req.user.userId,
+                    tenantId: req.user.tenantId
+                }).select('_id');
+
+                const courseIds = [
+                    ...new Set([
+                        ...teacherSubjects.map(s => s.courseId.toString()),
+                        ...headCourses.map(c => c._id.toString())
+                    ])
+                ];
+                query._id = { $in: courseIds };
+            }
             else if (req.user.role === 'admin' && req.query.tenantId) {
                 query.tenantId = req.query.tenantId;
             }
