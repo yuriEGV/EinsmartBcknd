@@ -13,9 +13,9 @@ router.get('/', CourseController.getCourses);
 router.get('/tenant/:tenantId', CourseController.getCoursesByTenant);
 router.get('/:id', CourseController.getCourseById);
 
-// Restricted: Create/Update/Delete -> Admin, Sostenedor, Teacher
-router.post('/', authorizeRoles('admin', 'sostenedor', 'teacher'), CourseController.createCourse);
-router.put('/:id', authorizeRoles('admin', 'sostenedor', 'teacher'), CourseController.updateCourse);
-router.delete('/:id', authorizeRoles('admin', 'sostenedor', 'teacher'), CourseController.deleteCourse);
+// Restricted: Create/Update/Delete -> Admin, Sostenedor, Director, Teacher
+router.post('/', authorizeRoles('admin', 'sostenedor', 'director', 'teacher'), CourseController.createCourse);
+router.put('/:id', authorizeRoles('admin', 'sostenedor', 'director', 'teacher'), CourseController.updateCourse);
+router.delete('/:id', authorizeRoles('admin', 'sostenedor', 'director', 'teacher'), CourseController.deleteCourse);
 
 export default router;
