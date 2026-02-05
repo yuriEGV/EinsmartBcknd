@@ -1,6 +1,8 @@
 import Enrollment from '../models/enrollmentModel.js';
 import { saveStreamToFile } from '../services/storageService.js';
 import { Readable } from 'stream';
+import bcrypt from 'bcryptjs';
+import User from '../models/userModel.js';
 
 class EnrollmentController {
     // Create a new enrollment
@@ -14,6 +16,8 @@ class EnrollmentController {
                 status,
                 fee,
                 notes,
+                metodoPago,    // [NUEVO] Método de pago inicial
+                tariffIds,     // [NUEVO] Array de IDs de tarifas a asignar
                 newStudent,   // { nombres, apellidos, rut, email, grado, edad }
                 newGuardian   // { nombre, apellidos, correo, telefono, direccion, parentesco }
             } = req.body;
@@ -58,6 +62,24 @@ class EnrollmentController {
                     await std.save();
                     finalStudentId = std._id;
                 }
+
+                // [NUEVO] Crear Usuario para el Alumno si no existe
+                if (newStudent && newStudent.email) {
+                    let studentUser = await User.findOne({ email: newStudent.email.toLowerCase().trim() });
+                    if (!studentUser) {
+                        const passwordHash = await bcrypt.hash('123456', 10);
+                        studentUser = await User.create({
+                            tenantId,
+                            name: `${newStudent.nombres} ${newStudent.apellidos}`,
+                            email: newStudent.email.toLowerCase().trim(),
+                            rut: newStudent.rut,
+                            passwordHash,
+                            role: 'student',
+                            profileId: finalStudentId
+                        });
+                        console.log(`User account created for student: ${newStudent.email}`);
+                    }
+                }
             }
 
             // 2. Logic for New Guardian Creation (Upsert if student already has one)
@@ -88,6 +110,40 @@ class EnrollmentController {
                 }
 
                 finalGuardianId = apo._id;
+
+                // [NUEVO] Crear Usuario para el Apoderamiento si no existe
+                if (apo.correo || apo.rut) {
+                    const normalizedEmail = apo.correo ? apo.correo.toLowerCase().trim() : undefined;
+                    const query = normalizedEmail ? { email: normalizedEmail } : { rut: apo.rut };
+
+                    let userAccount = await User.findOne(query);
+                    if (!userAccount) {
+                        const passwordHash = await bcrypt.hash('123456', 10);
+                        userAccount = await User.create({
+                            tenantId,
+                            name: `${apo.nombre} ${apo.apellidos}`,
+                            email: normalizedEmail,
+                            rut: apo.rut,
+                            passwordHash,
+                            role: 'apoderado',
+                            profileId: apo._id
+                        });
+                        console.log(`User account created for guardian: ${normalizedEmail || apo.rut}`);
+                    } else if (!userAccount.profileId) {
+                        // Link existing user if not linked
+                        userAccount.profileId = apo._id;
+                        await userAccount.save();
+                    }
+                }
+            } else if (finalGuardianId && finalStudentId) {
+                // [NUEVO] Si se seleccionó un apoderado existente, asegurémonos de que el Estudiante 
+                // tenga este apoderado vinculado si aún no tiene uno principal.
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const apo = await Apoderado.findById(finalGuardianId);
+                if (apo && !apo.estudianteId) {
+                    apo.estudianteId = finalStudentId;
+                    await apo.save();
+                }
             }
 
             if (!finalStudentId || !courseId || !period) {
@@ -216,6 +272,34 @@ class EnrollmentController {
 
             await enrollment.save();
 
+            // [NUEVO] Generar cobros automáticos si se enviaron tariffIds
+            if (tariffIds && Array.isArray(tariffIds) && tariffIds.length > 0) {
+                const Tariff = await import('../models/tariffModel.js').then(m => m.default);
+                const Payment = await import('../models/paymentModel.js').then(m => m.default);
+
+                const selectedTariffs = await Tariff.find({ _id: { $in: tariffIds }, tenantId });
+
+                if (selectedTariffs.length > 0) {
+                    const paymentsToCreate = selectedTariffs.map(t => ({
+                        tenantId,
+                        estudianteId: finalStudentId,
+                        apoderadoId: finalGuardianId, // ✅ Corregido: Vincular apoderado al cobro
+                        tariffId: t._id,
+                        amount: t.amount,
+                        currency: t.currency || 'CLP',
+                        status: 'pending',
+                        metodoPago: metodoPago || 'transferencia', // ✅ Asignar método de pago
+                        concepto: t.name,
+                        fechaVencimiento: new Date() // O una fecha por defecto
+                    }));
+                    await Payment.insertMany(paymentsToCreate);
+
+                    // [NUEVO] Sincronizar estado financiero del apoderado
+                    const ApoderadoModel = await import('../models/apoderadoModel.js').then(m => m.default);
+                    await ApoderadoModel.syncFinancialStatus(finalGuardianId);
+                }
+            }
+
             await enrollment.populate('estudianteId', 'nombres apellidos');
             await enrollment.populate('courseId', 'name code');
             await enrollment.populate('apoderadoId', 'nombre apellidos');
@@ -251,7 +335,7 @@ class EnrollmentController {
             }
 
             const enrollments = await Enrollment.find(query)
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -267,7 +351,7 @@ class EnrollmentController {
                 estudianteId: req.params.studentId || req.params.estudianteId,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -283,7 +367,7 @@ class EnrollmentController {
                 courseId: req.params.courseId,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -301,7 +385,7 @@ class EnrollmentController {
             }
 
             const enrollments = await Enrollment.find({ tenantId: targetTenant })
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -317,7 +401,7 @@ class EnrollmentController {
                 period: req.params.period,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             res.status(200).json(enrollments);
@@ -333,7 +417,7 @@ class EnrollmentController {
                 _id: req.params.id,
                 tenantId: req.user.tenantId
             })
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             if (!enrollment) {
@@ -353,7 +437,7 @@ class EnrollmentController {
                 req.body,
                 { new: true }
             )
-                .populate('estudianteId', 'nombres apellidos')
+                .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
             if (!enrollment) {

@@ -1,5 +1,6 @@
 // controllers/courseController.js
 import Course from '../models/courseModel.js';
+import connectDB from '../config/db.js';
 
 export default class CourseController {
     static async createCourse(req, res) {
@@ -26,7 +27,7 @@ export default class CourseController {
 
             // Crear curso asociado al tenant
             const course = await Course.create({
-                name,
+                name: name.trim(),
                 description,
                 teacherId,
                 tenantId: req.user.tenantId
@@ -46,15 +47,29 @@ export default class CourseController {
 
     static async getCourses(req, res) {
         try {
+            await connectDB();
             const query = (req.user.role === 'admin' && req.query.tenantId)
                 ? { tenantId: req.query.tenantId }
                 : (req.user.role === 'admin' ? {} : { tenantId: req.user.tenantId });
 
-            const courses = await Course.find(query)
+            const allCourses = await Course.find(query)
                 .populate('teacherId', 'name email')
                 .sort({ createdAt: -1 });
 
-            return res.status(200).json(courses);
+            // Deduplicate courses by name - keep only the most recent one for each name
+            const uniqueCourses = [];
+            const seenNames = new Set();
+
+            for (const course of allCourses) {
+                const normalizedName = course.name.trim().toLowerCase();
+                if (!seenNames.has(normalizedName)) {
+                    seenNames.add(normalizedName);
+                    uniqueCourses.push(course);
+                }
+            }
+
+            console.log(`COURSES: Found ${allCourses.length} total, returning ${uniqueCourses.length} unique`);
+            return res.status(200).json(uniqueCourses);
 
         } catch (error) {
             console.error('Error getCourses:', error);
@@ -91,6 +106,7 @@ export default class CourseController {
 
     static async getCourseById(req, res) {
         try {
+            await connectDB();
             const { id } = req.params;
 
             const course = await Course.findOne({
@@ -117,12 +133,13 @@ export default class CourseController {
 
     static async updateCourse(req, res) {
         try {
+            await connectDB();
             const { id } = req.params;
             const { name, description, teacherId } = req.body;
 
             const course = await Course.findOneAndUpdate(
                 { _id: id, tenantId: req.user.tenantId },
-                { name, description, teacherId },
+                { name: name ? name.trim() : undefined, description, teacherId },
                 { new: true, runValidators: true }
             ).populate('teacherId', 'name email');
 
@@ -145,6 +162,7 @@ export default class CourseController {
 
     static async deleteCourse(req, res) {
         try {
+            await connectDB();
             const { id } = req.params;
 
             const course = await Course.findOneAndDelete({

@@ -7,11 +7,13 @@ import { sendEmail } from '../utils/emailService.js';
 import User from '../models/userModel.js';
 import Apoderado from '../models/apoderadoModel.js';
 import Estudiante from '../models/estudianteModel.js';
+import connectDB from '../config/db.js';
 
 class PaymentController {
 
   static async createPayment(req, res) {
     try {
+      await connectDB();
       const { estudianteId, apoderadoId, tariffId, provider, metadata } = req.body;
       const tenantId = req.user.tenantId;
 
@@ -77,6 +79,7 @@ class PaymentController {
   // Webhook or Update Payment Status (Approved)
   static async updatePaymentStatus(req, res) {
     try {
+      await connectDB();
       const { id } = req.params;
       const { status, verificationNote } = req.body; // 'pagado', 'rechazado'
       const tenantId = req.user.tenantId;
@@ -98,9 +101,12 @@ class PaymentController {
         if (apoderado?.email) {
           await sendEmail(apoderado.email, `Pago Aprobado - ${student?.nombres}`, `<p>Su pago de $${payment.amount} ha sido verificado y aprobado.</p>`);
         }
-        for (const u of financeUsers) {
-          await sendEmail(u.email, `[ALERTA] Pago Online/Verificado - ${student?.nombres}`, `<p>Pago de $${payment.amount} aprobado.</p>`);
-        }
+      }
+
+      // [NUEVO] Sincronizar estado financiero del apoderado
+      if (payment.apoderadoId) {
+        const ApoderadoModel = await import('../models/apoderadoModel.js').then(m => m.default);
+        await ApoderadoModel.syncFinancialStatus(payment.apoderadoId);
       }
 
       res.json(payment);
@@ -111,6 +117,7 @@ class PaymentController {
 
   static async listPayments(req, res) {
     try {
+      await connectDB();
       const query = (req.user.role === 'admin')
         ? {}
         : { tenantId: req.user.tenantId };
@@ -139,6 +146,7 @@ class PaymentController {
   }
 
   static async getPaymentById(req, res) {
+    await connectDB();
     const payment = await Payment.findOne({
       _id: req.params.id,
       tenantId: req.user.tenantId
@@ -153,6 +161,7 @@ class PaymentController {
 
   static async assignBulkTariff(req, res) {
     try {
+      await connectDB();
       const { courseId, tariffId, studentIds, dueDate, metadata } = req.body;
       const tenantId = req.user.tenantId;
 
@@ -174,7 +183,7 @@ class PaymentController {
         const enrollments = await Enrollment.find({
           courseId,
           tenantId,
-          status: 'confirmada'
+          status: { $in: ['confirmada', 'activo', 'activa'] }
         }).select('estudianteId');
 
         const courseStudentIds = enrollments.map(e => e.estudianteId.toString());
@@ -212,6 +221,7 @@ class PaymentController {
 
   static async getDebtStats(req, res) {
     try {
+      await connectDB();
       const { courseId } = req.query;
       const tenantId = req.user.tenantId;
 

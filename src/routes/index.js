@@ -25,6 +25,11 @@ import messageRoutes from './messageRoutes.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 import curriculumMaterialsRoutes from './curriculumMaterialsRoutes.js';
 import expenseRoutes from './expenseRoutes.js';
+import objectiveRoutes from './objectiveRoutes.js';
+import classLogRoutes from './classLogRoutes.js';
+import questionRoutes from './questionRoutes.js';
+import adminDayRoutes from './adminDayRoutes.js';
+import userNotificationRoutes from './userNotificationRoutes.js';
 
 const router = express.Router();
 
@@ -74,5 +79,10 @@ router.use('/analytics', analyticsRoutes);
 router.use('/messages', messageRoutes);
 router.use('/curriculum-materials', curriculumMaterialsRoutes);
 router.use('/expenses', expenseRoutes);
+router.use('/objectives', objectiveRoutes);
+router.use('/class-logs', classLogRoutes);
+router.use('/questions', questionRoutes);
+router.use('/admin-days', adminDayRoutes);
+router.use('/user-notifications', userNotificationRoutes);
 
 export default router;

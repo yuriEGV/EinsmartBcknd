@@ -61,9 +61,25 @@ class AnalyticsController {
                     }
                 },
                 {
+                    $lookup: {
+                        from: 'apoderados',
+                        localField: '_id.studentId',
+                        foreignField: 'estudianteId',
+                        as: 'guardian'
+                    }
+                },
+                {
                     $group: {
                         _id: '$_id.studentId',
                         studentName: { $first: '$studentName' },
+                        guardianName: {
+                            $first: {
+                                $let: {
+                                    vars: { g: { $arrayElemAt: ['$guardian', 0] } },
+                                    in: { $concat: ['$$g.nombres', ' ', '$$g.apellidos'] }
+                                }
+                            }
+                        },
                         subjectAverages: {
                             $push: {
                                 subject: '$subject',
@@ -133,6 +149,24 @@ class AnalyticsController {
                         grado: { $first: '$student.grado' },
                         overallAverage: { $avg: '$score' },
                         totalGrades: { $sum: 1 }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'apoderados',
+                        localField: '_id',
+                        foreignField: 'estudianteId',
+                        as: 'guardian'
+                    }
+                },
+                {
+                    $addFields: {
+                        guardianName: {
+                            $let: {
+                                vars: { g: { $arrayElemAt: ['$guardian', 0] } },
+                                in: { $concat: ['$$g.nombres', ' ', '$$g.apellidos'] }
+                            }
+                        }
                     }
                 },
                 { $sort: { overallAverage: -1 } },
@@ -346,11 +380,13 @@ class AnalyticsController {
             await connectDB();
             const tenantId = new mongoose.Types.ObjectId(req.user.tenantId);
 
+            console.log('DEBTOR RANKING - Fetching for tenant:', tenantId);
+
             const ranking = await Payment.aggregate([
                 {
                     $match: {
                         tenantId,
-                        status: { $in: ['vencido', 'pendiente'] } // Include pending as potentially owed? Or just overdue? User said "morosos", implies overdue. Let's stick to overdue mainly, or both separated. User "debe mas dinero". Total debt.
+                        status: { $in: ['pending', 'rejected'] } // Pending = unpaid debts, rejected = failed payments
                     }
                 },
                 {
@@ -358,12 +394,12 @@ class AnalyticsController {
                         _id: '$estudianteId',
                         totalDebt: { $sum: '$amount' },
                         overdueCount: {
-                            $sum: { $cond: [{ $eq: ['$status', 'vencido'] }, 1, 0] }
+                            $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] }
                         },
                         pendingCount: {
-                            $sum: { $cond: [{ $eq: ['$status', 'pendiente'] }, 1, 0] }
+                            $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] }
                         },
-                        lastPaymentDate: { $max: '$createdAt' } // Or due date?
+                        lastPaymentDate: { $max: '$createdAt' }
                     }
                 },
                 {
@@ -377,31 +413,88 @@ class AnalyticsController {
                 { $unwind: '$student' },
                 {
                     $lookup: {
-                        from: 'apoderados', // Assuming Apoderado is linked to Student or Payment? Payment has apoderadoId too but grouping by student is safer for total debt per student
-                        localField: 'student._id', // We need to find the guardian of this student
-                        foreignField: 'estudianteId', // This assumes 1:1 or we pick the 'principal' one
+                        from: 'apoderados',
+                        localField: 'student._id',
+                        foreignField: 'estudianteId',
                         as: 'guardians'
                     }
                 },
-                // We might have multiple guardians. Let's just take the first one or filter for principal.
                 {
                     $addFields: {
                         guardianName: {
-                            $let: {
-                                vars: { principal: { $arrayElemAt: [{ $filter: { input: '$guardians', as: 'g', cond: { $eq: ['$$g.tipo', 'principal'] } } }, 0] } },
-                                in: { $concat: ['$$principal.nombre', ' ', '$$principal.apellidos'] }
+                            $cond: {
+                                if: { $gt: [{ $size: '$guardians' }, 0] },
+                                then: {
+                                    $let: {
+                                        vars: {
+                                            principal: {
+                                                $arrayElemAt: [
+                                                    { $filter: { input: '$guardians', as: 'g', cond: { $eq: ['$$g.tipo', 'principal'] } } },
+                                                    0
+                                                ]
+                                            },
+                                            anyGuardian: { $arrayElemAt: ['$guardians', 0] }
+                                        },
+                                        in: {
+                                            $cond: {
+                                                if: { $ne: ['$$principal', null] },
+                                                then: { $concat: ['$$principal.nombre', ' ', '$$principal.apellidos'] },
+                                                else: { $concat: ['$$anyGuardian.nombre', ' ', '$$anyGuardian.apellidos'] }
+                                            }
+                                        }
+                                    }
+                                },
+                                else: 'Sin Apoderado'
                             }
                         },
                         studentName: { $concat: ['$student.nombres', ' ', '$student.apellidos'] }
                     }
                 },
-                { $sort: { totalDebt: -1 } }, // Highest debt first
+                { $sort: { totalDebt: -1 } },
                 { $limit: 50 }
             ]);
 
+            console.log('DEBTOR RANKING - Found', ranking.length, 'debtors');
             return res.status(200).json(ranking);
         } catch (error) {
             console.error('Debtor Ranking Error:', error);
+            return res.status(500).json({ message: error.message });
+        }
+    }
+
+    static async getPerformanceTrends(req, res) {
+        try {
+            await connectDB();
+            const tid = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
+            const tenantId = new mongoose.Types.ObjectId(tid);
+
+            // Group grades by month
+            const trends = await Grade.aggregate([
+                { $match: { tenantId } },
+                {
+                    $group: {
+                        _id: {
+                            month: { $month: '$createdAt' },
+                            year: { $year: '$createdAt' }
+                        },
+                        averageScore: { $avg: '$score' },
+                        count: { $sum: 1 }
+                    }
+                },
+                { $sort: { '_id.year': 1, '_id.month': 1 } }
+            ]);
+
+            // Format for charts: { month: 'Mar', average: 5.4 }
+            const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+            const formattedTrends = trends.map(t => ({
+                month: `${monthNames[t._id.month - 1]} ${t._id.year}`,
+                average: parseFloat(t.averageScore.toFixed(2)),
+                count: t.count
+            }));
+
+            return res.status(200).json(formattedTrends);
+        } catch (error) {
+            console.error('Trends Error:', error);
             return res.status(500).json({ message: error.message });
         }
     }

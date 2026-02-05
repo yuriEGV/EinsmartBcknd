@@ -25,4 +25,7 @@ router.get('/dashboard-stats', analyticsController.getDashboardStats);
 // Get debtor ranking
 router.get('/debtors', analyticsController.getDebtorRanking);
 
+// Get academic trends
+router.get('/performance-trends', analyticsController.getPerformanceTrends);
+
 export default router;

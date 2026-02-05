@@ -1,4 +1,5 @@
 import Attendance from '../models/attendanceModel.js';
+import mongoose from 'mongoose';
 
 class AttendanceController {
 
@@ -55,8 +56,8 @@ class AttendanceController {
             // [NUEVO] Solo procesar alumnos con matrícula confirmada
             const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
             const enrolledStudents = await Enrollment.find({
-                tenantId: req.user.tenantId,
-                status: 'confirmada'
+                tenantId: new mongoose.Types.ObjectId(req.user.tenantId),
+                status: { $in: ['confirmada', 'activo', 'activa'] }
             }).select('estudianteId');
 
             const enrolledIds = enrolledStudents.map(e => e.estudianteId.toString());
@@ -67,7 +68,7 @@ class AttendanceController {
                     updateOne: {
                         filter: {
                             estudianteId: s.estudianteId,
-                            fecha: new Date(fecha), // Normalizar fecha es importante (ignorando hora si es diario)
+                            fecha: new Date(new Date(fecha).setUTCHours(0, 0, 0, 0)), // Normalize to UTC midnight
                             tenantId: req.user.tenantId
                         },
                         update: {
@@ -111,9 +112,21 @@ class AttendanceController {
                 return res.status(200).json([]);
             }
 
-            // Allow filtering by date and student
+            // Allow filtering by date, student and COURSE
             if (req.query.fecha) {
                 query.fecha = new Date(req.query.fecha);
+            }
+            if (req.query.cursoId || req.query.courseId) {
+                const cId = req.query.cursoId || req.query.courseId;
+                const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+                const enrollments = await Enrollment.find({
+                    courseId: cId,
+                    tenantId: req.user.tenantId,
+                    status: { $in: ['confirmada', 'activo', 'activa'] }
+                }).select('estudianteId');
+
+                const studentIds = enrollments.map(e => e.estudianteId);
+                query.estudianteId = { $in: studentIds };
             }
             if (req.query.estudianteId && req.user.role !== 'student' && req.user.role !== 'apoderado') {
                 query.estudianteId = req.query.estudianteId;
@@ -135,14 +148,28 @@ class AttendanceController {
             const { courseId, startDate, endDate } = req.query;
             const tenantId = req.user.tenantId;
 
-            // Basic match stage
-            const matchStage = { tenantId: tenantId }; // Adjust for ObjectId if needed
+            // Basic match stage - Cast to ObjectId for aggregation!
+            const matchStage = { tenantId: new mongoose.Types.ObjectId(tenantId) };
 
             // Filter by date range
             if (startDate || endDate) {
                 matchStage.fecha = {};
-                if (startDate) matchStage.fecha.$gte = new Date(startDate);
-                if (endDate) matchStage.fecha.$lte = new Date(endDate);
+                if (startDate) {
+                    // Force start of day in local time -> UTC could be previous day
+                    const start = new Date(startDate);
+                    start.setHours(0, 0, 0, 0);
+                    // Subtract 4 hours to handle UTC offset (Chile is UTC-3/UTC-4) where stored date might be midnight UTC
+                    // But if stored as UTC midnight (e.g. 2026-01-22T00:00:00Z), then simple new Date('2026-01-22') works.
+                    // However, if searching for Jan 22 and record is Jan 24 (mis-saved) we can't fix that.
+                    // But assuming data IS there but possibly shifted:
+                    // Let's ensure we encompass the whole day in UTC.
+                    matchStage.fecha.$gte = start;
+                }
+                if (endDate) {
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    matchStage.fecha.$lte = end;
+                }
             }
 
             // Note: courseId filtering requires looking up students first or using aggregate lookup.

@@ -1,4 +1,6 @@
+import mongoose from 'mongoose';
 import Report from '../models/reportModel.js';
+import NotificationService from '../services/notificationService.js';
 
 class ReportController {
     static async createReport(req, res) {
@@ -85,6 +87,76 @@ class ReportController {
             });
         } catch (error) {
             console.error('Student summary error:', error);
+            res.status(500).json({ message: error.message });
+        }
+    }
+
+    static async getWeeklyClassPerformance(req, res) {
+        try {
+            const tenantId = req.user.tenantId;
+            const ClassLog = await import('../models/classLogModel.js').then(m => m.default);
+
+            // Calculate 7 days ago
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+            const performance = await ClassLog.aggregate([
+                {
+                    $match: {
+                        tenantId: new mongoose.Types.ObjectId(tenantId),
+                        isSigned: true,
+                        signedAt: { $gte: sevenDaysAgo }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'teacherId',
+                        foreignField: '_id',
+                        as: 'teacher'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'courses',
+                        localField: 'courseId',
+                        foreignField: '_id',
+                        as: 'course'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'subjects',
+                        localField: 'subjectId',
+                        foreignField: '_id',
+                        as: 'subject'
+                    }
+                },
+                { $unwind: '$teacher' },
+                { $unwind: '$course' },
+                { $unwind: '$subject' },
+                {
+                    $group: {
+                        _id: {
+                            teacherId: '$teacherId',
+                            teacherName: '$teacher.name',
+                            courseName: '$course.name',
+                            subjectName: '$subject.name'
+                        },
+                        totalMinutes: { $sum: '$duration' },
+                        classesCount: { $sum: 1 },
+                        avgDuration: { $avg: '$duration' }
+                    }
+                },
+                { $sort: { '_id.teacherName': 1, totalMinutes: -1 } }
+            ]);
+
+            // Trigger notification to Sostenedors (automated weekly report)
+            await NotificationService.notifyWeeklyPerformance(tenantId, performance);
+
+            res.json(performance);
+        } catch (error) {
+            console.error('Weekly performance error:', error);
             res.status(500).json({ message: error.message });
         }
     }

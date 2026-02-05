@@ -14,7 +14,7 @@ router.get('/period/:period', enrollmentController.getEnrollmentsByPeriod);
 router.get('/:id', enrollmentController.getEnrollmentById);
 
 /* Restricted Routes: Admin, Sostenedor, Teacher */
-const STAFF_ROLES = ['admin', 'sostenedor', 'teacher'];
+const STAFF_ROLES = ['admin', 'sostenedor', 'director', 'teacher'];
 
 // Create
 router.post('/', authorizeRoles(...STAFF_ROLES), upload.array('documents'), enrollmentController.createEnrollment);

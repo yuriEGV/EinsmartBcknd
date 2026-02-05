@@ -25,9 +25,20 @@ const courseSchema = new mongoose.Schema({
     required: [true, 'El nombre del curso es obligatorio'],
     trim: true
   },
+  level: {
+    type: String, // e.g., "1° básico", "Pre-kinder", etc.
+    required: true,
+    trim: true
+  },
+  letter: {
+    type: String, // e.g., "A", "B", "C"
+    required: true,
+    uppercase: true,
+    trim: true
+  },
   code: {
     type: String,
-    default: function() {
+    default: function () {
       // Genera un código único tipo "COURSE-AB1234"
       const random = Math.random().toString(36).substring(2, 8).toUpperCase();
       return `COURSE-${random}`;

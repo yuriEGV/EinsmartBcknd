@@ -197,6 +197,7 @@ function sanitizeUser(user) {
         role: user.role,
         profileId: user.profileId,
         tenantId: user.tenantId,
+        mustChangePassword: user.mustChangePassword,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
     };

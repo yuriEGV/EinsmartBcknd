@@ -12,19 +12,19 @@ const router = express.Router();
 router.post('/bootstrap', async (req, res) => {
     try {
         const { name, email, password, role, tenantId } = req.body;
-        
+
         // Validaciones básicas
         if (!name || !email || !password || !role || !tenantId) {
-            return res.status(400).json({ 
-                message: 'name, email, password, role y tenantId son obligatorios' 
+            return res.status(400).json({
+                message: 'name, email, password, role y tenantId son obligatorios'
             });
         }
 
         // Verificar si ya hay usuarios en el sistema
         const userCount = await User.countDocuments();
         if (userCount > 0) {
-            return res.status(403).json({ 
-                message: 'Bootstrap solo está disponible cuando no hay usuarios. Use login y POST /api/users' 
+            return res.status(403).json({
+                message: 'Bootstrap solo está disponible cuando no hay usuarios. Use login y POST /api/users'
             });
         }
 
@@ -36,12 +36,12 @@ router.post('/bootstrap', async (req, res) => {
         };
         req.body.name = name;
         req.body.role = role;
-        
+
         return UserController.createUser(req, res);
     } catch (error) {
-        return res.status(500).json({ 
+        return res.status(500).json({
             message: 'Error en bootstrap',
-            error: error.message 
+            error: error.message
         });
     }
 });
@@ -54,7 +54,7 @@ router.post('/bootstrap', async (req, res) => {
 router.post(
     '/',
     authMiddleware,
-    authorizeRoles('admin', 'sostenedor'),
+    authorizeRoles('admin', 'sostenedor', 'director'),
     UserController.createUser
 );
 
@@ -76,7 +76,7 @@ router.get(
 router.put(
     '/:id',
     authMiddleware,
-    authorizeRoles('admin', 'sostenedor'),
+    authorizeRoles('admin', 'sostenedor', 'director'),
     UserController.updateUser
 );
 
@@ -84,7 +84,7 @@ router.put(
 router.delete(
     '/:id',
     authMiddleware,
-    authorizeRoles('admin', 'sostenedor'),
+    authorizeRoles('admin', 'sostenedor', 'director'),
     UserController.deleteUser
 );
 

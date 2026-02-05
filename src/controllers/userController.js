@@ -31,6 +31,8 @@ class UserController {
                 admin: 'admin',
                 administrador: 'admin',
                 sostenedor: 'sostenedor',
+                director: 'director',
+                director_academico: 'director',
                 profesor: 'teacher',
                 teacher: 'teacher',
                 alumno: 'student',
@@ -60,6 +62,19 @@ class UserController {
 
             if (existingUser) {
                 return res.status(409).json({ message: 'El usuario ya existe' });
+            }
+
+            // [NEW] Enforce only one director per school (tenant)
+            if (finalRole === 'director') {
+                const existingDirector = await User.findOne({
+                    tenantId: req.user.tenantId,
+                    role: 'director'
+                });
+                if (existingDirector) {
+                    return res.status(400).json({
+                        message: 'Ya existe un usuario con el rol de Director para este colegio. Si desea cambiarlo, por favor edite el usuario existente o elimínelo antes de crear uno nuevo.'
+                    });
+                }
             }
 
             const passwordHash = await bcrypt.hash(password, 10);
@@ -175,6 +190,8 @@ class UserController {
                     alumno: 'student',
                     student: 'student',
                     sostenedor: 'sostenedor',
+                    director: 'director',
+                    director_academico: 'director',
                     apoderado: 'apoderado',
                     guardian: 'apoderado',
                     psicologo: 'psicologo',
@@ -233,6 +250,36 @@ class UserController {
             }
 
             res.status(204).send();
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+
+    /* =====================================================
+       RESET PROFILE PASSWORD (FORCED)
+    ===================================================== */
+    static async resetProfilePassword(req, res) {
+        try {
+            const { password } = req.body;
+            if (!password) {
+                return res.status(400).json({ message: 'La nueva contraseña es obligatoria' });
+            }
+
+            const passwordHash = await bcrypt.hash(password, 10);
+            const user = await User.findByIdAndUpdate(
+                req.user.userId,
+                {
+                    passwordHash,
+                    mustChangePassword: false
+                },
+                { new: true }
+            );
+
+            if (!user) {
+                return res.status(404).json({ message: 'Usuario no encontrado' });
+            }
+
+            res.status(200).json({ message: 'Contraseña actualizada correctamente' });
         } catch (error) {
             res.status(500).json({ message: error.message });
         }

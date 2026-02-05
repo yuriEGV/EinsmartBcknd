@@ -37,7 +37,7 @@ const paymentSchema = new mongoose.Schema({
   metodoPago: {
     type: String,
     enum: ['transferencia', 'mercadopago', 'efectivo'],
-    required: true
+    required: false
   },
 
   estado: {

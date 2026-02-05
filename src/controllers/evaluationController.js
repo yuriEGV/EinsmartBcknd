@@ -1,15 +1,34 @@
 import Evaluation from '../models/evaluationModel.js';
+import NotificationService from '../services/notificationService.js';
 
 class EvaluationController {
     // Create a new evaluation
     static async createEvaluation(req, res) {
         try {
+            const staffRoles = ['admin', 'sostenedor', 'teacher'];
+            if (!staffRoles.includes(req.user.role)) {
+                return res.status(403).json({ message: 'No tienes permisos para crear evaluaciones.' });
+            }
+
             const evaluation = new Evaluation({
                 ...req.body,
                 tenantId: req.user.tenantId
             });
             await evaluation.save();
             await evaluation.populate('courseId', 'name code');
+            // Populate subject if it was sent as ID, but currently it's stored as plain string often?
+            // Model says ref: 'Subject'. Front sends name string. 
+            // We should find the Subject by name/course if it's not an ID.
+            // But for now, let's keep as is to avoid breaking changes, just adding category flow.
+
+            // Notify Students
+            NotificationService.notifyCourseAssessment(
+                evaluation.courseId._id,
+                evaluation.title,
+                evaluation.date, // Assuming date is passed in body
+                evaluation.tenantId
+            );
+
             res.status(201).json(evaluation);
         } catch (error) {
             res.status(400).json({ message: error.message });
@@ -81,6 +100,11 @@ class EvaluationController {
     // Update an evaluation by ID (Secure)
     static async updateEvaluation(req, res) {
         try {
+            const staffRoles = ['admin', 'sostenedor', 'teacher'];
+            if (!staffRoles.includes(req.user.role)) {
+                return res.status(403).json({ message: 'No tienes permisos para modificar evaluaciones.' });
+            }
+
             const evaluation = await Evaluation.findOneAndUpdate(
                 { _id: req.params.id, tenantId: req.user.tenantId },
                 req.body,
@@ -99,6 +123,11 @@ class EvaluationController {
     // Delete an evaluation by ID (Secure)
     static async deleteEvaluation(req, res) {
         try {
+            const staffRoles = ['admin', 'sostenedor', 'teacher'];
+            if (!staffRoles.includes(req.user.role)) {
+                return res.status(403).json({ message: 'No tienes permisos para eliminar evaluaciones.' });
+            }
+
             const evaluation = await Evaluation.findOneAndDelete({
                 _id: req.params.id,
                 tenantId: req.user.tenantId
