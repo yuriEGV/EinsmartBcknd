@@ -71,7 +71,9 @@ class UserController {
                     role: 'director'
                 });
                 if (existingDirector) {
-                    return res.status(400).json({ message: 'Ya existe un director para este colegio.' });
+                    return res.status(400).json({
+                        message: 'Ya existe un usuario con el rol de Director para este colegio. Si desea cambiarlo, por favor edite el usuario existente o elimínelo antes de crear uno nuevo.'
+                    });
                 }
             }
 
