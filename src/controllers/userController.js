@@ -31,6 +31,8 @@ class UserController {
                 admin: 'admin',
                 administrador: 'admin',
                 sostenedor: 'sostenedor',
+                director: 'director',
+                director_academico: 'director',
                 profesor: 'teacher',
                 teacher: 'teacher',
                 alumno: 'student',
@@ -60,6 +62,17 @@ class UserController {
 
             if (existingUser) {
                 return res.status(409).json({ message: 'El usuario ya existe' });
+            }
+
+            // [NEW] Enforce only one director per school (tenant)
+            if (finalRole === 'director') {
+                const existingDirector = await User.findOne({
+                    tenantId: req.user.tenantId,
+                    role: 'director'
+                });
+                if (existingDirector) {
+                    return res.status(400).json({ message: 'Ya existe un director para este colegio.' });
+                }
             }
 
             const passwordHash = await bcrypt.hash(password, 10);
@@ -175,6 +188,8 @@ class UserController {
                     alumno: 'student',
                     student: 'student',
                     sostenedor: 'sostenedor',
+                    director: 'director',
+                    director_academico: 'director',
                     apoderado: 'apoderado',
                     guardian: 'apoderado',
                     psicologo: 'psicologo',
