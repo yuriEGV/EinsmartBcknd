@@ -54,6 +54,11 @@ const courseSchema = new mongoose.Schema({
     type: mongoose.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  careerId: {
+    type: mongoose.Types.ObjectId,
+    ref: 'Career',
+    default: null
   }
 }, {
   timestamps: true
