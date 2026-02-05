@@ -133,6 +133,7 @@ export default class CourseController {
 
             const allCourses = await Course.find(query)
                 .populate('teacherId', 'name email')
+                .populate('careerId', 'name')
                 .sort({ createdAt: -1 });
 
             // Deduplicate courses by name - keep only the most recent one for each name
@@ -170,6 +171,7 @@ export default class CourseController {
 
             const courses = await Course.find({ tenantId })
                 .populate('teacherId', 'name email')
+                .populate('careerId', 'name')
                 .sort({ createdAt: -1 });
 
             return res.status(200).json(courses);
@@ -191,7 +193,7 @@ export default class CourseController {
             const course = await Course.findOne({
                 _id: id,
                 tenantId: req.user.tenantId
-            }).populate('teacherId', 'name email');
+            }).populate('teacherId', 'name email').populate('careerId', 'name');
 
             if (!course) {
                 return res.status(404).json({
@@ -214,13 +216,20 @@ export default class CourseController {
         try {
             await connectDB();
             const { id } = req.params;
-            const { name, description, teacherId } = req.body;
+            const { name, level, letter, description, teacherId, careerId } = req.body;
 
             const course = await Course.findOneAndUpdate(
                 { _id: id, tenantId: req.user.tenantId },
-                { name: name ? name.trim() : undefined, description, teacherId },
+                {
+                    name: name ? name.trim() : undefined,
+                    level,
+                    letter,
+                    description,
+                    teacherId,
+                    careerId: careerId || null
+                },
                 { new: true, runValidators: true }
-            ).populate('teacherId', 'name email');
+            ).populate('teacherId', 'name email').populate('careerId', 'name');
 
             if (!course) {
                 return res.status(404).json({
