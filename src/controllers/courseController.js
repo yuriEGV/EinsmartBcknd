@@ -48,9 +48,39 @@ export default class CourseController {
     static async getCourses(req, res) {
         try {
             await connectDB();
-            const query = (req.user.role === 'admin' && req.query.tenantId)
-                ? { tenantId: req.query.tenantId }
-                : (req.user.role === 'admin' ? {} : { tenantId: req.user.tenantId });
+            let query = { tenantId: req.user.tenantId };
+
+            // [STRICT ISOLATION] Students/Guardians only see their own courses
+            if (req.user.role === 'student' && req.user.profileId) {
+                const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+                const enrollments = await Enrollment.find({
+                    estudianteId: req.user.profileId,
+                    tenantId: req.user.tenantId,
+                    status: { $in: ['confirmada', 'activo', 'activa'] }
+                });
+                const courseIds = enrollments.map(e => e.courseId);
+                query._id = { $in: courseIds };
+            }
+            else if (req.user.role === 'apoderado' && req.user.profileId) {
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+
+                const vinculation = await Apoderado.findById(req.user.profileId);
+                if (vinculation) {
+                    const enrollments = await Enrollment.find({
+                        estudianteId: vinculation.estudianteId,
+                        tenantId: req.user.tenantId,
+                        status: { $in: ['confirmada', 'activo', 'activa'] }
+                    });
+                    const courseIds = enrollments.map(e => e.courseId);
+                    query._id = { $in: courseIds };
+                } else {
+                    return res.status(200).json([]);
+                }
+            }
+            else if (req.user.role === 'admin' && req.query.tenantId) {
+                query.tenantId = req.query.tenantId;
+            }
 
             const allCourses = await Course.find(query)
                 .populate('teacherId', 'name email')
@@ -68,7 +98,7 @@ export default class CourseController {
                 }
             }
 
-            console.log(`COURSES: Found ${allCourses.length} total, returning ${uniqueCourses.length} unique`);
+            console.log(`COURSES: Found ${allCourses.length} total, returning ${uniqueCourses.length} unique for role ${req.user.role}`);
             return res.status(200).json(uniqueCourses);
 
         } catch (error) {
