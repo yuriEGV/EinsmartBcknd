@@ -30,6 +30,7 @@ import classLogRoutes from './classLogRoutes.js';
 import questionRoutes from './questionRoutes.js';
 import adminDayRoutes from './adminDayRoutes.js';
 import userNotificationRoutes from './userNotificationRoutes.js';
+import eventRequestRoutes from './eventRequestRoutes.js';
 
 const router = express.Router();
 
@@ -84,5 +85,6 @@ router.use('/class-logs', classLogRoutes);
 router.use('/questions', questionRoutes);
 router.use('/admin-days', adminDayRoutes);
 router.use('/user-notifications', userNotificationRoutes);
+router.use('/event-requests', eventRequestRoutes);
 
 export default router;

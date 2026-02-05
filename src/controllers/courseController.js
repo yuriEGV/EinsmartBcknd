@@ -97,7 +97,14 @@ export default class CourseController {
                         ...headCourses.map(c => c._id.toString())
                     ])
                 ];
-                query._id = { $in: courseIds };
+
+                // FINAL CHECK: Ensure we have IDs, otherwise return nothing for this query
+                if (courseIds.length > 0) {
+                    query._id = { $in: courseIds };
+                } else {
+                    // Force zero results if no assignments
+                    query._id = new mongoose.Types.ObjectId();
+                }
             }
             else if (req.user.role === 'admin' && req.query.tenantId) {
                 query.tenantId = req.query.tenantId;
