@@ -199,6 +199,7 @@ const updateEstudiante = async (req, res) => {
 
     const { _id, guardian, tenantId, ...updateData } = req.body;
 
+    // 1. Update Student
     const estudiante = await Estudiante.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.user.tenantId },
       updateData,
@@ -208,6 +209,16 @@ const updateEstudiante = async (req, res) => {
     if (!estudiante) {
       console.log('UPDATE ESTUDIANTE - Not found or wrong tenant');
       return res.status(404).json({ message: 'Estudiante no encontrado' });
+    }
+
+    // 2. Update Guardian (Fusion logic)
+    if (guardian) {
+      const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+      await Apoderado.findOneAndUpdate(
+        { estudianteId: estudiante._id, tenantId: req.user.tenantId },
+        guardian,
+        { new: true, runValidators: true, upsert: true } // Upsert in case it doesn't exist for some reason
+      );
     }
 
     console.log('UPDATE ESTUDIANTE - Success:', estudiante._id);

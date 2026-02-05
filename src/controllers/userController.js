@@ -252,6 +252,36 @@ class UserController {
             res.status(500).json({ message: error.message });
         }
     }
+
+    /* =====================================================
+       RESET PROFILE PASSWORD (FORCED)
+    ===================================================== */
+    static async resetProfilePassword(req, res) {
+        try {
+            const { password } = req.body;
+            if (!password) {
+                return res.status(400).json({ message: 'La nueva contraseña es obligatoria' });
+            }
+
+            const passwordHash = await bcrypt.hash(password, 10);
+            const user = await User.findByIdAndUpdate(
+                req.user.userId,
+                {
+                    passwordHash,
+                    mustChangePassword: false
+                },
+                { new: true }
+            );
+
+            if (!user) {
+                return res.status(404).json({ message: 'Usuario no encontrado' });
+            }
+
+            res.status(200).json({ message: 'Contraseña actualizada correctamente' });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
 }
 
 export default UserController;

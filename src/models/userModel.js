@@ -21,6 +21,7 @@ const userSchema = new mongoose.Schema({
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ['admin', 'sostenedor', 'director', 'teacher', 'student', 'apoderado', 'psicologo', 'orientador', 'asistente_aula', 'manipulador_alimento', 'bibliotecario', 'secretario', 'paradocente'], required: true },
     profileId: { type: mongoose.Types.ObjectId, default: null }, // Link to Estudiante or Apoderado
+    mustChangePassword: { type: Boolean, default: false },
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);
