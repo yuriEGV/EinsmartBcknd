@@ -7,10 +7,21 @@ const createEstudiante = async (req, res) => {
     await connectDB();
     const tenantId = req.user.tenantId;
 
+    const { guardian, ...estudianteData } = req.body;
+
     const estudiante = await Estudiante.create({
-      ...req.body,
+      ...estudianteData,
       tenantId
     });
+
+    if (guardian) {
+      const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+      await Apoderado.create({
+        ...guardian,
+        estudianteId: estudiante._id,
+        tenantId
+      });
+    }
 
     res.status(201).json(estudiante);
   } catch (error) {
@@ -251,11 +262,11 @@ const deleteEstudiante = async (req, res) => {
 
     // 3. Delete Grades
     const Grade = await import('../models/gradeModel.js').then(m => m.default);
-    await Grade.deleteMany({ studentId: id, tenantId });
+    await Grade.deleteMany({ estudianteId: id, tenantId });
 
     // 4. Delete Attendance Records
     const Attendance = await import('../models/attendanceModel.js').then(m => m.default);
-    await Attendance.deleteMany({ studentId: id, tenantId });
+    await Attendance.deleteMany({ estudianteId: id, tenantId });
 
     // 5. Delete Annotations
     const Anotacion = await import('../models/anotacionModel.js').then(m => m.default);

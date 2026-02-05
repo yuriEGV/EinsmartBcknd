@@ -183,7 +183,7 @@ class PaymentController {
         const enrollments = await Enrollment.find({
           courseId,
           tenantId,
-          status: 'confirmada'
+          status: { $in: ['confirmada', 'activo', 'activa'] }
         }).select('estudianteId');
 
         const courseStudentIds = enrollments.map(e => e.estudianteId.toString());

@@ -25,7 +25,7 @@ class AnotacionController {
             const enrollment = await Enrollment.findOne({
                 estudianteId,
                 tenantId: req.user.tenantId,
-                status: 'confirmada'
+                status: { $in: ['confirmada', 'activo', 'activa'] }
             });
 
             if (!enrollment) {

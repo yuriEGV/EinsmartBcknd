@@ -57,7 +57,7 @@ class AttendanceController {
             const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
             const enrolledStudents = await Enrollment.find({
                 tenantId: new mongoose.Types.ObjectId(req.user.tenantId),
-                status: 'confirmada'
+                status: { $in: ['confirmada', 'activo', 'activa'] }
             }).select('estudianteId');
 
             const enrolledIds = enrolledStudents.map(e => e.estudianteId.toString());
@@ -68,7 +68,7 @@ class AttendanceController {
                     updateOne: {
                         filter: {
                             estudianteId: s.estudianteId,
-                            fecha: new Date(fecha), // Normalizar fecha es importante (ignorando hora si es diario)
+                            fecha: new Date(new Date(fecha).setUTCHours(0, 0, 0, 0)), // Normalize to UTC midnight
                             tenantId: req.user.tenantId
                         },
                         update: {

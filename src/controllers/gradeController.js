@@ -22,7 +22,7 @@ class GradeController {
                 estudianteId,
                 courseId: evaluation.courseId,
                 tenantId,
-                status: 'confirmada' // Only confirmed enrollments can receive grades
+                status: { $in: ['confirmada', 'activo', 'activa'] }
             });
 
             if (!enrollment) {
