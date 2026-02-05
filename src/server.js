@@ -108,12 +108,12 @@ app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
 app.get('/test', (req, res) => res.json({ message: 'Backend is working' }));
 app.get('/', (req, res) => res.json({ message: 'API funcionando correctamente 🚀', version: '5.1.0' }));
 
-// Register routes
-app.use('/api/reports', authMiddleware, reportRoutes);
-app.use('/api', apiRoutes);
+// Register routes - Mount at both /api and / to be resilient to environment prefix stripping
+app.use(['/api', '/'], apiRoutes);
+
+// Backup for specific legacy routes if needed (though index.js covers them)
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/payments', paymentRoutes);
 app.use('/api/admin-days', adminDayRoutes);
 app.use('/api/user-notifications', userNotificationRoutes);
 
