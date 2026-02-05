@@ -24,6 +24,14 @@ const careerSchema = new mongoose.Schema({
     code: {
         type: String,
         trim: true
+    },
+    teachers: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+    headTeacher: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     }
 }, { timestamps: true });
 

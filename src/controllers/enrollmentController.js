@@ -38,6 +38,23 @@ class EnrollmentController {
                 return res.status(400).json({ message: 'ID de curso inválido.' });
             }
 
+            // [CRITICAL] Prevent Double Enrollment for the same period
+            if (finalStudentId && period) {
+                const existingEnrollment = await Enrollment.findOne({
+                    tenantId,
+                    estudianteId: finalStudentId,
+                    period,
+                    status: { $in: ['confirmada', 'activo', 'activa', 'pre-matricula'] }
+                });
+
+                if (existingEnrollment) {
+                    return res.status(400).json({
+                        message: 'El estudiante ya se encuentra matriculado en un curso activo para este periodo académico.',
+                        code: 'DOUBLE_ENROLLMENT'
+                    });
+                }
+            }
+
             // 1. Logic for New Student Creation (Improved & Tenant Isolated)
             if (!finalStudentId && newStudent && newStudent.nombres) {
                 const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);

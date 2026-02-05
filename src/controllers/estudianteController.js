@@ -112,7 +112,7 @@ const getEstudiantes = async (req, res) => {
       const enrollments = await Enrollment.find({
         courseId: req.query.cursoId,
         tenantId: req.user.tenantId,
-        status: { $in: ['confirmada', 'activo', 'activa'] }
+        status: { $in: ['confirmada', 'activo', 'activa', 'pre-matricula'] }
       }).select('estudianteId');
 
       const enrolledStudentIds = enrollments.map(e => e.estudianteId);
