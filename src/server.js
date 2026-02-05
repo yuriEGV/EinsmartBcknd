@@ -27,11 +27,13 @@ const allowedOrigins = [
   'http://localhost:5173',
   'https://maritimo4-0-frontend.vercel.app',
   'https://einsmartfrntnd.vercel.app',
+  'https://einsmartfrntnd-ruby.vercel.app',
   'https://einsmart-bcknd.vercel.app'
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
     const isVercel = origin.endsWith('.vercel.app');
@@ -50,6 +52,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'X-Requested-With', 'Accept', 'X-CSRF-Token'],
   optionsSuccessStatus: 200
 }));
+
+// Handle preflight requests for all routes
+app.options('*', cors());
 
 // Middleware
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
