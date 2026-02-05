@@ -15,8 +15,7 @@ class UserController {
                 email,
                 password,
                 rol,
-                role,
-                specialization
+                role
             } = req.body;
 
             const finalName =
