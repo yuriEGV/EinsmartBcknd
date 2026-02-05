@@ -110,7 +110,7 @@ class EventRequestController {
                 tenantId: req.user.tenantId,
                 $or: [
                     { userId: req.user.userId, status: 'pendiente' },
-                    { role: 'admin' } // Placeholder for admin override if needed
+                    { _id: { $exists: true } && (req.user.role === 'admin' || req.user.role === 'sostenedor' || req.user.role === 'director' ? {} : { _id: null }) }
                 ]
             });
 

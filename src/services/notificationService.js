@@ -293,7 +293,7 @@ class NotificationService {
         try {
             const admins = await User.find({
                 tenantId,
-                role: { $in: ['admin', 'sostenedor'] }
+                role: { $in: ['admin', 'sostenedor', 'director'] }
             });
 
             const notifications = admins.map(admin => ({
@@ -361,7 +361,10 @@ class NotificationService {
      */
     static async notifyWeeklyPerformance(tenantId, performanceData) {
         try {
-            const sostenedores = await User.find({ tenantId, role: 'sostenedor' });
+            const sostenedores = await User.find({
+                tenantId,
+                role: { $in: ['sostenedor', 'director'] }
+            });
             if (sostenedores.length === 0) return;
 
             const tableRows = performanceData.map(p => `
@@ -413,7 +416,7 @@ class NotificationService {
                     await sendMail(sostenedor.email, '📊 Reporte de Performance Académica Semanal', html);
                 }
             }
-            console.log(`✅ Weekly performance report sent to ${sostenedores.length} Sostenedores`);
+            console.log(`✅ Weekly performance report sent to ${sostenedores.length} Sostenedores/Directors`);
         } catch (error) {
             console.error('❌ Error in notifyWeeklyPerformance:', error);
         }
