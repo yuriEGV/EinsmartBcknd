@@ -1,5 +1,6 @@
 import AdminDay from '../models/adminDayModel.js';
 import User from '../models/userModel.js';
+import mongoose from 'mongoose';
 import connectDB from '../config/db.js';
 import NotificationService from '../services/notificationService.js';
 
@@ -145,6 +146,48 @@ class AdminDayController {
                 remaining: (user.adminDaysAllowed || 6) - usedDays
             });
         } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+
+    // Get Ranking of users by used days (For Directors/Sostenedores)
+    static async getRanking(req, res) {
+        try {
+            await connectDB();
+            const tenantId = req.user.tenantId;
+
+            const ranking = await AdminDay.aggregate([
+                { $match: { tenantId: new mongoose.Types.ObjectId(tenantId), status: 'aprobado' } },
+                {
+                    $group: {
+                        _id: '$userId',
+                        usedDays: { $sum: 1 }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: '_id',
+                        foreignField: '_id',
+                        as: 'user'
+                    }
+                },
+                { $unwind: '$user' },
+                {
+                    $project: {
+                        userId: '$_id',
+                        userName: '$user.name',
+                        role: '$user.role',
+                        usedDays: 1,
+                        _id: 0
+                    }
+                },
+                { $sort: { usedDays: -1 } }
+            ]);
+
+            res.json(ranking);
+        } catch (error) {
+            console.error('getRanking error:', error);
             res.status(500).json({ message: error.message });
         }
     }

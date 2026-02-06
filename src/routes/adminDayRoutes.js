@@ -10,6 +10,7 @@ router.post('/requests', adminDayController.createRequest);
 router.get('/my-requests', adminDayController.getMyRequests);
 router.get('/all', adminDayController.getAllRequests);
 router.get('/stats', adminDayController.getStats);
+router.get('/ranking', adminDayController.getRanking);
 router.put('/:id/status', adminDayController.updateStatus);
 
 export default router;
