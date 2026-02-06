@@ -18,6 +18,9 @@ router.get('/tenant/:tenantId', evaluationController.getEvaluationsByTenant);
 // Get a single evaluation by ID
 router.get('/:id', evaluationController.getEvaluationById);
 
+// [NEW] Get evaluation for printing (PDF)
+router.get('/:id/print', evaluationController.printEvaluation);
+
 // Update an evaluation by ID
 router.put('/:id', evaluationController.updateEvaluation);
 
