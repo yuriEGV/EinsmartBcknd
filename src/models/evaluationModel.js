@@ -19,6 +19,7 @@ const evaluationSchema = new mongoose.Schema({
     period: { type: String, enum: ['1_semestre', '2_semestre', 'anual'], default: '1_semestre' },
     date: { type: Date, required: true },
     questions: [{ type: mongoose.Types.ObjectId, ref: 'Question' }],
+    objectives: [{ type: String }],
 }, { timestamps: true });
 
 export default mongoose.model('Evaluation', evaluationSchema);

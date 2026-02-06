@@ -123,10 +123,27 @@ class GradeController {
     // Get grades by evaluation (Secure)
     static async getGradesByEvaluation(req, res) {
         try {
-            const grades = await Grade.find({
+            const query = {
                 evaluationId: req.params.evaluationId,
                 tenantId: req.user.tenantId
-            })
+            };
+
+            // [FIX] Security: Students/Guardians can only see their own grades
+            if (req.user.role === 'student' && req.user.profileId) {
+                query.estudianteId = req.user.profileId;
+            } else if (req.user.role === 'apoderado' && req.user.profileId) {
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const vinculation = await Apoderado.findById(req.user.profileId);
+                if (vinculation) {
+                    query.estudianteId = vinculation.estudianteId;
+                } else {
+                    return res.status(200).json([]);
+                }
+            } else if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                return res.status(403).json({ message: 'Acceso denegado' });
+            }
+
+            const grades = await Grade.find(query)
                 .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
             res.status(200).json(grades);

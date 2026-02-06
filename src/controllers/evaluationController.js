@@ -5,9 +5,30 @@ class EvaluationController {
     // Create a new evaluation
     static async createEvaluation(req, res) {
         try {
-            const staffRoles = ['admin', 'sostenedor', 'teacher'];
+            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director'];
             if (!staffRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para crear evaluaciones.' });
+            }
+
+            // Validate required fields
+            const { courseId, subjectId, title } = req.body;
+
+            if (!title || !title.trim()) {
+                return res.status(400).json({ message: 'El título es obligatorio.' });
+            }
+
+            if (!courseId || !subjectId) {
+                return res.status(400).json({ message: 'Debe seleccionar un curso y una asignatura.' });
+            }
+
+            // Validate ObjectIDs (backend needs valid MongoDB IDs)
+            const mongoose = await import('mongoose');
+            if (!mongoose.default.Types.ObjectId.isValid(courseId)) {
+                return res.status(400).json({ message: 'El ID del curso no es válido.' });
+            }
+
+            if (!mongoose.default.Types.ObjectId.isValid(subjectId)) {
+                return res.status(400).json({ message: 'El ID de la asignatura no es válido.' });
             }
 
             const evaluation = new Evaluation({
@@ -16,16 +37,12 @@ class EvaluationController {
             });
             await evaluation.save();
             await evaluation.populate('courseId', 'name code');
-            // Populate subject if it was sent as ID, but currently it's stored as plain string often?
-            // Model says ref: 'Subject'. Front sends name string. 
-            // We should find the Subject by name/course if it's not an ID.
-            // But for now, let's keep as is to avoid breaking changes, just adding category flow.
 
             // Notify Students
             NotificationService.notifyCourseAssessment(
                 evaluation.courseId._id,
                 evaluation.title,
-                evaluation.date, // Assuming date is passed in body
+                evaluation.date,
                 evaluation.tenantId
             );
 
@@ -100,7 +117,7 @@ class EvaluationController {
     // Update an evaluation by ID (Secure)
     static async updateEvaluation(req, res) {
         try {
-            const staffRoles = ['admin', 'sostenedor', 'teacher'];
+            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director'];
             if (!staffRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para modificar evaluaciones.' });
             }
@@ -123,7 +140,7 @@ class EvaluationController {
     // Delete an evaluation by ID (Secure)
     static async deleteEvaluation(req, res) {
         try {
-            const staffRoles = ['admin', 'sostenedor', 'teacher'];
+            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director'];
             if (!staffRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para eliminar evaluaciones.' });
             }

@@ -31,7 +31,7 @@ class ClassLogController {
                     date: new Date(),
                     startTime: new Date(),
                     topic: 'Clase en curso...',
-                    activities: 'Iniciada con cronómetro'
+                    activities: ''
                 });
                 await log.save();
             }

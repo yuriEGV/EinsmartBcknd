@@ -14,27 +14,86 @@ class NotificationService {
             const student = await Estudiante.findById(studentId);
             const guardians = await Apoderado.find({ estudianteId: studentId, tenantId });
 
-            if (!student || guardians.length === 0) return;
+            if (!student) return;
 
-            for (const guardian of guardians) {
-                if (!guardian.correo) continue;
-
-                const html = `
-                    <div style="font-family: Arial, sans-serif; color: #333;">
-                        <h2 style="color: #11355a;">Nueva Calificación</h2>
-                        <p>Estimado(a) <strong>${guardian.nombre} ${guardian.apellidos}</strong>,</p>
-                        <p>Le informamos que se ha registrado una nueva calificación para el alumno <strong>${student.nombres} ${student.apellidos}</strong>.</p>
-                        <div style="background-color: #f4f7f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                            <p><strong>Asignatura:</strong> ${subject}</p>
-                            <p><strong>Evaluación:</strong> ${evaluationTitle}</p>
-                            <p style="font-size: 1.2em; color: #11355a;"><strong>Nota: ${grade}</strong></p>
+            // 1. Notify Student via Email (if available)
+            if (student.email) {
+                const studentHtml = `
+                    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
+                        <div style="background-color: #11355a; color: white; padding: 20px; text-align: center;">
+                            <h2 style="margin: 0;">🎉 Nueva Calificación Recibida</h2>
                         </div>
-                        <p>Puede ver más detalles ingresando al sistema.</p>
-                        <p style="margin-top: 20px; font-size: 12px; color: #777;">Maritimo 4.0 - Sistema de Gestión Escolar</p>
+                        <div style="padding: 30px;">
+                            <p>¡Hola <strong>${student.nombres}</strong>!</p>
+                            <p>Se ha publicado una nueva nota en tu perfil académico.</p>
+                            <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #11355a;">
+                                <p style="margin: 5px 0;"><strong>Asignatura:</strong> ${subject}</p>
+                                <p style="margin: 5px 0;"><strong>Evaluación:</strong> ${evaluationTitle}</p>
+                                <p style="margin: 5px 0; font-size: 1.5em; color: #11355a;"><strong>Nota Final: ${grade}</strong></p>
+                            </div>
+                            <p>Te invitamos a revisar tus comentarios y el curso completo en el portal.</p>
+                            <p style="margin-top: 30px; font-size: 14px; color: #666; text-align: center;">¡Sigue esforzándote!</p>
+                        </div>
+                        <div style="background-color: #f4f7f6; padding: 15px; text-align: center; font-size: 12px; color: #777;">
+                            Maritimo 4.0 - Sistema de Gestión Escolar
+                        </div>
                     </div>
                 `;
+                await sendMail(student.email, `¡Nueva Nota! ${subject}: ${grade}`, studentHtml);
+            }
 
-                await sendMail(guardian.correo, `Nueva Nota: ${student.nombres} - ${subject}`, html);
+            // 2. Internal Notification for Student
+            const studentUser = await User.findOne({ profileId: studentId, role: 'student', tenantId });
+            if (studentUser) {
+                await this.createInternalNotification({
+                    tenantId,
+                    userId: studentUser._id,
+                    title: 'Nueva Calificación',
+                    message: `Has recibido una nota de ${grade} en ${subject} (${evaluationTitle}).`,
+                    type: 'grade',
+                    link: '/grades'
+                });
+            }
+
+            // 3. Notify Guardians
+            for (const guardian of guardians) {
+                // Email
+                if (guardian.correo) {
+                    const guardianHtml = `
+                        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
+                            <div style="background-color: #11355a; color: white; padding: 20px; text-align: center;">
+                                <h2 style="margin: 0;">📊 Reporte de Calificación</h2>
+                            </div>
+                            <div style="padding: 30px;">
+                                <p>Estimado(a) <strong>${guardian.nombre} ${guardian.apellidos}</strong>,</p>
+                                <p>Le informamos que se ha registrado una nueva calificación para el alumno <strong>${student.nombres} ${student.apellidos}</strong>.</p>
+                                <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #11355a;">
+                                    <p style="margin: 5px 0;"><strong>Asignatura:</strong> ${subject}</p>
+                                    <p style="margin: 5px 0;"><strong>Evaluación:</strong> ${evaluationTitle}</p>
+                                    <p style="margin: 5px 0; font-size: 1.5em; color: #11355a;"><strong>Nota Alumno: ${grade}</strong></p>
+                                </div>
+                                <p>Puede ver más detalles e historial académico ingresando al portal de apoderados.</p>
+                            </div>
+                            <div style="background-color: #f4f7f6; padding: 15px; text-align: center; font-size: 12px; color: #777;">
+                                Maritimo 4.0 - Sistema de Gestión Escolar
+                            </div>
+                        </div>
+                    `;
+                    await sendMail(guardian.correo, `Nueva Nota: ${student.nombres} - ${subject}`, guardianHtml);
+                }
+
+                // Internal Notification for Guardian
+                const guardianUser = await User.findOne({ profileId: guardian._id, role: 'apoderado', tenantId });
+                if (guardianUser) {
+                    await this.createInternalNotification({
+                        tenantId,
+                        userId: guardianUser._id,
+                        title: 'Nota Registrada',
+                        message: `${student.nombres} ha recibido una nota de ${grade} en ${subject}.`,
+                        type: 'grade',
+                        link: '/grades'
+                    });
+                }
             }
         } catch (error) {
             console.error('❌ Error in notifyNewGrade:', error);
@@ -49,29 +108,88 @@ class NotificationService {
             const student = await Estudiante.findById(studentId);
             const guardians = await Apoderado.find({ estudianteId: studentId, tenantId });
 
-            if (!student || guardians.length === 0) return;
+            if (!student) return;
 
             const typeLabel = type === 'positiva' ? 'Positiva' : 'Negativa';
             const typeColor = type === 'positiva' ? '#22c55e' : '#ef4444';
 
-            for (const guardian of guardians) {
-                if (!guardian.correo) continue;
-
-                const html = `
-                    <div style="font-family: Arial, sans-serif; color: #333;">
-                        <h2 style="color: ${typeColor};">Nueva Anotación ${typeLabel}</h2>
-                        <p>Estimado(a) <strong>${guardian.nombre} ${guardian.apellidos}</strong>,</p>
-                        <p>Se ha registrado una nueva anotación en la hoja de vida de <strong>${student.nombres} ${student.apellidos}</strong>.</p>
-                        <div style="background-color: #f4f7f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                            <p><strong>Título:</strong> ${title}</p>
-                            <p><strong>Descripción:</strong> ${description}</p>
+            // 1. Notify Student via Email
+            if (student.email) {
+                const studentHtml = `
+                    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
+                        <div style="background-color: ${typeColor}; color: white; padding: 20px; text-align: center;">
+                            <h2 style="margin: 0;">📝 Nueva Anotación ${typeLabel}</h2>
                         </div>
-                        <p>Por favor, ingrese al sistema para revisar los detalles y medidas tomadas.</p>
-                        <p style="margin-top: 20px; font-size: 12px; color: #777;">Maritimo 4.0 - Sistema de Gestión Escolar</p>
+                        <div style="padding: 30px;">
+                            <p>Hola <strong>${student.nombres}</strong>,</p>
+                            <p>Se ha registrado una nueva anotación en tu hoja de vida.</p>
+                            <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid ${typeColor};">
+                                <p style="margin: 5px 0;"><strong>Tipo:</strong> ${typeLabel}</p>
+                                <p style="margin: 5px 0;"><strong>Título:</strong> ${title}</p>
+                                <p style="margin: 5px 0;"><strong>Descripción:</strong> ${description}</p>
+                            </div>
+                            <p>Puedes revisar los detalles en el portal del alumno.</p>
+                        </div>
+                        <div style="background-color: #f4f7f6; padding: 15px; text-align: center; font-size: 12px; color: #777;">
+                            Maritimo 4.0 - Sistema de Gestión Escolar
+                        </div>
                     </div>
                 `;
+                await sendMail(student.email, `Nueva Anotación ${typeLabel}: ${title}`, studentHtml);
+            }
 
-                await sendMail(guardian.correo, `Anotación ${typeLabel}: ${student.nombres}`, html);
+            // 2. Internal Notification for Student
+            const studentUser = await User.findOne({ profileId: studentId, role: 'student', tenantId });
+            if (studentUser) {
+                await this.createInternalNotification({
+                    tenantId,
+                    userId: studentUser._id,
+                    title: `Anotación ${typeLabel}`,
+                    message: `Se ha registrado una anotación ${typeLabel}: "${title}".`,
+                    type: 'annotation',
+                    link: '/annotations'
+                });
+            }
+
+            // 3. Notify Guardians
+            for (const guardian of guardians) {
+                // Email
+                if (guardian.correo) {
+                    const guardianHtml = `
+                        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
+                            <div style="background-color: ${typeColor}; color: white; padding: 20px; text-align: center;">
+                                <h2 style="margin: 0;">📝 Nueva Anotación ${typeLabel}</h2>
+                            </div>
+                            <div style="padding: 30px;">
+                                <p>Estimado(a) <strong>${guardian.nombre} ${guardian.apellidos}</strong>,</p>
+                                <p>Se ha registrado una nueva anotación en la hoja de vida de <strong>${student.nombres} ${student.apellidos}</strong>.</p>
+                                <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid ${typeColor};">
+                                    <p style="margin: 5px 0;"><strong>Alumno:</strong> ${student.nombres} ${student.apellidos}</p>
+                                    <p style="margin: 5px 0;"><strong>Título:</strong> ${title}</p>
+                                    <p style="margin: 5px 0;"><strong>Descripción:</strong> ${description}</p>
+                                </div>
+                                <p>Por favor, ingrese al sistema para revisar los detalles y medidas tomadas.</p>
+                            </div>
+                            <div style="background-color: #f4f7f6; padding: 15px; text-align: center; font-size: 12px; color: #777;">
+                                Maritimo 4.0 - Sistema de Gestión Escolar
+                            </div>
+                        </div>
+                    `;
+                    await sendMail(guardian.correo, `Anotación ${typeLabel}: ${student.nombres}`, guardianHtml);
+                }
+
+                // Internal Notification for Guardian
+                const guardianUser = await User.findOne({ profileId: guardian._id, role: 'apoderado', tenantId });
+                if (guardianUser) {
+                    await this.createInternalNotification({
+                        tenantId,
+                        userId: guardianUser._id,
+                        title: `Anotación Registrada (${student.nombres})`,
+                        message: `Se ha registrado una anotación ${typeLabel} para ${student.nombres}: "${title}".`,
+                        type: 'annotation',
+                        link: '/annotations'
+                    });
+                }
             }
         } catch (error) {
             console.error('❌ Error in notifyNewAnnotation:', error);
@@ -175,7 +293,7 @@ class NotificationService {
         try {
             const admins = await User.find({
                 tenantId,
-                role: { $in: ['admin', 'sostenedor'] }
+                role: { $in: ['admin', 'sostenedor', 'director'] }
             });
 
             const notifications = admins.map(admin => ({
@@ -243,7 +361,10 @@ class NotificationService {
      */
     static async notifyWeeklyPerformance(tenantId, performanceData) {
         try {
-            const sostenedores = await User.find({ tenantId, role: 'sostenedor' });
+            const sostenedores = await User.find({
+                tenantId,
+                role: { $in: ['sostenedor', 'director'] }
+            });
             if (sostenedores.length === 0) return;
 
             const tableRows = performanceData.map(p => `
@@ -295,7 +416,7 @@ class NotificationService {
                     await sendMail(sostenedor.email, '📊 Reporte de Performance Académica Semanal', html);
                 }
             }
-            console.log(`✅ Weekly performance report sent to ${sostenedores.length} Sostenedores`);
+            console.log(`✅ Weekly performance report sent to ${sostenedores.length} Sostenedores/Directors`);
         } catch (error) {
             console.error('❌ Error in notifyWeeklyPerformance:', error);
         }

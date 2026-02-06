@@ -7,6 +7,8 @@ import Evaluation from '../models/evaluationModel.js';
 // Course model is loaded via mongoose.model('Course') usually if registered, or import it.
 import Course from '../models/courseModel.js';
 import Payment from '../models/paymentModel.js';
+import NotificationService from '../services/notificationService.js'; // Assuming it's needed or just for hygiene
+import '../models/courseModel.js'; // Ensure registered
 
 class AnalyticsController {
     // Get student averages by subject and overall average
@@ -26,7 +28,7 @@ class AnalyticsController {
 
             // Aggregate grades by student and subject
             const studentAverages = await Grade.aggregate([
-                { $match: { tenantId } }, // Filter by tenant first for performance
+                { $match: { tenantId: new mongoose.Types.ObjectId(tenantId) } }, // Filter by tenant first for performance
                 {
                     $lookup: {
                         from: 'evaluations',
@@ -122,7 +124,7 @@ class AnalyticsController {
             const limit = parseInt(req.query.limit) || 10;
 
             const topStudents = await Grade.aggregate([
-                { $match: { tenantId } },
+                { $match: { tenantId: new mongoose.Types.ObjectId(tenantId) } },
                 {
                     $lookup: {
                         from: 'evaluations',
@@ -188,7 +190,7 @@ class AnalyticsController {
 
             // Most positive annotations
             const positiveRankings = await Anotacion.aggregate([
-                { $match: { tenantId, tipo: 'positiva' } },
+                { $match: { tenantId: new mongoose.Types.ObjectId(tenantId), tipo: 'positiva' } },
                 {
                     $lookup: {
                         from: 'estudiantes',
@@ -212,7 +214,7 @@ class AnalyticsController {
 
             // Most negative annotations
             const negativeRankings = await Anotacion.aggregate([
-                { $match: { tenantId, tipo: 'negativa' } },
+                { $match: { tenantId: new mongoose.Types.ObjectId(tenantId), tipo: 'negativa' } },
                 {
                     $lookup: {
                         from: 'estudiantes',
@@ -236,7 +238,7 @@ class AnalyticsController {
 
             // Combined view (all students with both counts)
             const combinedRankings = await Anotacion.aggregate([
-                { $match: { tenantId } },
+                { $match: { tenantId: new mongoose.Types.ObjectId(tenantId) } },
                 {
                     $lookup: {
                         from: 'estudiantes',
@@ -300,8 +302,8 @@ class AnalyticsController {
                 { $unwind: '$evaluation' },
                 {
                     $match: {
-                        tenantId,
-                        estudianteId: studentId
+                        tenantId: new mongoose.Types.ObjectId(tenantId),
+                        estudianteId: new mongoose.Types.ObjectId(studentId)
                     }
                 },
                 {
@@ -316,7 +318,7 @@ class AnalyticsController {
 
             // Annotation counts
             const annotations = await Anotacion.aggregate([
-                { $match: { tenantId, estudianteId: studentId } },
+                { $match: { tenantId: new mongoose.Types.ObjectId(tenantId), estudianteId: new mongoose.Types.ObjectId(studentId) } },
                 {
                     $group: {
                         _id: '$tipo',
@@ -353,16 +355,11 @@ class AnalyticsController {
             const tenantId = req.user.tenantId;
 
             // Count students
-            const studentCount = await Estudiante.countDocuments({ tenantId });
+            const studentCount = await Estudiante.countDocuments({ tenantId: new mongoose.Types.ObjectId(tenantId) });
 
-            // Count courses (from Course model, assuming we have one, or distinct from Enrollments/Subjects)
-            // Let's check courseModel. Only distinct courses.
-            // Import Course dynamically or at top if available.
-            // For now assume 'Course' model exists or we use distinct logic if not imported.
-            // Better: Import Course model at top.
-
-            // We need to import Course model first. I'll add the import below.
-            const courseCount = await mongoose.model('Course').countDocuments({ tenantId });
+            // Count courses
+            const Course = mongoose.model('Course');
+            const courseCount = await Course.countDocuments({ tenantId: new mongoose.Types.ObjectId(tenantId) });
 
             return res.status(200).json({
                 studentCount,
@@ -470,7 +467,7 @@ class AnalyticsController {
 
             // Group grades by month
             const trends = await Grade.aggregate([
-                { $match: { tenantId } },
+                { $match: { tenantId: new mongoose.Types.ObjectId(tenantId) } },
                 {
                     $group: {
                         _id: {

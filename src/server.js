@@ -27,11 +27,13 @@ const allowedOrigins = [
   'http://localhost:5173',
   'https://maritimo4-0-frontend.vercel.app',
   'https://einsmartfrntnd.vercel.app',
+  'https://einsmartfrntnd-ruby.vercel.app',
   'https://einsmart-bcknd.vercel.app'
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
     const isVercel = origin.endsWith('.vercel.app');
@@ -50,6 +52,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'X-Requested-With', 'Accept', 'X-CSRF-Token'],
   optionsSuccessStatus: 200
 }));
+
+// Handle preflight requests for all routes
+app.options('*', cors());
 
 // Middleware
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
@@ -108,12 +113,12 @@ app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
 app.get('/test', (req, res) => res.json({ message: 'Backend is working' }));
 app.get('/', (req, res) => res.json({ message: 'API funcionando correctamente 🚀', version: '5.1.0' }));
 
-// Register routes
-app.use('/api/reports', authMiddleware, reportRoutes);
-app.use('/api', apiRoutes);
+// Register routes - Mount at both /api and / to be resilient to environment prefix stripping
+app.use(['/api', '/'], apiRoutes);
+
+// Backup for specific legacy routes if needed (though index.js covers them)
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/payments', paymentRoutes);
 app.use('/api/admin-days', adminDayRoutes);
 app.use('/api/user-notifications', userNotificationRoutes);
 

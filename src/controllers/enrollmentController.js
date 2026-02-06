@@ -38,6 +38,23 @@ class EnrollmentController {
                 return res.status(400).json({ message: 'ID de curso inválido.' });
             }
 
+            // [CRITICAL] Prevent Double Enrollment for the same period
+            if (finalStudentId && period) {
+                const existingEnrollment = await Enrollment.findOne({
+                    tenantId,
+                    estudianteId: finalStudentId,
+                    period,
+                    status: { $in: ['confirmada', 'activo', 'activa', 'pre-matricula'] }
+                });
+
+                if (existingEnrollment) {
+                    return res.status(400).json({
+                        message: 'El estudiante ya se encuentra matriculado en un curso activo para este periodo académico.',
+                        code: 'DOUBLE_ENROLLMENT'
+                    });
+                }
+            }
+
             // 1. Logic for New Student Creation (Improved & Tenant Isolated)
             if (!finalStudentId && newStudent && newStudent.nombres) {
                 const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
@@ -52,11 +69,20 @@ class EnrollmentController {
                 });
 
                 if (existingStudent) {
-                    console.log(`Student already exists (ID: ${existingStudent._id}). Using existing student.`);
+                    console.log(`Student already exists (ID: ${existingStudent._id}). Updating data and using existing student.`);
                     finalStudentId = existingStudent._id;
+                    // Sync data
+                    if (newStudent.nombres) existingStudent.nombres = newStudent.nombres;
+                    if (newStudent.apellidos) existingStudent.apellidos = newStudent.apellidos;
+                    if (newStudent.grado) existingStudent.grado = newStudent.grado;
+                    if (newStudent.email) existingStudent.email = newStudent.email.toLowerCase().trim();
+                    if (newStudent.edad) existingStudent.edad = newStudent.edad;
+                    if (newStudent.direccion) existingStudent.direccion = newStudent.direccion;
+                    await existingStudent.save();
                 } else {
                     const std = new Estudiante({
                         ...newStudent,
+                        direccion: newStudent.direccion,
                         tenantId
                     });
                     await std.save();
@@ -240,13 +266,21 @@ class EnrollmentController {
             const finalFee = (tenantConfig?.paymentType === 'free') ? 0 : (fee !== undefined ? fee : (tenantConfig?.annualFee || 0));
             const finalPeriod = period || tenantConfig?.academicYear || new Date().getFullYear().toString();
 
+            const currentYear = new Date().getFullYear();
+            const enrollmentYear = parseInt(period);
+
+            let initialStatus = 'confirmada';
+            if (enrollmentYear > currentYear) {
+                initialStatus = 'pre-matricula';
+            }
+
             const enrollment = new Enrollment({
                 tenantId,
                 estudianteId: finalStudentId,
                 courseId,
                 period: finalPeriod,
                 apoderadoId: finalGuardianId,
-                status: 'confirmada', // Force standard status to avoid enum mismatch 400 errors
+                status: initialStatus,
                 fee: finalFee,
                 notes
             });
@@ -307,7 +341,11 @@ class EnrollmentController {
             res.status(201).json(enrollment);
 
         } catch (error) {
-            res.status(400).json({ message: error.message });
+            console.error('Enrollment Error:', error);
+            res.status(400).json({
+                message: error.name === 'ValidationError' ? 'Error de validación en los datos.' : error.message,
+                details: error.errors
+            });
         }
     }
 

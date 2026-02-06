@@ -126,9 +126,20 @@ class AttendanceController {
                 }).select('estudianteId');
 
                 const studentIds = enrollments.map(e => e.estudianteId);
-                query.estudianteId = { $in: studentIds };
+
+                // [FIX] If student/apoderado, ensure their specific studentId is in the course's studentIds
+                if (query.estudianteId) {
+                    const currentIdStr = query.estudianteId.toString();
+                    if (!studentIds.some(id => id.toString() === currentIdStr)) {
+                        return res.status(200).json([]); // Not in this course
+                    }
+                    // Keep the single id filter
+                } else {
+                    query.estudianteId = { $in: studentIds };
+                }
             }
-            if (req.query.estudianteId && req.user.role !== 'student' && req.user.role !== 'apoderado') {
+            if (req.query.estudianteId && !query.estudianteId) {
+                // Only non-student/apoderado can use this filter freely
                 query.estudianteId = req.query.estudianteId;
             }
 

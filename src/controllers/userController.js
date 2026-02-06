@@ -79,6 +79,8 @@ class UserController {
 
             const passwordHash = await bcrypt.hash(password, 10);
 
+            const specialization = req.body.specialization || req.body.especialidad;
+
             // SuperAdmin can override tenantId from body
             const tenantId = (req.user.role === 'admin' && req.body.tenantId)
                 ? req.body.tenantId
@@ -89,7 +91,8 @@ class UserController {
                 name: finalName,
                 email: normalizedEmail,
                 passwordHash,
-                role: finalRole
+                role: finalRole,
+                specialization
             });
 
             res.status(201).json(user);
@@ -179,6 +182,10 @@ class UserController {
 
             if (req.body.password) {
                 updateData.passwordHash = await bcrypt.hash(req.body.password, 10);
+            }
+
+            if (req.body.specialization || req.body.especialidad) {
+                updateData.specialization = req.body.specialization || req.body.especialidad;
             }
 
             if (req.body.role || req.body.rol) {

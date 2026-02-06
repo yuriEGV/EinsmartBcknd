@@ -5,31 +5,56 @@ import connectDB from '../config/db.js';
 export default class CourseController {
     static async createCourse(req, res) {
         try {
-            // Logs críticos para debug en Vercel
-            console.log('CREATE COURSE BODY:', req.body);
-            console.log('CREATE COURSE USER:', req.user);
+            await connectDB();
+            const { name, description, teacherId, level, letter, careerId } = req.body;
 
-            const { name, description, teacherId } = req.body;
-
-            // Validación de body
-            if (!name || !description || !teacherId) {
+            if (!name || !level || !letter || !teacherId) {
                 return res.status(400).json({
-                    message: 'name, description y teacherId son obligatorios'
+                    message: 'name, level, letter y teacherId son obligatorios'
                 });
             }
 
-            // Validación de autenticación / tenant
             if (!req.user || !req.user.tenantId) {
-                return res.status(401).json({
-                    message: 'Tenant no encontrado en el token'
-                });
+                return res.status(401).json({ message: 'Tenant no encontrado' });
             }
 
-            // Crear curso asociado al tenant
+            // [LOGIC] Restricciones para profesores
+            if (req.user.role === 'teacher') {
+                const User = await import('../models/userModel.js').then(m => m.default);
+                const teacher = await User.findById(req.user.userId);
+
+                if (!teacher) return res.status(404).json({ message: 'Profesor no encontrado' });
+
+                // 1. Limitar a 1 curso por año (si no es admin)
+                const currentYear = new Date().getFullYear();
+                const startOfYear = new Date(currentYear, 0, 1);
+                const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59);
+
+                const existingCoursesCount = await Course.countDocuments({
+                    teacherId: req.user.userId,
+                    tenantId: req.user.tenantId,
+                    createdAt: { $gte: startOfYear, $lte: endOfYear }
+                });
+
+                if (existingCoursesCount >= 1) {
+                    return res.status(403).json({
+                        message: 'Como profesor, solo puedes crear un curso anualmente.'
+                    });
+                }
+
+                // 2. Opcional: Validar especialidad vs nombre del curso (suave)
+                if (teacher.specialization && !name.toLowerCase().includes(teacher.specialization.toLowerCase())) {
+                    console.warn(`Aviso: El curso "${name}" no parece coincidir con la especialidad "${teacher.specialization}"`);
+                }
+            }
+
             const course = await Course.create({
                 name: name.trim(),
+                level,
+                letter,
                 description,
                 teacherId,
+                careerId: careerId || null,
                 tenantId: req.user.tenantId
             });
 
@@ -37,23 +62,78 @@ export default class CourseController {
 
         } catch (error) {
             console.error('Error createCourse:', error);
-
-            return res.status(400).json({
-                message: 'Error creando el curso',
-                error: error.message
-            });
+            return res.status(400).json({ message: 'Error creando el curso', error: error.message });
         }
     }
 
     static async getCourses(req, res) {
         try {
             await connectDB();
-            const query = (req.user.role === 'admin' && req.query.tenantId)
-                ? { tenantId: req.query.tenantId }
-                : (req.user.role === 'admin' ? {} : { tenantId: req.user.tenantId });
+            let query = { tenantId: req.user.tenantId };
+
+            // [STRICT ISOLATION] Students/Guardians only see their own courses
+            if (req.user.role === 'student' && req.user.profileId) {
+                const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+                const enrollments = await Enrollment.find({
+                    estudianteId: req.user.profileId,
+                    tenantId: req.user.tenantId,
+                    status: { $in: ['confirmada', 'activo', 'activa'] }
+                });
+                const courseIds = enrollments.map(e => e.courseId);
+                query._id = { $in: courseIds };
+            }
+            else if (req.user.role === 'apoderado' && req.user.profileId) {
+                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
+                const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+
+                const vinculation = await Apoderado.findById(req.user.profileId);
+                if (vinculation) {
+                    const enrollments = await Enrollment.find({
+                        estudianteId: vinculation.estudianteId,
+                        tenantId: req.user.tenantId,
+                        status: { $in: ['confirmada', 'activo', 'activa'] }
+                    });
+                    const courseIds = enrollments.map(e => e.courseId);
+                    query._id = { $in: courseIds };
+                } else {
+                    return res.status(200).json([]);
+                }
+            }
+            else if (req.user.role === 'teacher') {
+                const Subject = await import('../models/subjectModel.js').then(m => m.default);
+                const teacherSubjects = await Subject.find({
+                    teacherId: req.user.userId,
+                    tenantId: req.user.tenantId
+                }).select('courseId');
+
+                // Also include courses where they are head teacher
+                const headCourses = await Course.find({
+                    teacherId: req.user.userId,
+                    tenantId: req.user.tenantId
+                }).select('_id');
+
+                const courseIds = [
+                    ...new Set([
+                        ...teacherSubjects.map(s => s.courseId.toString()),
+                        ...headCourses.map(c => c._id.toString())
+                    ])
+                ];
+
+                // FINAL CHECK: Ensure we have IDs, otherwise return nothing for this query
+                if (courseIds.length > 0) {
+                    query._id = { $in: courseIds };
+                } else {
+                    // Force zero results if no assignments
+                    query._id = new mongoose.Types.ObjectId();
+                }
+            }
+            else if (req.user.role === 'admin' && req.query.tenantId) {
+                query.tenantId = req.query.tenantId;
+            }
 
             const allCourses = await Course.find(query)
                 .populate('teacherId', 'name email')
+                .populate('careerId', 'name')
                 .sort({ createdAt: -1 });
 
             // Deduplicate courses by name - keep only the most recent one for each name
@@ -68,7 +148,7 @@ export default class CourseController {
                 }
             }
 
-            console.log(`COURSES: Found ${allCourses.length} total, returning ${uniqueCourses.length} unique`);
+            console.log(`COURSES: Found ${allCourses.length} total, returning ${uniqueCourses.length} unique for role ${req.user.role}`);
             return res.status(200).json(uniqueCourses);
 
         } catch (error) {
@@ -91,6 +171,7 @@ export default class CourseController {
 
             const courses = await Course.find({ tenantId })
                 .populate('teacherId', 'name email')
+                .populate('careerId', 'name')
                 .sort({ createdAt: -1 });
 
             return res.status(200).json(courses);
@@ -112,7 +193,7 @@ export default class CourseController {
             const course = await Course.findOne({
                 _id: id,
                 tenantId: req.user.tenantId
-            }).populate('teacherId', 'name email');
+            }).populate('teacherId', 'name email').populate('careerId', 'name');
 
             if (!course) {
                 return res.status(404).json({
@@ -135,13 +216,20 @@ export default class CourseController {
         try {
             await connectDB();
             const { id } = req.params;
-            const { name, description, teacherId } = req.body;
+            const { name, level, letter, description, teacherId, careerId } = req.body;
 
             const course = await Course.findOneAndUpdate(
                 { _id: id, tenantId: req.user.tenantId },
-                { name: name ? name.trim() : undefined, description, teacherId },
+                {
+                    name: name ? name.trim() : undefined,
+                    level,
+                    letter,
+                    description,
+                    teacherId,
+                    careerId: careerId || null
+                },
                 { new: true, runValidators: true }
-            ).populate('teacherId', 'name email');
+            ).populate('teacherId', 'name email').populate('careerId', 'name');
 
             if (!course) {
                 return res.status(404).json({

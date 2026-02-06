@@ -22,6 +22,7 @@ const estudianteSchema = new mongoose.Schema({
 
   edad: { type: Number, min: 0, max: 120 },
   grado: { type: String, trim: true },
+  direccion: { type: String, trim: true, default: '' },
 
   fechaRegistro: {
     type: Date,
