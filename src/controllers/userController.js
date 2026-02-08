@@ -95,6 +95,22 @@ class UserController {
                 specialization
             });
 
+            // [NUEVO] Notificar a Directores/Sostenedores sobre el nuevo personal
+            if (['teacher', 'psicologo', 'orientador', 'secretario', 'asistente_aula'].includes(finalRole)) {
+                try {
+                    const NotificationService = await import('../services/notificationService.js').then(m => m.default);
+                    await NotificationService.broadcastToAdmins({
+                        tenantId,
+                        title: 'Nuevo Personal Registrado',
+                        message: `Se ha registrado a ${finalName} con el rol de ${finalRole}.`,
+                        type: 'system',
+                        link: `/users/${user._id}`
+                    });
+                } catch (notifyErr) {
+                    console.error('Error broadcasting user notification:', notifyErr);
+                }
+            }
+
             res.status(201).json(user);
 
         } catch (error) {

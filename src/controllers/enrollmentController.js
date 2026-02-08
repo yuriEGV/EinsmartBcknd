@@ -338,6 +338,20 @@ class EnrollmentController {
             await enrollment.populate('courseId', 'name code');
             await enrollment.populate('apoderadoId', 'nombre apellidos');
 
+            // [NUEVO] Notificar a Directores/Sostenedores sobre el nuevo movimiento
+            try {
+                const NotificationService = await import('../services/notificationService.js').then(m => m.default);
+                await NotificationService.broadcastToAdmins({
+                    tenantId,
+                    title: 'Nueva Matrícula Detectada',
+                    message: `Se ha registrado una nueva matrícula para ${enrollment.estudianteId.nombres} ${enrollment.estudianteId.apellidos} en el curso ${enrollment.courseId.name}.`,
+                    type: 'system',
+                    link: `/enrollments/${enrollment._id}`
+                });
+            } catch (notifyErr) {
+                console.error('Error broadcasting enrollment notification:', notifyErr);
+            }
+
             res.status(201).json(enrollment);
 
         } catch (error) {

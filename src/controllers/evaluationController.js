@@ -7,7 +7,7 @@ class EvaluationController {
     // Create a new evaluation
     static async createEvaluation(req, res) {
         try {
-            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director'];
+            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director', 'utp'];
             if (!staffRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para crear evaluaciones.' });
             }
@@ -62,21 +62,22 @@ class EvaluationController {
 
             if (courseId) {
                 query.courseId = courseId;
-            } else if (studentId) {
+            } else if (studentId || req.user.role === 'student') {
+                const targetStudentId = studentId || req.user.profileId;
                 const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
-                const student = await Estudiante.findById(studentId);
+                const student = await Estudiante.findById(targetStudentId);
                 if (student && student.courseId) {
                     query.courseId = student.courseId;
                 } else if (student && student.grado) {
-                    // Fallback to searching by grade name if courseId is missing but grade is present
                     const Course = await import('../models/courseModel.js').then(m => m.default);
                     const course = await Course.findOne({ name: student.grado, tenantId: req.user.tenantId });
                     if (course) query.courseId = course._id;
                 }
-            } else if (guardianId) {
+            } else if (guardianId || req.user.role === 'apoderado') {
+                const targetGuardianId = guardianId || req.user.profileId;
                 const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
                 const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
-                const guardian = await Apoderado.findById(guardianId);
+                const guardian = await Apoderado.findById(targetGuardianId);
                 if (guardian && guardian.estudianteId) {
                     const student = await Estudiante.findById(guardian.estudianteId);
                     if (student && student.courseId) {
@@ -149,7 +150,7 @@ class EvaluationController {
     // Update an evaluation by ID (Secure)
     static async updateEvaluation(req, res) {
         try {
-            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director'];
+            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director', 'utp'];
             if (!staffRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para modificar evaluaciones.' });
             }
@@ -172,7 +173,7 @@ class EvaluationController {
     // Delete an evaluation by ID (Secure)
     static async deleteEvaluation(req, res) {
         try {
-            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director'];
+            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director', 'utp'];
             if (!staffRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para eliminar evaluaciones.' });
             }

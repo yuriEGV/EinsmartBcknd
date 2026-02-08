@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
         // match: [/^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/, 'Formato de RUT inválido (ej: 12.345.678-9)'] // Deshabilitado temporalmente para depuración
     },
     passwordHash: { type: String, required: true },
-    role: { type: String, enum: ['admin', 'sostenedor', 'director', 'teacher', 'student', 'apoderado', 'psicologo', 'orientador', 'asistente_aula', 'manipulador_alimento', 'bibliotecario', 'secretario', 'paradocente'], required: true },
+    role: { type: String, enum: ['admin', 'sostenedor', 'director', 'utp', 'teacher', 'student', 'apoderado', 'psicologo', 'orientador', 'asistente_aula', 'manipulador_alimento', 'bibliotecario', 'secretario', 'paradocente'], required: true },
     profileId: { type: mongoose.Types.ObjectId, default: null }, // Link to Estudiante or Apoderado
     specialization: { type: String, trim: true }, // Especialidad del profesor (ej: Matemáticas)
     mustChangePassword: { type: Boolean, default: false },
