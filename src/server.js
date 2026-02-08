@@ -31,12 +31,20 @@ const allowedOrigins = [
   'https://einsmart-bcknd.vercel.app'
 ];
 
-app.use(cors({
-  origin: '*', // Allow all origins (Vercel, Localhost, etc.)
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'X-Requested-With', 'Accept', 'X-CSRF-Token'],
-  credentials: false // Disable cookies to avoid CORS conflicts with wildcards
-}));
+// Manual CORS middleware to ensure absolute control
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-tenant-id, X-Requested-With, Accept, X-CSRF-Token');
+  res.header('Access-Control-Allow-Credentials', 'false');
+
+  // Handle preflight immediately
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  next();
+});
 
 // Handle preflight requests for all routes
 app.options('*', cors());
