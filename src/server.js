@@ -122,6 +122,8 @@ app.use('/api/user-notifications', userNotificationRoutes);
 // Error handling
 app.use((err, req, res, next) => {
   console.error('Error:', err);
+  // Ensure CORS headers are sent even on error
+  res.header('Access-Control-Allow-Origin', '*');
   res.status(err.status || 500).json({ message: err.message || 'Error interno del servidor' });
 });
 
