@@ -46,10 +46,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Handle preflight requests for all routes
-app.options('*', cors());
+// Handle preflight requests for all routes - Handled by manual middleware above
+// app.options('*', cors());
 
-// Middleware
+// Debug root to verify server is reachable
+app.get('/', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.send('Backend is running');
+});
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
