@@ -45,7 +45,9 @@ class UserController {
                 manipulador_alimento: 'manipulador_alimento',
                 bibliotecario: 'bibliotecario',
                 secretario: 'secretario',
-                paradocente: 'paradocente'
+                paradocente: 'paradocente',
+                utp: 'utp',
+                jefe_utp: 'utp'
             };
 
             const finalRole = roleMap[rol || role];
@@ -223,7 +225,9 @@ class UserController {
                     manipulador_alimento: 'manipulador_alimento',
                     bibliotecario: 'bibliotecario',
                     secretario: 'secretario',
-                    paradocente: 'paradocente'
+                    paradocente: 'paradocente',
+                    utp: 'utp',
+                    jefe_utp: 'utp'
                 };
 
                 const newRole = roleMap[req.body.role || req.body.rol];
