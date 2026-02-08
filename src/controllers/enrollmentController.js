@@ -338,6 +338,25 @@ class EnrollmentController {
             await enrollment.populate('courseId', 'name code');
             await enrollment.populate('apoderadoId', 'nombre apellidos');
 
+            // [NUEVO] Notificar a Directores/Sostenedores sobre el nuevo movimiento
+            try {
+                const NotificationService = await import('../services/notificationService.js').then(m => m.default);
+                await NotificationService.broadcastToAdmins({
+                    tenantId,
+                    title: 'Nueva Matrícula Detectada',
+                    message: `Se ha registrado una nueva matrícula para ${enrollment.estudianteId.nombres} ${enrollment.estudianteId.apellidos} en el curso ${enrollment.courseId.name}.`,
+                    type: 'system',
+                    link: `/enrollments/${enrollment._id}`
+                });
+
+                // [NUEVO] Notificar al apoderado sobre el éxito de la matrícula (Asíncrono)
+                NotificationService.notifyEnrollmentSuccess(enrollment._id, tenantId)
+                    .catch(err => console.error('Error sending enrollment success notification:', err));
+
+            } catch (notifyErr) {
+                console.error('Error broadcasting enrollment notification:', notifyErr);
+            }
+
             res.status(201).json(enrollment);
 
         } catch (error) {
@@ -565,6 +584,25 @@ class EnrollmentController {
             );
 
             res.status(200).json({ message: `Listado enviado correctamente a ${tenant.contactEmail || 'administracion@einsmart.cl'}` });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+
+    // [NUEVO] Trigger enrollment summary report for Director/Sostenedor
+    static async triggerSummaryReport(req, res) {
+        try {
+            const tenantId = req.user.tenantId;
+            const { period } = req.query;
+
+            if (!period) {
+                return res.status(400).json({ message: 'El periodo es obligatorio' });
+            }
+
+            const NotificationService = await import('../services/notificationService.js').then(m => m.default);
+            await NotificationService.sendEnrollmentSummaryReport(tenantId, period);
+
+            res.status(200).json({ message: `Reporte de matrículas para el periodo ${period} enviado correctamente a los directivos.` });
         } catch (error) {
             res.status(500).json({ message: error.message });
         }

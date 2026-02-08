@@ -495,6 +495,75 @@ class AnalyticsController {
             return res.status(500).json({ message: error.message });
         }
     }
+
+    // Get authority stats (High-level aggregated data for Sostenedor/Director/SuperAdmin)
+    static async getAuthorityStats(req, res) {
+        try {
+            await connectDB();
+            const tid = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
+            if (!tid) return res.status(400).json({ message: 'TenantId requerido' });
+
+            const tenantId = new mongoose.Types.ObjectId(tid);
+
+            // 1. Enrollment stats
+            const studentCount = await Estudiante.countDocuments({ tenantId });
+
+            // 2. Course count
+            const Course = mongoose.model('Course');
+            const courseCount = await Course.countDocuments({ tenantId });
+
+            // 3. Average Attendance (Global)
+            const attendanceStats = await mongoose.model('Attendance').aggregate([
+                { $match: { tenantId } },
+                {
+                    $group: {
+                        _id: '$estado',
+                        count: { $sum: 1 }
+                    }
+                }
+            ]);
+
+            const totalAttendanceRecords = attendanceStats.reduce((acc, curr) => acc + curr.count, 0);
+            const presentCount = attendanceStats.find(a => a._id === 'presente')?.count || 0;
+            const globalAttendanceRate = totalAttendanceRecords > 0
+                ? parseFloat(((presentCount / totalAttendanceRecords) * 100).toFixed(2))
+                : 100;
+
+            // 4. Global Grade Average
+            const gradeStats = await Grade.aggregate([
+                { $match: { tenantId } },
+                {
+                    $group: {
+                        _id: null,
+                        average: { $avg: '$score' },
+                        total: { $sum: 1 }
+                    }
+                }
+            ]);
+
+            const globalGradeAverage = gradeStats.length > 0 ? parseFloat(gradeStats[0].average.toFixed(2)) : 0;
+
+            // 5. Recent "Movements" (Just a count/summary for now)
+            const recentEnrollments = await Estudiante.find({ tenantId }).sort({ createdAt: -1 }).limit(5);
+
+            return res.status(200).json({
+                studentCount,
+                courseCount,
+                globalAttendanceRate,
+                globalGradeAverage,
+                recentActivities: recentEnrollments.map(s => ({
+                    type: 'new_enrollment',
+                    title: 'Nueva Matrícula',
+                    message: `Se ha matriculado a ${s.nombres} ${s.apellidos}`,
+                    date: s.createdAt
+                }))
+            });
+
+        } catch (error) {
+            console.error('Authority Stats Error:', error);
+            return res.status(500).json({ message: error.message });
+        }
+    }
 }
 
 export default AnalyticsController;

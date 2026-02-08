@@ -421,6 +421,139 @@ class NotificationService {
             console.error('❌ Error in notifyWeeklyPerformance:', error);
         }
     }
+
+    /**
+     * Notify guardian about successful enrollment with course and teacher details
+     */
+    static async notifyEnrollmentSuccess(enrollmentId, tenantId) {
+        try {
+            const enrollment = await Enrollment.findById(enrollmentId)
+                .populate('estudianteId')
+                .populate('apoderadoId')
+                .populate('courseId');
+
+            if (!enrollment) return;
+
+            const student = enrollment.estudianteId;
+            const guardian = enrollment.apoderadoId;
+            const course = enrollment.courseId;
+
+            if (!guardian || !guardian.correo) return;
+
+            // Fetch subjects and teachers for this course
+            const Subject = await import('../models/subjectModel.js').then(m => m.default);
+            const subjects = await Subject.find({ courseId: course._id, tenantId }).populate('teacherId', 'name email');
+
+            const teachersHtml = subjects.map(s => `
+                <li style="margin-bottom: 8px;">
+                    <strong>${s.name}:</strong> ${s.teacherId?.name || 'Por asignar'}
+                </li>
+            `).join('');
+
+            const html = `
+                <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
+                    <div style="background-color: #11355a; color: white; padding: 25px; text-align: center;">
+                        <h1 style="margin: 0;">🎉 ¡Matrícula Confirmada!</h1>
+                    </div>
+                    <div style="padding: 30px;">
+                        <p>Estimado(a) <strong>${guardian.nombre} ${guardian.apellidos}</strong>,</p>
+                        <p>Nos complace informarle que el proceso de matrícula para <strong>${student.nombres} ${student.apellidos}</strong> ha sido completado exitosamente.</p>
+                        
+                        <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #11355a;">
+                            <h3 style="margin-top: 0; color: #11355a;">Detalles de Matrícula</h3>
+                            <p style="margin: 5px 0;"><strong>Periodo:</strong> ${enrollment.period}</p>
+                            <p style="margin: 5px 0;"><strong>Curso:</strong> ${course.name}</p>
+                            <p style="margin: 5px 0;"><strong>Estado:</strong> ${enrollment.status.toUpperCase()}</p>
+                        </div>
+
+                        <h3 style="color: #11355a; border-bottom: 2px solid #eee; padding-bottom: 10px;">Asignaturas y Profesores</h3>
+                        <ul style="padding-left: 20px;">
+                            ${teachersHtml || '<li>Aún no hay asignaturas configuradas para este curso.</li>'}
+                        </ul>
+
+                        <p style="margin-top: 25px;">El alumno ya puede acceder al portal con sus credenciales institucionales.</p>
+                        <p>Cualquier duda, por favor contacte a la administración del colegio.</p>
+                    </div>
+                    <div style="background-color: #f4f7f6; padding: 15px; text-align: center; font-size: 12px; color: #777;">
+                        EinSmart - Sistema de Gestión Educativa
+                    </div>
+                </div>
+            `;
+
+            await sendMail(guardian.correo, `Confirmación de Matrícula - ${student.nombres} ${student.apellidos}`, html);
+            console.log(`📧 Enrollment confirmation email sent to ${guardian.correo}`);
+
+        } catch (error) {
+            console.error('❌ Error in notifyEnrollmentSuccess:', error);
+        }
+    }
+
+    /**
+     * Send enrollment summary report to Director and Sostenedor
+     */
+    static async sendEnrollmentSummaryReport(tenantId, period) {
+        try {
+            const enrollments = await Enrollment.find({ tenantId, period })
+                .populate('estudianteId', 'nombres apellidos rut')
+                .populate('courseId', 'name')
+                .populate('apoderadoId', 'nombre apellidos correo');
+
+            if (enrollments.length === 0) return;
+
+            const tableRows = enrollments.map(e => `
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;">${e.estudianteId?.nombres} ${e.estudianteId?.apellidos}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">${e.estudianteId?.rut || 'N/A'}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">${e.courseId?.name || 'N/A'}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">${e.apoderadoId?.nombre} ${e.apoderadoId?.apellidos}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">${e.status}</td>
+                </tr>
+            `).join('');
+
+            const html = `
+                <div style="font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: auto;">
+                    <h2 style="color: #11355a; text-align: center;">📊 Reporte Resumen de Matrículas - Periodo ${period}</h2>
+                    <p>Estimados directivos,</p>
+                    <p>Se adjunta el resumen consolidado de las matrículas registradas hasta la fecha para el periodo académico indicado.</p>
+                    
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px;">
+                        <thead>
+                            <tr style="background-color: #11355a; color: white;">
+                                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Alumno</th>
+                                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">RUT</th>
+                                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Curso</th>
+                                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Apoderado</th>
+                                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
+                    
+                    <p style="margin-top: 30px; text-align: center; font-size: 12px; color: #777;">
+                        Reporte generado automáticamente por EinSmart
+                    </p>
+                </div>
+            `;
+
+            const admins = await User.find({
+                tenantId,
+                role: { $in: ['sostenedor', 'director'] }
+            });
+
+            for (const admin of admins) {
+                if (admin.email) {
+                    await sendMail(admin.email, `📊 Resumen de Matrículas ${period}`, html);
+                }
+            }
+
+            console.log(`✅ Enrollment summary report sent to ${admins.length} admins.`);
+
+        } catch (error) {
+            console.error('❌ Error in sendEnrollmentSummaryReport:', error);
+        }
+    }
 }
 
 export default NotificationService;

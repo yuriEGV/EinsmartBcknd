@@ -34,7 +34,8 @@ import {
     obtenerPerfil,
     actualizarPerfil,
     recuperarPassword,
-    resetPassword
+    resetPassword,
+    cambiarPassword
 } from '../controllers/authController.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
@@ -50,7 +51,7 @@ router.post('/reset-password', resetPassword);
 router.post('/bootstrap', async (req, res) => {
     // Forward to users bootstrap endpoint
     // This is a convenience endpoint - the actual logic is in userRoutes
-    return res.status(302).json({ 
+    return res.status(302).json({
         message: 'Use POST /api/users/bootstrap instead',
         endpoint: '/api/users/bootstrap'
     });

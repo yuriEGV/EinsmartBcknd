@@ -12,6 +12,12 @@ class MessageController {
                 return res.status(400).json({ message: 'Receptor y contenido son obligatorios' });
             }
 
+            // [SECURITY] Only staff (admin, teacher, sostenedor, director) can send messages
+            const allowedRoles = ['admin', 'teacher', 'sostenedor', 'director'];
+            if (!allowedRoles.includes(req.user.role)) {
+                return res.status(403).json({ message: 'No tienes permisos para enviar mensajes.' });
+            }
+
             // [SECURITY] Validate that receiver belongs to the same tenant
             const receiver = await User.findById(receiverId);
             if (!receiver || receiver.tenantId?.toString() !== tenantId.toString()) {
@@ -52,11 +58,16 @@ class MessageController {
 
     static async getContacts(req, res) {
         try {
-            // Students can find teachers and other students in their tenant
+            // Only staff can search for other staff
+            const allowedRoles = ['admin', 'teacher', 'sostenedor', 'director'];
+            if (!allowedRoles.includes(req.user.role)) {
+                return res.json([]); // Return empty for students/guardians
+            }
+
             const users = await User.find({
                 tenantId: req.user.tenantId,
                 _id: { $ne: req.user.userId },
-                role: { $in: ['teacher', 'student', 'admin', 'sostenedor'] }
+                role: { $in: allowedRoles }
             }).select('name role email');
 
             res.json(users);

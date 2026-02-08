@@ -35,11 +35,58 @@ class AttendanceController {
                 registradoPor: req.user.userId
             });
 
+            // [NUEVO] Alerta de asistencia baja (< 75%)
+            if (estado === 'ausente') {
+                this.checkAttendanceAlert(req.user.tenantId, estudianteId).catch(err =>
+                    console.error('Error in attendance alert check:', err)
+                );
+            }
+
             res.status(201).json(attendance);
 
         } catch (error) {
             console.error('Attendance error:', error);
             res.status(400).json({ message: error.message });
+        }
+    }
+
+    // Helper method to check and notify if student's attendance is low
+    static async checkAttendanceAlert(tenantId, estudianteId) {
+        try {
+            const stats = await Attendance.aggregate([
+                {
+                    $match: {
+                        tenantId: new mongoose.Types.ObjectId(tenantId),
+                        estudianteId: new mongoose.Types.ObjectId(estudianteId)
+                    }
+                },
+                {
+                    $group: {
+                        _id: "$estado",
+                        count: { $sum: 1 }
+                    }
+                }
+            ]);
+
+            const total = stats.reduce((acc, curr) => acc + curr.count, 0);
+            const present = stats.find(s => s._id === 'presente')?.count || 0;
+            const attendanceRate = total > 5 ? (present / total) * 100 : 100;
+
+            if (attendanceRate < 75) {
+                const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
+                const student = await Estudiante.findById(estudianteId);
+                const NotificationService = await import('../services/notificationService.js').then(m => m.default);
+
+                await NotificationService.broadcastToAdmins({
+                    tenantId,
+                    title: 'Alerta de Asistencia Crítica',
+                    message: `El estudiante ${student.nombres} ${student.apellidos} tiene una asistencia del ${attendanceRate.toFixed(1)}%.`,
+                    type: 'system',
+                    link: `/students/${estudianteId}`
+                });
+            }
+        } catch (error) {
+            console.error('Attendance Alert Check Logic Error:', error);
         }
     }
 

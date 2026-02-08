@@ -31,4 +31,7 @@ router.delete('/:id', authorizeRoles(...STAFF_ROLES), enrollmentController.delet
 // Consolidated List for Sostenedor
 router.post('/send-institutional-list', authMiddleware, enrollmentController.sendInstitutionalList);
 
+// [NUEVO] Reporte resumen de matrículas para directivos
+router.post('/trigger-summary', authMiddleware, enrollmentController.triggerSummaryReport);
+
 export default router;

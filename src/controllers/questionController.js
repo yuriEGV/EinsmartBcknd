@@ -3,6 +3,10 @@ import Question from '../models/questionModel.js';
 class QuestionController {
     static async create(req, res) {
         try {
+            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director', 'utp'];
+            if (!staffRoles.includes(req.user.role)) {
+                return res.status(403).json({ message: 'No tienes permisos para crear preguntas.' });
+            }
             const { subjectId, grade, questionText, type, options, difficulty, tags } = req.body;
 
             const question = new Question({
@@ -47,6 +51,10 @@ class QuestionController {
 
     static async update(req, res) {
         try {
+            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director', 'utp'];
+            if (!staffRoles.includes(req.user.role)) {
+                return res.status(403).json({ message: 'No tienes permisos para modificar preguntas.' });
+            }
             const { id } = req.params;
             const question = await Question.findOneAndUpdate(
                 { _id: id, tenantId: req.user.tenantId },
@@ -62,6 +70,10 @@ class QuestionController {
 
     static async delete(req, res) {
         try {
+            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director', 'utp'];
+            if (!staffRoles.includes(req.user.role)) {
+                return res.status(403).json({ message: 'No tienes permisos para eliminar preguntas.' });
+            }
             const { id } = req.params;
             const question = await Question.findOneAndDelete({ _id: id, tenantId: req.user.tenantId });
             if (!question) return res.status(404).json({ message: 'Pregunta no encontrada' });
