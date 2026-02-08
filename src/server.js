@@ -32,25 +32,10 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    const isVercel = origin.endsWith('.vercel.app');
-    const isLocal = origin.startsWith('http://localhost:');
-    const isExplicitlyAllowed = allowedOrigins.includes(origin);
-
-    if (isVercel || isLocal || isExplicitlyAllowed) {
-      callback(null, true);
-    } else {
-      console.warn(`Blocked by CORS: ${origin}`);
-      callback(null, false);
-    }
-  },
-  credentials: true,
+  origin: '*', // Allow all origins (Vercel, Localhost, etc.)
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'X-Requested-With', 'Accept', 'X-CSRF-Token'],
-  optionsSuccessStatus: 200
+  credentials: false // Disable cookies to avoid CORS conflicts with wildcards
 }));
 
 // Handle preflight requests for all routes
