@@ -19,6 +19,9 @@ router.get('/annotations-ranking', analyticsController.getAnnotationRankings);
 // Get individual student performance
 router.get('/student/:studentId', analyticsController.getStudentPerformance);
 
+// Get performance trends
+router.get('/performance-trends', analyticsController.getPerformanceTrends);
+
 // Get dashboard main stats
 router.get('/dashboard-stats', analyticsController.getDashboardStats);
 
