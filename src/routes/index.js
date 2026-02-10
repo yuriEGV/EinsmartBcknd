@@ -32,6 +32,7 @@ import adminDayRoutes from './adminDayRoutes.js';
 import userNotificationRoutes from './userNotificationRoutes.js';
 import eventRequestRoutes from './eventRequestRoutes.js';
 import careerRoutes from './careerRoutes.js';
+import scheduleRoutes from './scheduleRoutes.js';
 
 const router = express.Router();
 
@@ -88,5 +89,6 @@ router.use('/admin-days', adminDayRoutes);
 router.use('/user-notifications', userNotificationRoutes);
 router.use('/event-requests', eventRequestRoutes);
 router.use('/careers', careerRoutes);
+router.use('/schedules', scheduleRoutes);
 
 export default router;

@@ -31,4 +31,7 @@ router.get('/debtors', analyticsController.getDebtorRanking);
 // Get high-level authority stats
 router.get('/authority-stats', analyticsController.getAuthorityStats);
 
+// Get Digital Class Book metrics (Effective Time)
+router.get('/class-book', analyticsController.getClassBookMetrics);
+
 export default router;

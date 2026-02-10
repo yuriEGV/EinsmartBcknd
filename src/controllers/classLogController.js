@@ -1,4 +1,5 @@
 import ClassLog from '../models/classLogModel.js';
+import Schedule from '../models/scheduleModel.js';
 import mongoose from 'mongoose';
 
 class ClassLogController {
@@ -23,6 +24,22 @@ class ClassLogController {
                 log.startTime = new Date();
                 await log.save();
             } else {
+                // Find matching schedule for current time and day
+                const now = new Date();
+                const dayOfWeek = now.getDay();
+                const currentHour = now.getHours().toString().padStart(2, '0');
+                const currentMin = now.getMinutes().toString().padStart(2, '0');
+                const currentTimeStr = `${currentHour}:${currentMin}`;
+
+                const schedule = await Schedule.findOne({
+                    tenantId: req.user.tenantId,
+                    courseId,
+                    subjectId,
+                    dayOfWeek,
+                    startTime: { $lte: currentTimeStr },
+                    endTime: { $gte: currentTimeStr }
+                });
+
                 log = new ClassLog({
                     tenantId: req.user.tenantId,
                     courseId,
@@ -31,8 +48,33 @@ class ClassLogController {
                     date: new Date(),
                     startTime: new Date(),
                     topic: 'Clase en curso...',
-                    activities: ''
+                    activities: '',
+                    scheduleId: schedule ? schedule._id : undefined,
+                    status: 'en_curso'
                 });
+
+                if (schedule) {
+                    // Set planned times based on schedule
+                    const [startH, startM] = schedule.startTime.split(':');
+                    const [endH, endM] = schedule.endTime.split(':');
+
+                    const plannedStart = new Date();
+                    plannedStart.setHours(parseInt(startH), parseInt(startM), 0, 0);
+
+                    const plannedEnd = new Date();
+                    plannedEnd.setHours(parseInt(endH), parseInt(endM), 0, 0);
+
+                    log.plannedStartTime = plannedStart;
+                    log.plannedEndTime = plannedEnd;
+
+                    // Calculate initial delay if started after planned start
+                    const delayMs = log.startTime.getTime() - plannedStart.getTime();
+                    if (delayMs > 0) {
+                        log.delayMinutes = Math.round(delayMs / 60000);
+                        log.status = 'atrasada';
+                    }
+                }
+
                 await log.save();
             }
 
@@ -134,10 +176,26 @@ class ClassLogController {
             log.isSigned = true;
             log.signedAt = new Date();
 
-            // Calculate duration if startTime exists
+            // Calculate duration and final metrics if startTime exists
             if (log.startTime) {
                 const diffMs = log.signedAt.getTime() - log.startTime.getTime();
                 log.duration = Math.max(0, Math.round(diffMs / 60000)); // Round to nearest minute
+
+                // If it was linked to a schedule, finalize status
+                if (log.scheduleId) {
+                    // If finished significantly before planned end (e.g. > 15 mins), mark as interrupted
+                    if (log.plannedEndTime) {
+                        const earlyFinishMs = log.plannedEndTime.getTime() - log.signedAt.getTime();
+                        if (earlyFinishMs > 15 * 60000) {
+                            log.interruptionMinutes = Math.round(earlyFinishMs / 60000);
+                            log.status = 'interrumpida';
+                        } else {
+                            log.status = log.delayMinutes > 10 ? 'atrasada' : 'realizada';
+                        }
+                    }
+                } else {
+                    log.status = 'realizada';
+                }
             }
 
             await log.save();

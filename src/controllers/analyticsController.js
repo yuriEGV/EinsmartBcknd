@@ -9,6 +9,9 @@ import Course from '../models/courseModel.js';
 import Payment from '../models/paymentModel.js';
 import NotificationService from '../services/notificationService.js'; // Assuming it's needed or just for hygiene
 import '../models/courseModel.js'; // Ensure registered
+import ClassLog from '../models/classLogModel.js';
+import Schedule from '../models/scheduleModel.js';
+import Subject from '../models/subjectModel.js';
 
 class AnalyticsController {
     // Get student averages by subject and overall average
@@ -561,6 +564,104 @@ class AnalyticsController {
 
         } catch (error) {
             console.error('Authority Stats Error:', error);
+            return res.status(500).json({ message: error.message });
+        }
+    }
+
+    // Get Class Book Metrics (Effective Time in Classroom)
+    static async getClassBookMetrics(req, res) {
+        try {
+            await connectDB();
+            const tid = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
+            const tenantId = new mongoose.Types.ObjectId(tid);
+
+            // 1. Calculate Effective Time per Course/Subject
+            const classTimeMetrics = await ClassLog.aggregate([
+                { $match: { tenantId } },
+                {
+                    $group: {
+                        _id: { courseId: '$courseId', subjectId: '$subjectId' },
+                        totalDuration: { $sum: '$duration' },
+                        totalDelay: { $sum: '$delayMinutes' },
+                        totalInterruption: { $sum: '$interruptionMinutes' },
+                        classCount: { $sum: 1 }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'courses',
+                        localField: '_id.courseId',
+                        foreignField: '_id',
+                        as: 'course'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'subjects',
+                        localField: '_id.subjectId',
+                        foreignField: '_id',
+                        as: 'subject'
+                    }
+                },
+                { $unwind: '$course' },
+                { $unwind: '$subject' },
+                {
+                    $project: {
+                        courseName: '$course.name',
+                        subjectName: '$subject.name',
+                        totalDuration: 1,
+                        totalDelay: 1,
+                        totalInterruption: 1,
+                        classCount: 1
+                    }
+                }
+            ]);
+
+            // 2. Schedule Coverage %
+            const totalScheduled = await Schedule.countDocuments({ tenantId });
+            const totalRealized = await ClassLog.countDocuments({ tenantId, isSigned: true });
+
+            const globalCoverage = totalScheduled > 0
+                ? parseFloat(((totalRealized / (totalScheduled * 4)) * 100).toFixed(2))
+                : 100;
+
+            // 3. Time lost by teacher
+            const teacherLostTime = await ClassLog.aggregate([
+                { $match: { tenantId } },
+                {
+                    $group: {
+                        _id: '$teacherId',
+                        totalLost: { $sum: { $add: ['$delayMinutes', '$interruptionMinutes'] } }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: '_id',
+                        foreignField: '_id',
+                        as: 'teacher'
+                    }
+                },
+                { $unwind: '$teacher' },
+                {
+                    $project: {
+                        teacherName: '$teacher.name',
+                        totalLost: 1
+                    }
+                }
+            ]);
+
+            return res.status(200).json({
+                globalCoverage,
+                classTimeMetrics,
+                teacherLostTime,
+                alerts: classTimeMetrics.filter(m => m.classCount < 5).map(m => ({
+                    type: 'low_coverage',
+                    message: `El curso ${m.courseName} en ${m.subjectName} tiene muy poca actividad registrada.`
+                }))
+            });
+        } catch (error) {
+            console.error('Class Book Metrics Error:', error);
             return res.status(500).json({ message: error.message });
         }
     }

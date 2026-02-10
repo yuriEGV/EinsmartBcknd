@@ -54,6 +54,29 @@ const classLogSchema = new mongoose.Schema({
     duration: {
         type: Number, // in minutes
         default: 0
+    },
+    scheduleId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Schedule'
+    },
+    plannedStartTime: {
+        type: Date
+    },
+    plannedEndTime: {
+        type: Date
+    },
+    status: {
+        type: String,
+        enum: ['realizada', 'no_realizada', 'interrumpida', 'atrasada', 'en_curso'],
+        default: 'en_curso'
+    },
+    delayMinutes: {
+        type: Number,
+        default: 0
+    },
+    interruptionMinutes: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: true });
 
