@@ -1,4 +1,3 @@
-import express from 'express';
-const app = express();
-app.get('/health', (req, res) => res.status(200).send('OK from api/index.js'));
-export default app;
+export default function handler(request, response) {
+    response.status(200).send('Hello from raw Node handler');
+}
