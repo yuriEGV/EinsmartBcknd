@@ -114,13 +114,13 @@ app.get('/setup-admin', async (req, res) => {
 });
 
 // Register routes
-app.use(['/api', '/'], apiRoutes);
+// app.use(['/api', '/'], apiRoutes);
 
 // Backup for specific legacy routes if needed (though index.js covers them)
-app.use('/api/payroll', payrollRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/admin-days', adminDayRoutes);
-app.use('/api/user-notifications', userNotificationRoutes);
+// app.use('/api/payroll', payrollRoutes);
+// app.use('/api/notifications', notificationRoutes);
+// app.use('/api/admin-days', adminDayRoutes);
+// app.use('/api/user-notifications', userNotificationRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {
