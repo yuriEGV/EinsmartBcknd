@@ -59,9 +59,9 @@ router.use((req, res, next) => {
 
 // Public routes
 router.use('/auth', authRoutes);
-router.use('/tenants', tenantRoutes);
+// router.use('/tenants', tenantRoutes);
 // Public webhook endpoints for payment providers
-router.use('/payments/webhooks', webhookRoutes);
+// router.use('/payments/webhooks', webhookRoutes);
 
 // Auth middleware for private routes
 router.use(authMiddleware);
@@ -76,9 +76,9 @@ router.use('/evaluations', evaluationRoutes);
 router.use('/grades', gradeRoutes);
 router.use('/enrollments', enrollmentRoutes);
 router.use('/users', userRoutes);
-router.use('/apoderados', apoderadoRoutes);
+// router.use('/apoderados', apoderadoRoutes);
 // NOTE: Matriculas feature merged into /enrollments — use enrollment routes which now include documents and apoderado
-router.use('/anotaciones', anotacionRoutes);
+// router.use('/anotaciones', anotacionRoutes);
 // Payments and tariffs (private)
 // router.use('/payments', paymentRoutes);
 // router.use('/tariffs', tariffRoutes);
