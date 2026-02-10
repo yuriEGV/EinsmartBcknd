@@ -1,5 +1,8 @@
 import Schedule from '../models/scheduleModel.js';
 import NotificationService from '../services/notificationService.js';
+import Enrollment from '../models/enrollmentModel.js';
+import Apoderado from '../models/apoderadoModel.js';
+import mongoose from 'mongoose';
 
 class ScheduleController {
     static async create(req, res) {
@@ -30,7 +33,30 @@ class ScheduleController {
             const { courseId, teacherId, dayOfWeek } = req.query;
             const query = { tenantId: req.user.tenantId };
 
-            if (courseId) query.courseId = courseId;
+            // Security: Students and Guardians can only see their own course schedule
+            if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                let studentId;
+                if (req.user.role === 'student') {
+                    studentId = req.user.profileId;
+                } else {
+                    const apoderado = await Apoderado.findById(req.user.profileId);
+                    studentId = apoderado?.estudianteId;
+                }
+
+                if (!studentId) return res.status(403).json({ message: 'Perfil no vinculado' });
+
+                const enrollment = await Enrollment.findOne({
+                    estudianteId: studentId,
+                    tenantId: req.user.tenantId,
+                    status: { $in: ['confirmada', 'activo', 'activa'] }
+                });
+
+                if (!enrollment) return res.status(404).json({ message: 'Matrícula no encontrada' });
+                query.courseId = enrollment.courseId;
+            } else {
+                if (courseId) query.courseId = courseId;
+            }
+
             if (teacherId) query.teacherId = teacherId;
             if (dayOfWeek !== undefined) query.dayOfWeek = dayOfWeek;
 
