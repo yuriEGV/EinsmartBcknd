@@ -1,8 +1,7 @@
 
 import express from 'express';
 import PlanningController from '../controllers/planningController.js';
-import authMiddleware from '../middleware/authMiddleware.js';
-import authorizeRoles from '../middleware/authorizeRoles.js';
+import authMiddleware, { authorizeRoles } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 

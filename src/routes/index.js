@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import connectDB from '../config/db.js';
 
+// Import all routes
 import estudianteRoutes from './estudianteRoutes.js';
 import authRoutes from './authRoutes.js';
 import reportRoutes from './reportRoutes.js';
@@ -22,7 +23,6 @@ import eventRoutes from './eventRoutes.js';
 import auditLogRoutes from './auditLogRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
 import messageRoutes from './messageRoutes.js';
-import authMiddleware from '../middleware/authMiddleware.js';
 import curriculumMaterialsRoutes from './curriculumMaterialsRoutes.js';
 import expenseRoutes from './expenseRoutes.js';
 import objectiveRoutes from './objectiveRoutes.js';
@@ -32,57 +32,63 @@ import adminDayRoutes from './adminDayRoutes.js';
 import userNotificationRoutes from './userNotificationRoutes.js';
 import eventRequestRoutes from './eventRequestRoutes.js';
 import careerRoutes from './careerRoutes.js';
-import scheduleRoutes from './scheduleRoutes.js';
-import planningRoutes from './planningRoutes.js';
+import planningRoutes from './planningRoutes.js'; // [NEW] Added planningRoutes back
+import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// Connect to Mongo only when needed
-router.use((req, res, next) => {
-  if (req.method === 'OPTIONS') return next();
-  if (mongoose.connection.readyState === 1) return next();
-  connectDB().then(() => next()).catch(err => {
-    console.error('Error connecting to MongoDB:', err);
-    res.status(500).json({ message: 'Error de conexión a la base de datos' });
+// Health check route
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'UP',
+    timestamp: new Date().toISOString(),
+    node_env: process.env.NODE_ENV
   });
 });
 
-// Public routes
+// Auth routes (some are public)
 router.use('/auth', authRoutes);
-router.use('/tenants', tenantRoutes);
-router.use('/payments/webhooks', webhookRoutes);
 
-// Auth middleware for private routes
+// Protected routes (require valid token)
 router.use(authMiddleware);
 
-// Private routes
+// Core Pedagogy
 router.use('/estudiantes', estudianteRoutes);
-router.use('/reports', reportRoutes);
 router.use('/courses', courseRoutes);
 router.use('/subjects', subjectRoutes);
 router.use('/attendance', attendanceRoutes);
 router.use('/evaluations', evaluationRoutes);
 router.use('/grades', gradeRoutes);
 router.use('/enrollments', enrollmentRoutes);
-router.use('/users', userRoutes);
-router.use('/apoderados', apoderadoRoutes);
+router.use('/class-logs', classLogRoutes);
 router.use('/anotaciones', anotacionRoutes);
+router.use('/objectives', objectiveRoutes);
+router.use('/curriculum-materials', curriculumMaterialsRoutes);
+router.use('/questions', questionRoutes);
+router.use('/planning', planningRoutes);
+
+// Administrative
+router.use('/users', userRoutes);
+router.use('/tenants', tenantRoutes);
+router.use('/apoderados', apoderadoRoutes);
+router.use('/reports', reportRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/audit-logs', auditLogRoutes);
+router.use('/expenses', expenseRoutes);
+router.use('/admin-days', adminDayRoutes);
+router.use('/event-requests', eventRequestRoutes);
+
+// Financial
 router.use('/payments', paymentRoutes);
 router.use('/tariffs', tariffRoutes);
-router.use('/events', eventRoutes);
-router.use('/audit-logs', auditLogRoutes);
-router.use('/analytics', analyticsRoutes);
+router.use('/webhooks', webhookRoutes);
+
+// Communication & Events
 router.use('/messages', messageRoutes);
-router.use('/curriculum-materials', curriculumMaterialsRoutes);
-router.use('/expenses', expenseRoutes);
-router.use('/objectives', objectiveRoutes);
-router.use('/class-logs', classLogRoutes);
-router.use('/questions', questionRoutes);
-router.use('/admin-days', adminDayRoutes);
+router.use('/events', eventRoutes);
 router.use('/user-notifications', userNotificationRoutes);
-router.use('/event-requests', eventRequestRoutes);
+
+// Misc
 router.use('/careers', careerRoutes);
-router.use('/schedules', scheduleRoutes);
-router.use('/plannings', planningRoutes);
 
 export default router;
