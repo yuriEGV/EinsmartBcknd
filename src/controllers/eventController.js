@@ -1,4 +1,8 @@
 import Event from '../models/eventModel.js';
+import Enrollment from '../models/enrollmentModel.js';
+import Apoderado from '../models/apoderadoModel.js';
+import Estudiante from '../models/estudianteModel.js';
+import Course from '../models/courseModel.js';
 
 class EventController {
     static async createEvent(req, res) {
@@ -20,9 +24,45 @@ class EventController {
 
     static async getEvents(req, res) {
         try {
-            const query = (req.user.role === 'admin')
-                ? {}
-                : { tenantId: req.user.tenantId };
+            const query = { tenantId: req.user.tenantId };
+
+            // Allow SuperAdmins to see everything (no tenantId) if needed, but current logic enforces it.
+            // if (req.user.role === 'admin') delete query.tenantId;
+
+            // [STRICT ISOLATION] Students and Guardians only see global or relevant events
+            if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                let studentId;
+                if (req.user.role === 'student') {
+                    studentId = req.user.profileId;
+                } else {
+                    const apoderado = await Apoderado.findById(req.user.profileId);
+                    studentId = apoderado?.estudianteId;
+                }
+
+                if (studentId) {
+                    const enrollment = await Enrollment.findOne({
+                        estudianteId: studentId,
+                        tenantId: req.user.tenantId,
+                        status: { $in: ['confirmada', 'activo', 'activa'] }
+                    });
+
+                    if (enrollment) {
+                        const course = await Course.findById(enrollment.courseId);
+                        const courseIdStr = enrollment.courseId.toString();
+                        const gradeName = course?.name; // e.g. "1A"
+
+                        query.$or = [
+                            { target: 'global' },
+                            { target: 'curso', targetId: courseIdStr },
+                            { target: 'grado', targetId: gradeName }
+                        ];
+                    } else {
+                        query.target = 'global';
+                    }
+                } else {
+                    query.target = 'global';
+                }
+            }
 
             const events = await Event.find(query)
                 .sort({ date: 1 });

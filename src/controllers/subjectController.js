@@ -1,5 +1,6 @@
-
 import Subject from '../models/subjectModel.js';
+import Enrollment from '../models/enrollmentModel.js';
+import Apoderado from '../models/apoderadoModel.js';
 
 export default class SubjectController {
 
@@ -39,6 +40,34 @@ export default class SubjectController {
             // [STRICT ISOLATION] Teachers only see their own subjects
             if (req.user.role === 'teacher') {
                 query.teacherId = req.user.userId;
+            }
+
+            // [STRICT ISOLATION] Students and Guardians only see their enrolled subjects
+            if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                let studentId;
+                if (req.user.role === 'student') {
+                    studentId = req.user.profileId;
+                } else {
+                    const apoderado = await Apoderado.findById(req.user.profileId);
+                    studentId = apoderado?.estudianteId;
+                }
+
+                if (studentId) {
+                    const enrollment = await Enrollment.findOne({
+                        estudianteId: studentId,
+                        tenantId: req.user.tenantId,
+                        status: { $in: ['confirmada', 'activo', 'activa'] }
+                    });
+                    if (enrollment) {
+                        query.courseId = enrollment.courseId;
+                    } else {
+                        // No enrollment found, return empty list or specific error?
+                        // For UX, return empty list if not specifically filtered by courseId already
+                        if (!query.courseId) return res.json([]);
+                    }
+                } else {
+                    return res.status(403).json({ message: 'Perfil no vinculado' });
+                }
             }
 
             const subjects = await Subject.find(query)

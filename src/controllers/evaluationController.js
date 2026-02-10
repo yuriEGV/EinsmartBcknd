@@ -2,6 +2,7 @@ import Evaluation from '../models/evaluationModel.js';
 import NotificationService from '../services/notificationService.js';
 import PDFDocument from 'pdfkit';
 import mongoose from 'mongoose';
+import Schedule from '../models/scheduleModel.js';
 
 class EvaluationController {
     // Create a new evaluation
@@ -33,6 +34,35 @@ class EvaluationController {
                 return res.status(400).json({ message: 'El ID de la asignatura no es válido.' });
             }
 
+            // [STRICT SCHEDULE ENFORCEMENT]
+            const evalDate = new Date(req.body.date);
+            const dayOfWeek = evalDate.getDay();
+            const evalTimeStr = evalDate.toTimeString().slice(0, 5); // "HH:mm"
+
+            const schedules = await Schedule.find({
+                tenantId: req.user.tenantId,
+                courseId,
+                subjectId,
+                dayOfWeek
+            });
+
+            if (schedules.length === 0) {
+                return res.status(400).json({
+                    message: `No hay clases de esta asignatura programadas para el día ${['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][dayOfWeek]}.`
+                });
+            }
+
+            // Check if evalTimeStr is within any of the found schedule blocks
+            const isWithinSchedule = schedules.some(s => {
+                return evalTimeStr >= s.startTime && evalTimeStr <= s.endTime;
+            });
+
+            if (!isWithinSchedule) {
+                return res.status(400).json({
+                    message: `La evaluación (${evalTimeStr}) está fuera del horario de clases para esta asignatura (${schedules.map(s => `${s.startTime}-${s.endTime}`).join(', ')}).`
+                });
+            }
+
             const evaluation = new Evaluation({
                 ...req.body,
                 tenantId: req.user.tenantId
@@ -62,27 +92,38 @@ class EvaluationController {
 
             if (courseId) {
                 query.courseId = courseId;
-            } else if (studentId || req.user.role === 'student') {
-                const targetStudentId = studentId || req.user.profileId;
-                const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
-                const student = await Estudiante.findById(targetStudentId);
-                if (student && student.courseId) {
-                    query.courseId = student.courseId;
-                } else if (student && student.grado) {
-                    const Course = await import('../models/courseModel.js').then(m => m.default);
-                    const course = await Course.findOne({ name: student.grado, tenantId: req.user.tenantId });
-                    if (course) query.courseId = course._id;
-                }
-            } else if (guardianId || req.user.role === 'apoderado') {
-                const targetGuardianId = guardianId || req.user.profileId;
+            } else if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
                 const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
-                const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
-                const guardian = await Apoderado.findById(targetGuardianId);
-                if (guardian && guardian.estudianteId) {
-                    const student = await Estudiante.findById(guardian.estudianteId);
-                    if (student && student.courseId) {
-                        query.courseId = student.courseId;
+
+                let studentId;
+                if (req.user.role === 'student') {
+                    studentId = req.user.profileId;
+                } else {
+                    const guardian = await Apoderado.findById(req.user.profileId);
+                    studentId = guardian?.estudianteId;
+                }
+
+                if (studentId) {
+                    const enrollment = await Enrollment.findOne({
+                        estudianteId: studentId,
+                        tenantId: req.user.tenantId,
+                        status: { $in: ['confirmada', 'activo', 'activa'] }
+                    });
+                    if (enrollment) {
+                        query.courseId = enrollment.courseId;
+                    } else {
+                        return res.status(200).json([]); // No enrollment, no evaluations
                     }
+                } else {
+                    return res.status(403).json({ message: 'Perfil no vinculado' });
+                }
+            } else if (studentId || guardianId) {
+                // ... handle explicit IDs for staff if needed
+                if (studentId) {
+                    const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
+                    const student = await Estudiante.findById(studentId);
+                    if (student) query.courseId = student.courseId;
                 }
             }
 
@@ -155,16 +196,50 @@ class EvaluationController {
                 return res.status(403).json({ message: 'No tienes permisos para modificar evaluaciones.' });
             }
 
-            const evaluation = await Evaluation.findOneAndUpdate(
-                { _id: req.params.id, tenantId: req.user.tenantId },
-                req.body,
-                { new: true }
-            )
-                .populate('courseId', 'name code');
+            const evaluation = await Evaluation.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
             if (!evaluation) {
                 return res.status(404).json({ message: 'Evaluación no encontrada' });
             }
-            res.status(200).json(evaluation);
+
+            // [STRICT SCHEDULE ENFORCEMENT for Updates]
+            if (req.body.date || req.body.courseId || req.body.subjectId) {
+                const evalDate = new Date(req.body.date || evaluation.date);
+                const dayOfWeek = evalDate.getDay();
+                const evalTimeStr = evalDate.toTimeString().slice(0, 5);
+                const courseId = req.body.courseId || evaluation.courseId;
+                const subjectId = req.body.subjectId || evaluation.subjectId;
+
+                const schedules = await Schedule.find({
+                    tenantId: req.user.tenantId,
+                    courseId,
+                    subjectId,
+                    dayOfWeek
+                });
+
+                if (schedules.length === 0) {
+                    return res.status(400).json({
+                        message: `No hay clases programadas para el día del cambio (${['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][dayOfWeek]}).`
+                    });
+                }
+
+                const isWithinSchedule = schedules.some(s => {
+                    return evalTimeStr >= s.startTime && evalTimeStr <= s.endTime;
+                });
+
+                if (!isWithinSchedule) {
+                    return res.status(400).json({
+                        message: `El nuevo horario (${evalTimeStr}) está fuera de las clases (${schedules.map(s => `${s.startTime}-${s.endTime}`).join(', ')}).`
+                    });
+                }
+            }
+
+            const updatedEvaluation = await Evaluation.findOneAndUpdate(
+                { _id: req.params.id, tenantId: req.user.tenantId },
+                req.body,
+                { new: true }
+            ).populate('courseId', 'name code');
+
+            res.status(200).json(updatedEvaluation);
         } catch (error) {
             res.status(400).json({ message: error.message });
         }
