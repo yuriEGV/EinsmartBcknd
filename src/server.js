@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-
+import cors from 'cors';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
 import connectDB from './config/db.js';
@@ -21,8 +21,6 @@ import User from './models/userModel.js';
 import Tenant from './models/tenantModel.js';
 import bcrypt from 'bcryptjs';
 
-import cors from 'cors';
-
 const app = express();
 
 const allowedOrigins = [
@@ -33,31 +31,40 @@ const allowedOrigins = [
   'https://einsmart-bcknd.vercel.app'
 ];
 
-// Standardized CORS configuration
+// Robust CORS configuration
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+
+    const isAllowed = allowedOrigins.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      origin.includes('localhost');
+
+    if (isAllowed) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      // Use null instead of Error to prevent uncaught exception crashes in some environments
+      callback(null, false);
     }
   },
   methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'X-Requested-With', 'Accept', 'X-CSRF-Token'],
   credentials: true,
-  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+  optionsSuccessStatus: 200
 }));
 
-// Debug root to verify server is reachable
-app.get('/', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.send('Backend is running');
-});
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
+
+// Single Health check & Root
+app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
+app.get('/', (req, res) => res.json({
+  message: 'Einsmart API is running 🚀',
+  version: '5.2.0',
+  timestamp: new Date().toISOString()
+}));
 
 // --- TEMPORARY SETUP ROUTE ---
 app.get('/setup-admin', async (req, res) => {
@@ -106,12 +113,7 @@ app.get('/setup-admin', async (req, res) => {
   }
 });
 
-// Health & Test
-app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
-app.get('/test', (req, res) => res.json({ message: 'Backend is working' }));
-app.get('/', (req, res) => res.json({ message: 'API funcionando correctamente 🚀', version: '5.1.0' }));
-
-// Register routes - Mount at both /api and / to be resilient to environment prefix stripping
+// Register routes
 app.use(['/api', '/'], apiRoutes);
 
 // Backup for specific legacy routes if needed (though index.js covers them)
@@ -123,8 +125,6 @@ app.use('/api/user-notifications', userNotificationRoutes);
 // Error handling
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-  // Ensure CORS headers are sent even on error
-  res.header('Access-Control-Allow-Origin', '*');
   res.status(err.status || 500).json({ message: err.message || 'Error interno del servidor' });
 });
 
