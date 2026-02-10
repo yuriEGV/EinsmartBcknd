@@ -10,57 +10,46 @@ import subjectRoutes from './subjectRoutes.js';
 import attendanceRoutes from './attendanceRoutes.js';
 import evaluationRoutes from './evaluationRoutes.js';
 import gradeRoutes from './gradeRoutes.js';
-// import enrollmentRoutes from './enrollmentRoutes.js';
-// import userRoutes from './userRoutes.js';
+import enrollmentRoutes from './enrollmentRoutes.js';
+import userRoutes from './userRoutes.js';
 import tenantRoutes from './tenantRoutes.js';
-// import apoderadoRoutes from './apoderadoRoutes.js';
-// import anotacionRoutes from './anotacionRoutes.js';
-// import paymentRoutes from './paymentRoutes.js';
-// import tariffRoutes from './tariffRoutes.js';
+import apoderadoRoutes from './apoderadoRoutes.js';
+import anotacionRoutes from './anotacionRoutes.js';
+import paymentRoutes from './paymentRoutes.js';
+import tariffRoutes from './tariffRoutes.js';
 import webhookRoutes from './webhookRoutes.js';
-// import eventRoutes from './eventRoutes.js';
-// import auditLogRoutes from './auditLogRoutes.js';
-// import analyticsRoutes from './analyticsRoutes.js';
-// import messageRoutes from './messageRoutes.js';
-// import authMiddleware from '../middleware/authMiddleware.js';
-// import curriculumMaterialsRoutes from './curriculumMaterialsRoutes.js';
-// import expenseRoutes from './expenseRoutes.js';
-// import objectiveRoutes from './objectiveRoutes.js';
-// import classLogRoutes from './classLogRoutes.js';
-// import questionRoutes from './questionRoutes.js';
-// import adminDayRoutes from './adminDayRoutes.js';
-// import userNotificationRoutes from './userNotificationRoutes.js';
-// import eventRequestRoutes from './eventRequestRoutes.js';
-// import careerRoutes from './careerRoutes.js';
-// import scheduleRoutes from './scheduleRoutes.js';
-// import planningRoutes from './planningRoutes.js';
+import eventRoutes from './eventRoutes.js';
+import auditLogRoutes from './auditLogRoutes.js';
+import analyticsRoutes from './analyticsRoutes.js';
+import messageRoutes from './messageRoutes.js';
+import authMiddleware from '../middleware/authMiddleware.js';
+import curriculumMaterialsRoutes from './curriculumMaterialsRoutes.js';
+import expenseRoutes from './expenseRoutes.js';
+import objectiveRoutes from './objectiveRoutes.js';
+import classLogRoutes from './classLogRoutes.js';
+import questionRoutes from './questionRoutes.js';
+import adminDayRoutes from './adminDayRoutes.js';
+import userNotificationRoutes from './userNotificationRoutes.js';
+import eventRequestRoutes from './eventRequestRoutes.js';
+import careerRoutes from './careerRoutes.js';
+import scheduleRoutes from './scheduleRoutes.js';
+import planningRoutes from './planningRoutes.js';
 
 const router = express.Router();
 
 // Connect to Mongo only when needed
 router.use((req, res, next) => {
-  // Rapid response for preflight requests
-  if (req.method === 'OPTIONS') {
-    return next();
-  }
-
-  if (mongoose.connection.readyState === 1) {
-    return next();
-  }
-
-  console.log('Connecting to MongoDB from router...');
-  connectDB()
-    .then(() => next())
-    .catch(err => {
-      console.error('Error connecting to MongoDB:', err);
-      res.status(500).json({ message: 'Error de conexión a la base de datos' });
-    });
+  if (req.method === 'OPTIONS') return next();
+  if (mongoose.connection.readyState === 1) return next();
+  connectDB().then(() => next()).catch(err => {
+    console.error('Error connecting to MongoDB:', err);
+    res.status(500).json({ message: 'Error de conexión a la base de datos' });
+  });
 });
 
 // Public routes
 router.use('/auth', authRoutes);
 router.use('/tenants', tenantRoutes);
-// Public webhook endpoints for payment providers
 router.use('/payments/webhooks', webhookRoutes);
 
 // Auth middleware for private routes
@@ -70,32 +59,30 @@ router.use(authMiddleware);
 router.use('/estudiantes', estudianteRoutes);
 router.use('/reports', reportRoutes);
 router.use('/courses', courseRoutes);
-router.use('/subjects', subjectRoutes); // [NEW]
-// router.use('/attendance', attendanceRoutes);
-// router.use('/evaluations', evaluationRoutes);
-// router.use('/grades', gradeRoutes);
-// router.use('/enrollments', enrollmentRoutes);
-// router.use('/users', userRoutes);
-// router.use('/apoderados', apoderadoRoutes);
-// NOTE: Matriculas feature merged into /enrollments — use enrollment routes which now include documents and apoderado
-// router.use('/anotaciones', anotacionRoutes);
-// Payments and tariffs (private)
-// router.use('/payments', paymentRoutes);
-// router.use('/tariffs', tariffRoutes);
-// router.use('/events', eventRoutes);
-// router.use('/audit-logs', auditLogRoutes);
-// router.use('/analytics', analyticsRoutes);
-// router.use('/messages', messageRoutes);
-// router.use('/curriculum-materials', curriculumMaterialsRoutes);
-// router.use('/expenses', expenseRoutes);
-// router.use('/objectives', objectiveRoutes);
-// router.use('/class-logs', classLogRoutes);
-// router.use('/questions', questionRoutes);
-// router.use('/admin-days', adminDayRoutes);
-// router.use('/user-notifications', userNotificationRoutes);
-// router.use('/event-requests', eventRequestRoutes);
-// router.use('/careers', careerRoutes);
-// router.use('/schedules', scheduleRoutes);
-// router.use('/plannings', planningRoutes);
+router.use('/subjects', subjectRoutes);
+router.use('/attendance', attendanceRoutes);
+router.use('/evaluations', evaluationRoutes);
+router.use('/grades', gradeRoutes);
+router.use('/enrollments', enrollmentRoutes);
+router.use('/users', userRoutes);
+router.use('/apoderados', apoderadoRoutes);
+router.use('/anotaciones', anotacionRoutes);
+router.use('/payments', paymentRoutes);
+router.use('/tariffs', tariffRoutes);
+router.use('/events', eventRoutes);
+router.use('/audit-logs', auditLogRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/messages', messageRoutes);
+router.use('/curriculum-materials', curriculumMaterialsRoutes);
+router.use('/expenses', expenseRoutes);
+router.use('/objectives', objectiveRoutes);
+router.use('/class-logs', classLogRoutes);
+router.use('/questions', questionRoutes);
+router.use('/admin-days', adminDayRoutes);
+router.use('/user-notifications', userNotificationRoutes);
+router.use('/event-requests', eventRequestRoutes);
+router.use('/careers', careerRoutes);
+router.use('/schedules', scheduleRoutes);
+router.use('/plannings', planningRoutes);
 
 export default router;
