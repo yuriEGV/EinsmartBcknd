@@ -610,9 +610,32 @@ class AnalyticsController {
                         courseName: '$course.name',
                         subjectName: '$subject.name',
                         totalDuration: 1,
+                        plannedDuration: {
+                            $multiply: [
+                                { $subtract: ['$plannedEndTime', '$plannedStartTime'] },
+                                { $divide: [1, 60000] }
+                            ]
+                        },
                         totalDelay: 1,
                         totalInterruption: 1,
-                        classCount: 1
+                        classCount: 1,
+                        fulfillment: {
+                            $cond: [
+                                { $gt: [{ $subtract: ['$plannedEndTime', '$plannedStartTime'] }, 0] },
+                                {
+                                    $multiply: [
+                                        {
+                                            $divide: [
+                                                '$duration',
+                                                { $divide: [{ $subtract: ['$plannedEndTime', '$plannedStartTime'] }, 60000] }
+                                            ]
+                                        },
+                                        100
+                                    ]
+                                },
+                                100
+                            ]
+                        }
                     }
                 }
             ]);

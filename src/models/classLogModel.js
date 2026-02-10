@@ -77,6 +77,10 @@ const classLogSchema = new mongoose.Schema({
     interruptionMinutes: {
         type: Number,
         default: 0
+    },
+    justification: {
+        type: String,
+        default: ''
     }
 }, { timestamps: true });
 

@@ -119,6 +119,27 @@ class ClassLogController {
                     objectives,
                     startTime: startTime ? new Date(startTime) : undefined
                 });
+
+                // Manual creation: try to find a schedule for this time
+                const logDate = new Date(log.date);
+                const dayOfWeek = logDate.getDay();
+                const schedule = await Schedule.findOne({
+                    tenantId: req.user.tenantId,
+                    courseId,
+                    subjectId,
+                    dayOfWeek
+                });
+
+                if (schedule) {
+                    log.scheduleId = schedule._id;
+                    const [sh, sm] = schedule.startTime.split(':');
+                    const [eh, em] = schedule.endTime.split(':');
+                    const pst = new Date(logDate); pst.setHours(parseInt(sh), parseInt(sm), 0, 0);
+                    const pet = new Date(logDate); pet.setHours(parseInt(eh), parseInt(em), 0, 0);
+                    log.plannedStartTime = pst;
+                    log.plannedEndTime = pet;
+                }
+
                 await log.save();
             }
 
@@ -199,6 +220,22 @@ class ClassLogController {
             }
 
             await log.save();
+            res.json(log);
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+
+    static async updateJustification(req, res) {
+        try {
+            const { id } = req.params;
+            const { justification } = req.body;
+            const log = await ClassLog.findOneAndUpdate(
+                { _id: id, tenantId: req.user.tenantId, teacherId: req.user.userId },
+                { justification },
+                { new: true }
+            );
+            if (!log) return res.status(404).json({ message: 'Registro no encontrado' });
             res.json(log);
         } catch (error) {
             res.status(500).json({ message: error.message });
