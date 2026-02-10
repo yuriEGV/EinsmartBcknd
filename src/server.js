@@ -7,7 +7,7 @@ import connectDB from './config/db.js';
 import { fileURLToPath } from 'url';
 
 // Import routes and middleware
-import apiRoutes from './routes/index.js';
+// import apiRoutes from './routes/index.js';
 import reportRoutes from './routes/reportRoutes.js';
 import authMiddleware from './middleware/authMiddleware.js';
 import payrollRoutes from './routes/payrollRoutes.js';
@@ -59,10 +59,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
 // Single Health check & Root
-app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
+app.get('/health', (req, res) => res.status(200).json({ status: 'OK - Minimal Server' }));
 app.get('/', (req, res) => res.json({
-  message: 'Einsmart API is running 🚀',
-  version: '5.2.0',
+  message: 'Einsmart API is running in DEBUG mode 🚀',
+  version: '5.2.1',
   timestamp: new Date().toISOString()
 }));
 
