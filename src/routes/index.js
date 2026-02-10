@@ -58,24 +58,24 @@ router.use((req, res, next) => {
 });
 
 // Public routes
-router.use('/auth', authRoutes);
+// router.use('/auth', authRoutes);
 // router.use('/tenants', tenantRoutes);
 // Public webhook endpoints for payment providers
 // router.use('/payments/webhooks', webhookRoutes);
 
 // Auth middleware for private routes
-router.use(authMiddleware);
+// router.use(authMiddleware);
 
 // Private routes
-router.use('/estudiantes', estudianteRoutes);
-router.use('/reports', reportRoutes);
-router.use('/courses', courseRoutes);
-router.use('/subjects', subjectRoutes); // [NEW]
-router.use('/attendance', attendanceRoutes);
-router.use('/evaluations', evaluationRoutes);
-router.use('/grades', gradeRoutes);
-router.use('/enrollments', enrollmentRoutes);
-router.use('/users', userRoutes);
+// router.use('/estudiantes', estudianteRoutes);
+// router.use('/reports', reportRoutes);
+// router.use('/courses', courseRoutes);
+// router.use('/subjects', subjectRoutes); // [NEW]
+// router.use('/attendance', attendanceRoutes);
+// router.use('/evaluations', evaluationRoutes);
+// router.use('/grades', gradeRoutes);
+// router.use('/enrollments', enrollmentRoutes);
+// router.use('/users', userRoutes);
 // router.use('/apoderados', apoderadoRoutes);
 // NOTE: Matriculas feature merged into /enrollments — use enrollment routes which now include documents and apoderado
 // router.use('/anotaciones', anotacionRoutes);
