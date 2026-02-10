@@ -71,9 +71,9 @@ router.use('/estudiantes', estudianteRoutes);
 router.use('/reports', reportRoutes);
 router.use('/courses', courseRoutes);
 router.use('/subjects', subjectRoutes); // [NEW]
-router.use('/attendance', attendanceRoutes);
-router.use('/evaluations', evaluationRoutes);
-router.use('/grades', gradeRoutes);
+// router.use('/attendance', attendanceRoutes);
+// router.use('/evaluations', evaluationRoutes);
+// router.use('/grades', gradeRoutes);
 // router.use('/enrollments', enrollmentRoutes);
 // router.use('/users', userRoutes);
 // router.use('/apoderados', apoderadoRoutes);
