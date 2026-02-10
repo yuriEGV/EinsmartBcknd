@@ -2,8 +2,9 @@ import Apoderado from '../models/apoderadoModel.js';
 import Estudiante from '../models/estudianteModel.js';
 import UserNotification from '../models/userNotificationModel.js';
 import User from '../models/userModel.js';
-import { sendMail } from '../../emailService.js';
 import Enrollment from '../models/enrollmentModel.js';
+import Tenant from '../models/tenantModel.js';
+import { sendMail } from './emailService.js';
 
 class NotificationService {
     /**
@@ -13,6 +14,8 @@ class NotificationService {
         try {
             const student = await Estudiante.findById(studentId);
             const guardians = await Apoderado.find({ estudianteId: studentId, tenantId });
+            const tenant = await Tenant.findById(tenantId);
+            const tenantName = tenant?.name || 'EinSmart';
 
             if (!student) return;
 
@@ -35,11 +38,11 @@ class NotificationService {
                             <p style="margin-top: 30px; font-size: 14px; color: #666; text-align: center;">¡Sigue esforzándote!</p>
                         </div>
                         <div style="background-color: #f4f7f6; padding: 15px; text-align: center; font-size: 12px; color: #777;">
-                            Maritimo 4.0 - Sistema de Gestión Escolar
+                            ${tenantName} - Sistema de Gestión Escolar
                         </div>
                     </div>
                 `;
-                await sendMail(student.email, `¡Nueva Nota! ${subject}: ${grade}`, studentHtml);
+                await sendMail(student.email, `¡Nueva Nota! ${subject}: ${grade}`, studentHtml, tenantId);
             }
 
             // 2. Internal Notification for Student
@@ -75,11 +78,11 @@ class NotificationService {
                                 <p>Puede ver más detalles e historial académico ingresando al portal de apoderados.</p>
                             </div>
                             <div style="background-color: #f4f7f6; padding: 15px; text-align: center; font-size: 12px; color: #777;">
-                                Maritimo 4.0 - Sistema de Gestión Escolar
+                            ${tenantName} - Sistema de Gestión Escolar
                             </div>
                         </div>
                     `;
-                    await sendMail(guardian.correo, `Nueva Nota: ${student.nombres} - ${subject}`, guardianHtml);
+                    await sendMail(guardian.correo, `Nueva Nota: ${student.nombres} - ${subject}`, guardianHtml, tenantId);
                 }
 
                 // Internal Notification for Guardian
@@ -107,6 +110,8 @@ class NotificationService {
         try {
             const student = await Estudiante.findById(studentId);
             const guardians = await Apoderado.find({ estudianteId: studentId, tenantId });
+            const tenant = await Tenant.findById(tenantId);
+            const tenantName = tenant?.name || 'EinSmart';
 
             if (!student) return;
 
@@ -131,11 +136,11 @@ class NotificationService {
                             <p>Puedes revisar los detalles en el portal del alumno.</p>
                         </div>
                         <div style="background-color: #f4f7f6; padding: 15px; text-align: center; font-size: 12px; color: #777;">
-                            Maritimo 4.0 - Sistema de Gestión Escolar
+                            ${tenantName} - Sistema de Gestión Escolar
                         </div>
                     </div>
                 `;
-                await sendMail(student.email, `Nueva Anotación ${typeLabel}: ${title}`, studentHtml);
+                await sendMail(student.email, `Nueva Anotación ${typeLabel}: ${title}`, studentHtml, tenantId);
             }
 
             // 2. Internal Notification for Student
@@ -171,11 +176,11 @@ class NotificationService {
                                 <p>Por favor, ingrese al sistema para revisar los detalles y medidas tomadas.</p>
                             </div>
                             <div style="background-color: #f4f7f6; padding: 15px; text-align: center; font-size: 12px; color: #777;">
-                                Maritimo 4.0 - Sistema de Gestión Escolar
+                                ${tenantName} - Sistema de Gestión Escolar
                             </div>
                         </div>
                     `;
-                    await sendMail(guardian.correo, `Anotación ${typeLabel}: ${student.nombres}`, guardianHtml);
+                    await sendMail(guardian.correo, `Anotación ${typeLabel}: ${student.nombres}`, guardianHtml, tenantId);
                 }
 
                 // Internal Notification for Guardian
@@ -205,6 +210,9 @@ class NotificationService {
             const guardian = await Apoderado.findById(guardianId);
             if (!guardian || !guardian.correo) return;
 
+            const tenant = await Tenant.findById(guardian.tenantId);
+            const tenantName = tenant?.name || 'EinSmart';
+
             const html = `
                 <div style="font-family: Arial, sans-serif; color: #333;">
                     <h2 style="color: #ef4444;">Aviso de Bloqueo de Matrícula</h2>
@@ -215,11 +223,15 @@ class NotificationService {
                         <p><strong>Detalle:</strong> ${details}</p>
                     </div>
                     <p>Por favor, acérquese a administración o contacte al sostenedor para regularizar su situación.</p>
-                    <p style="margin-top: 20px; font-size: 12px; color: #777;">Maritimo 4.0 - Sistema de Gestión Escolar</p>
+                    <p style="margin-top: 20px; font-size: 12px; color: #777;">Sistema de Gestión Escolar</p>
                 </div>
             `;
 
-            await sendMail(guardian.correo, `Aviso Importante: Morosidad ${studentName}`, html);
+            // We don't have tenantId passed here, but we can try to find it from guardian if needed.
+            // For now, if not passed, it will use default. 
+            // Better: update method signature to include tenantId if possible, or fetch from guardian.
+            const tenantId_loc = guardian.tenantId;
+            await sendMail(guardian.correo, `Aviso Importante: Morosidad ${studentName}`, html, tenantId_loc);
             console.log(`📧 Debt notification sent to ${guardian.correo}`);
         } catch (error) {
             console.error('❌ Error in notifyDebtor:', error);
@@ -229,7 +241,7 @@ class NotificationService {
     /**
      * Send consolidated student list to Sostenedor for institutional accounts
      */
-    static async notifyInstitutionalBatch(recipientEmail, tenantName, studentList) {
+    static async notifyInstitutionalBatch(recipientEmail, tenantName, studentList, tenantId = null) {
         try {
             const tableRows = studentList.map(s => `
                 <tr>
@@ -257,11 +269,14 @@ class NotificationService {
                         </tbody>
                     </table>
                     <p>Por favor, proceda con el alta en Google Workspace / Office 365 según corresponda.</p>
-                    <p style="margin-top: 20px; font-size: 12px; color: #777;">Maritimo 4.0 - Sistema de Gestión Escolar</p>
+                    <p style="margin-top: 20px; font-size: 12px; color: #777;">Sistema de Gestión Escolar</p>
                 </div>
             `;
 
-            await sendMail(recipientEmail, `Listado Institucional: ${tenantName}`, html);
+            // This one is called from enrollmentController which has tenant info. 
+            // We should ideally pass tenantId to this method too. 
+            // But let's check if it's called with tenant info.
+            await sendMail(recipientEmail, `Listado Institucional: ${tenantName}`, html, tenantId);
             console.log(`📧 Batch institutional list sent to ${recipientEmail}`);
         } catch (error) {
             console.error('❌ Error in notifyInstitutionalBatch:', error);
@@ -318,6 +333,8 @@ class NotificationService {
      */
     static async notifyCourseAssessment(courseId, assessmentTitle, date, tenantId) {
         try {
+            const tenant = await Tenant.findById(tenantId);
+            const tenantName = tenant?.name || 'EinSmart';
             // 1. Find all confirmed students in the course
             const enrollments = await Enrollment.find({
                 courseId,
@@ -361,6 +378,8 @@ class NotificationService {
      */
     static async notifyWeeklyPerformance(tenantId, performanceData) {
         try {
+            const tenant = await Tenant.findById(tenantId);
+            const tenantName = tenant?.name || 'EinSmart';
             const sostenedores = await User.find({
                 tenantId,
                 role: { $in: ['sostenedor', 'director'] }
@@ -405,7 +424,7 @@ class NotificationService {
                         </div>
                         
                         <p style="margin-top: 40px; text-align: center; font-size: 11px; color: #999;">
-                            Maritimo 4.0 - Plataforma de Gestión Educativa de Alto Rendimiento
+                            Sistema de Gestión Educativa de Alto Rendimiento
                         </p>
                     </div>
                 </div>
@@ -413,7 +432,7 @@ class NotificationService {
 
             for (const sostenedor of sostenedores) {
                 if (sostenedor.email) {
-                    await sendMail(sostenedor.email, '📊 Reporte de Performance Académica Semanal', html);
+                    await sendMail(sostenedor.email, '📊 Reporte de Performance Académica Semanal', html, tenantId);
                 }
             }
             console.log(`✅ Weekly performance report sent to ${sostenedores.length} Sostenedores/Directors`);
@@ -431,6 +450,9 @@ class NotificationService {
                 .populate('estudianteId')
                 .populate('apoderadoId')
                 .populate('courseId');
+
+            const tenant = await Tenant.findById(tenantId);
+            const tenantName = tenant?.name || 'EinSmart';
 
             if (!enrollment) return;
 
@@ -475,12 +497,12 @@ class NotificationService {
                         <p>Cualquier duda, por favor contacte a la administración del colegio.</p>
                     </div>
                     <div style="background-color: #f4f7f6; padding: 15px; text-align: center; font-size: 12px; color: #777;">
-                        EinSmart - Sistema de Gestión Educativa
+                        ${tenantName} - Sistema de Gestión Educativa
                     </div>
                 </div>
             `;
 
-            await sendMail(guardian.correo, `Confirmación de Matrícula - ${student.nombres} ${student.apellidos}`, html);
+            await sendMail(guardian.correo, `Confirmación de Matrícula - ${student.nombres} ${student.apellidos}`, html, tenantId);
             console.log(`📧 Enrollment confirmation email sent to ${guardian.correo}`);
 
         } catch (error) {
@@ -497,6 +519,9 @@ class NotificationService {
                 .populate('estudianteId', 'nombres apellidos rut')
                 .populate('courseId', 'name')
                 .populate('apoderadoId', 'nombre apellidos correo');
+
+            const tenant = await Tenant.findById(tenantId);
+            const tenantName = tenant?.name || 'EinSmart';
 
             if (enrollments.length === 0) return;
 
@@ -544,7 +569,7 @@ class NotificationService {
 
             for (const admin of admins) {
                 if (admin.email) {
-                    await sendMail(admin.email, `📊 Resumen de Matrículas ${period}`, html);
+                    await sendMail(admin.email, `📊 Resumen de Matrículas ${period}`, html, tenantId);
                 }
             }
 

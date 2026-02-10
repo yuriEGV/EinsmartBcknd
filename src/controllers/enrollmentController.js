@@ -589,7 +589,8 @@ class EnrollmentController {
                     nombres: e.estudianteId?.nombres || 'N/A',
                     apellidos: e.estudianteId?.apellidos || 'N/A',
                     curso: e.courseId?.name || 'N/A'
-                }))
+                })),
+                tenantId
             );
 
             res.status(200).json({ message: `Listado enviado correctamente a ${tenant.contactEmail || 'administracion@einsmart.cl'}` });
