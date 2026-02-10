@@ -39,6 +39,11 @@ const router = express.Router();
 
 // Connect to Mongo only when needed
 router.use((req, res, next) => {
+  // Rapid response for preflight requests
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
   if (mongoose.connection.readyState === 1) {
     return next();
   }

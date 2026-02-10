@@ -18,7 +18,7 @@ class ClassLogController {
                 courseId,
                 subjectId,
                 teacherId: req.user.userId,
-                date: { $gte: today },
+                date: { $gte: today, $lt: tomorrow },
                 isSigned: false
             });
 
@@ -101,7 +101,7 @@ class ClassLogController {
                 courseId,
                 subjectId,
                 teacherId: req.user.userId,
-                date: { $gte: today },
+                date: { $gte: today, $lt: tomorrow },
                 isSigned: false
             });
 

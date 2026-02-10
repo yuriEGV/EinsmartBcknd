@@ -21,6 +21,8 @@ import User from './models/userModel.js';
 import Tenant from './models/tenantModel.js';
 import bcrypt from 'bcryptjs';
 
+import cors from 'cors';
+
 const app = express();
 
 const allowedOrigins = [
@@ -31,22 +33,22 @@ const allowedOrigins = [
   'https://einsmart-bcknd.vercel.app'
 ];
 
-// Manual CORS middleware to ensure absolute control
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-tenant-id, X-Requested-With, Accept, X-CSRF-Token');
-
-  // Handle preflight immediately
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  next();
-});
-
-// Handle preflight requests for all routes - Handled by manual middleware above
-// app.options('*', cors());
+// Standardized CORS configuration
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'X-Requested-With', 'Accept', 'X-CSRF-Token'],
+  credentials: true,
+  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+}));
 
 // Debug root to verify server is reachable
 app.get('/', (req, res) => {
