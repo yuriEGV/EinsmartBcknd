@@ -48,7 +48,7 @@ class NotificationService {
             // 2. Internal Notification for Student
             const studentUser = await User.findOne({ profileId: studentId, role: 'student', tenantId });
             if (studentUser) {
-                await this.createInternalNotification({
+                await NotificationService.createInternalNotification({
                     tenantId,
                     userId: studentUser._id,
                     title: 'Nueva Calificación',
@@ -88,7 +88,7 @@ class NotificationService {
                 // Internal Notification for Guardian
                 const guardianUser = await User.findOne({ profileId: guardian._id, role: 'apoderado', tenantId });
                 if (guardianUser) {
-                    await this.createInternalNotification({
+                    await NotificationService.createInternalNotification({
                         tenantId,
                         userId: guardianUser._id,
                         title: 'Nota Registrada',
@@ -146,7 +146,7 @@ class NotificationService {
             // 2. Internal Notification for Student
             const studentUser = await User.findOne({ profileId: studentId, role: 'student', tenantId });
             if (studentUser) {
-                await this.createInternalNotification({
+                await NotificationService.createInternalNotification({
                     tenantId,
                     userId: studentUser._id,
                     title: `Anotación ${typeLabel}`,
@@ -186,7 +186,7 @@ class NotificationService {
                 // Internal Notification for Guardian
                 const guardianUser = await User.findOne({ profileId: guardian._id, role: 'apoderado', tenantId });
                 if (guardianUser) {
-                    await this.createInternalNotification({
+                    await NotificationService.createInternalNotification({
                         tenantId,
                         userId: guardianUser._id,
                         title: `Anotación Registrada (${student.nombres})`,

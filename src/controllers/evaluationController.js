@@ -24,13 +24,11 @@ class EvaluationController {
                 return res.status(400).json({ message: 'Debe seleccionar un curso y una asignatura.' });
             }
 
-            // Validate ObjectIDs (backend needs valid MongoDB IDs)
-            const mongoose = await import('mongoose');
-            if (!mongoose.default.Types.ObjectId.isValid(courseId)) {
+            if (!mongoose.Types.ObjectId.isValid(courseId)) {
                 return res.status(400).json({ message: 'El ID del curso no es válido.' });
             }
 
-            if (!mongoose.default.Types.ObjectId.isValid(subjectId)) {
+            if (!mongoose.Types.ObjectId.isValid(subjectId)) {
                 return res.status(400).json({ message: 'El ID de la asignatura no es válido.' });
             }
 
