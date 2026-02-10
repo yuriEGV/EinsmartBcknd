@@ -8,7 +8,7 @@ router.use(authMiddleware);
 
 router.get('/', ScheduleController.list);
 router.get('/course/:courseId', ScheduleController.getByDay);
-router.post('/', authorizeRoles('admin', 'utp', 'director'), ScheduleController.create);
+router.post('/', authorizeRoles('admin', 'utp', 'director', 'teacher'), ScheduleController.create);
 router.delete('/:id', authorizeRoles('admin', 'utp', 'director'), ScheduleController.delete);
 
 export default router;

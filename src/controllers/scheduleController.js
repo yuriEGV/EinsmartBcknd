@@ -1,4 +1,5 @@
 import Schedule from '../models/scheduleModel.js';
+import NotificationService from '../services/notificationService.js';
 
 class ScheduleController {
     static async create(req, res) {
@@ -8,6 +9,16 @@ class ScheduleController {
                 tenantId: req.user.tenantId
             });
             await schedule.save();
+
+            // Notify Admins/Directors/Sostenedores
+            await NotificationService.broadcastToAdmins({
+                tenantId: req.user.tenantId,
+                title: 'Nuevo Horario Creado',
+                message: `El usuario ${req.user.name} ha creado un nuevo bloque de horario.`,
+                type: 'system',
+                link: '/schedules'
+            });
+
             res.status(201).json(schedule);
         } catch (error) {
             res.status(400).json({ message: error.message });
@@ -40,6 +51,16 @@ class ScheduleController {
             const { id } = req.params;
             const schedule = await Schedule.findOneAndDelete({ _id: id, tenantId: req.user.tenantId });
             if (!schedule) return res.status(404).json({ message: 'Horario no encontrado' });
+
+            // Notify Admins/Directors/Sostenedores
+            await NotificationService.broadcastToAdmins({
+                tenantId: req.user.tenantId,
+                title: 'Horario Eliminado',
+                message: `El usuario ${req.user.name} ha eliminado un bloque de horario.`,
+                type: 'system',
+                link: '/schedules'
+            });
+
             res.status(204).send();
         } catch (error) {
             res.status(500).json({ message: error.message });
