@@ -57,10 +57,18 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
 // Single Health check & Root
-app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
+app.get('/health', async (req, res) => {
+  try {
+    await connectDB();
+    res.status(200).json({ status: 'OK', db: mongoose.connection.readyState });
+  } catch (err) {
+    res.status(500).json({ status: 'ERROR', error: err.message });
+  }
+});
+
 app.get('/', (req, res) => res.json({
   message: 'Einsmart API is running 🚀',
-  version: '5.2.3',
+  version: '5.2.4',
   timestamp: new Date().toISOString()
 }));
 
