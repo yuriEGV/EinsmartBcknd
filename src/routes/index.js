@@ -7,17 +7,17 @@ import authRoutes from './authRoutes.js';
 import reportRoutes from './reportRoutes.js';
 import courseRoutes from './courseRoutes.js';
 import subjectRoutes from './subjectRoutes.js';
-// import attendanceRoutes from './attendanceRoutes.js';
-// import evaluationRoutes from './evaluationRoutes.js';
-// import gradeRoutes from './gradeRoutes.js';
+import attendanceRoutes from './attendanceRoutes.js';
+import evaluationRoutes from './evaluationRoutes.js';
+import gradeRoutes from './gradeRoutes.js';
 // import enrollmentRoutes from './enrollmentRoutes.js';
 // import userRoutes from './userRoutes.js';
-// import tenantRoutes from './tenantRoutes.js';
+import tenantRoutes from './tenantRoutes.js';
 // import apoderadoRoutes from './apoderadoRoutes.js';
 // import anotacionRoutes from './anotacionRoutes.js';
 // import paymentRoutes from './paymentRoutes.js';
 // import tariffRoutes from './tariffRoutes.js';
-// import webhookRoutes from './webhookRoutes.js';
+import webhookRoutes from './webhookRoutes.js';
 // import eventRoutes from './eventRoutes.js';
 // import auditLogRoutes from './auditLogRoutes.js';
 // import analyticsRoutes from './analyticsRoutes.js';
@@ -59,9 +59,9 @@ router.use((req, res, next) => {
 
 // Public routes
 router.use('/auth', authRoutes);
-// router.use('/tenants', tenantRoutes);
+router.use('/tenants', tenantRoutes);
 // Public webhook endpoints for payment providers
-// router.use('/payments/webhooks', webhookRoutes);
+router.use('/payments/webhooks', webhookRoutes);
 
 // Auth middleware for private routes
 router.use(authMiddleware);
@@ -71,9 +71,9 @@ router.use('/estudiantes', estudianteRoutes);
 router.use('/reports', reportRoutes);
 router.use('/courses', courseRoutes);
 router.use('/subjects', subjectRoutes); // [NEW]
-// router.use('/attendance', attendanceRoutes);
-// router.use('/evaluations', evaluationRoutes);
-// router.use('/grades', gradeRoutes);
+router.use('/attendance', attendanceRoutes);
+router.use('/evaluations', evaluationRoutes);
+router.use('/grades', gradeRoutes);
 // router.use('/enrollments', enrollmentRoutes);
 // router.use('/users', userRoutes);
 // router.use('/apoderados', apoderadoRoutes);
