@@ -32,17 +32,32 @@ import adminDayRoutes from './adminDayRoutes.js';
 import userNotificationRoutes from './userNotificationRoutes.js';
 import eventRequestRoutes from './eventRequestRoutes.js';
 import careerRoutes from './careerRoutes.js';
-import planningRoutes from './planningRoutes.js'; // [NEW] Added planningRoutes back
+import planningRoutes from './planningRoutes.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+// [CRITICAL] Ensure DB connection for all routes
+router.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('DB_CONNECTION_ERROR:', err);
+    res.status(500).json({
+      message: 'Error de conexión a la base de datos',
+      error: err.message
+    });
+  }
+});
 
 // Health check route
 router.get('/health', (req, res) => {
   res.json({
     status: 'UP',
     timestamp: new Date().toISOString(),
-    node_env: process.env.NODE_ENV
+    node_env: process.env.NODE_ENV,
+    db_state: mongoose.connection.readyState
   });
 });
 
