@@ -9,7 +9,9 @@ class ClassLogController {
 
             // Find if there's an existing unsigned log for this course/subject today
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            today.setUTCHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
             let log = await ClassLog.findOne({
                 tenantId: req.user.tenantId,
@@ -86,11 +88,13 @@ class ClassLogController {
 
     static async create(req, res) {
         try {
-            const { courseId, subjectId, date, topic, activities, objectives, startTime } = req.body;
+            const { courseId, subjectId, date, topic, activities, objectives, startTime, planningId } = req.body;
 
             // If there's an existing draft log for this course/subject today, update it instead of creating
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            today.setUTCHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
             let log = await ClassLog.findOne({
                 tenantId: req.user.tenantId,
@@ -105,6 +109,7 @@ class ClassLogController {
                 log.topic = topic;
                 log.activities = activities;
                 log.objectives = objectives;
+                if (planningId) log.planningId = planningId;
                 if (startTime) log.startTime = new Date(startTime);
                 await log.save();
             } else {
@@ -117,6 +122,7 @@ class ClassLogController {
                     topic,
                     activities,
                     objectives,
+                    planningId,
                     startTime: startTime ? new Date(startTime) : undefined
                 });
 

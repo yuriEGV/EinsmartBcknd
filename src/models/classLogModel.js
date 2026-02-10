@@ -59,6 +59,10 @@ const classLogSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Schedule'
     },
+    planningId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Planning'
+    },
     plannedStartTime: {
         type: Date
     },
