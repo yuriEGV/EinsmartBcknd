@@ -38,20 +38,21 @@ const generateMaritimoData = async () => {
         await mongoose.connect(MONGODB_URI);
         console.log('✅ Connected.');
 
-        // 1. Create Tenant
-        const tenantName = "Colegio Bicentenario Marítimo";
-        // Use a fixed domain for easier access or random if preferred. 
-        // User said "no veo los datos", implying they might be looking at the default localhost
-        // For local dev, tenants often map to subdomains or headers. 
-        // Let's create a predictable domain w/ timestamp to avoid collision but clearly labelled.
-        const domainSuffix = Math.floor(Math.random() * 1000);
-        const tenant = await Tenant.create({
-            name: tenantName,
-            domain: `maritimo${domainSuffix}.localhost`, // Localhost friendly
-            paymentType: 'paid',
-            academicYear: '2026'
-        });
-        console.log(`✅ Tenant created: ${tenant.name} (Domain: ${tenant.domain})`);
+        // 1. Find Existing Tenant
+        const tenantName = "Instituto Bicentenario Maritimo"; // Matching the existing one
+        let tenant = await Tenant.findOne({ name: tenantName });
+
+        if (!tenant) {
+            console.log(`⚠️ Tenant '${tenantName}' not found. Searching by ID...`);
+            tenant = await Tenant.findById('6984af03b00f020e9834b948'); // Hardcoded ID from checkTenants.js
+        }
+
+        if (!tenant) {
+            console.error(`❌ Tenant not found. Please create it first or check the name.`);
+            process.exit(1);
+        }
+
+        console.log(`✅ Using Tenant: ${tenant.name} (ID: ${tenant._id})`);
 
         const passwordHash = await bcrypt.hash('123456', 10);
 
