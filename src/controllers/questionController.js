@@ -33,7 +33,16 @@ class QuestionController {
             const { subjectId, grade, type, difficulty } = req.query;
             const query = { tenantId: req.user.tenantId };
 
-            if (subjectId) query.subjectId = subjectId;
+            if (subjectId) {
+                if (mongoose.Types.ObjectId.isValid(subjectId)) {
+                    query.subjectId = subjectId;
+                } else {
+                    // Search by subject name if not a valid ID
+                    const Subject = await import('../models/subjectModel.js').then(m => m.default);
+                    const subjects = await Subject.find({ name: subjectId, tenantId: req.user.tenantId });
+                    query.subjectId = { $in: subjects.map(s => s._id) };
+                }
+            }
             if (grade) query.grade = grade;
             if (type) query.type = type;
             if (difficulty) query.difficulty = difficulty;

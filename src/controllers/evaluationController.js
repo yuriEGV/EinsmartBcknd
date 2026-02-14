@@ -14,14 +14,14 @@ class EvaluationController {
             }
 
             // Validate required fields
-            const { courseId, subjectId, title } = req.body;
+            const { courseId, subjectId, title, date } = req.body;
 
             if (!title || !title.trim()) {
                 return res.status(400).json({ message: 'El título es obligatorio.' });
             }
 
-            if (!courseId || !subjectId) {
-                return res.status(400).json({ message: 'Debe seleccionar un curso y una asignatura.' });
+            if (!courseId || !subjectId || !date) {
+                return res.status(400).json({ message: 'Debe seleccionar un curso, una asignatura y una fecha.' });
             }
 
             if (!mongoose.Types.ObjectId.isValid(courseId)) {

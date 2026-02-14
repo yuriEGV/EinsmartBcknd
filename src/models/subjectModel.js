@@ -21,6 +21,14 @@ const subjectSchema = new mongoose.Schema({
         type: mongoose.Types.ObjectId,
         ref: 'User',
         required: true
+    },
+    isComplementary: {
+        type: Boolean,
+        default: false
+    },
+    isTechnical: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true
