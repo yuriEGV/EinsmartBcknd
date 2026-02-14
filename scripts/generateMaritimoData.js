@@ -18,7 +18,7 @@ import Rubric from '../src/models/rubricModel.js';
 import Apoderado from '../src/models/apoderadoModel.js';
 import Question from '../src/models/questionModel.js';
 import Planning from '../src/models/planningModel.js';
-import Objective from '../src/models/objectiveModel.js'; // Added Objective model
+import Objective from '../src/models/objectiveModel.js';
 
 // Config
 const __filename = fileURLToPath(import.meta.url);
@@ -39,12 +39,12 @@ const generateMaritimoData = async () => {
         console.log('✅ Connected.');
 
         // 1. Find Existing Tenant
-        const tenantName = "Instituto Bicentenario Maritimo"; // Matching the existing one
+        const tenantName = "Instituto Bicentenario Maritimo";
         let tenant = await Tenant.findOne({ name: tenantName });
 
         if (!tenant) {
             console.log(`⚠️ Tenant '${tenantName}' not found. Searching by ID...`);
-            tenant = await Tenant.findById('6984af03b00f020e9834b948'); // Hardcoded ID from checkTenants.js
+            tenant = await Tenant.findById('6984af03b00f020e9834b948');
         }
 
         if (!tenant) {
@@ -56,76 +56,170 @@ const generateMaritimoData = async () => {
 
         const passwordHash = await bcrypt.hash('123456', 10);
 
-        // 2. Create Teachers & Careers
-        // Specific careers requested: Química, Elaboración de Alimentos, Mecánica, Operaciones Portuarias, Gastronomía
-        const teachersData = [
-            { name: 'Prof. Química', email: 'profe.quimica', specialty: 'Química Industrial', rut: '15.111.111-1' },
-            { name: 'Prof. Alimentos', email: 'profe.alimentos', specialty: 'Elaboración de Alimentos', rut: '16.222.222-2' },
-            { name: 'Prof. Mecánica', email: 'profe.mecanica', specialty: 'Mecánica Automotriz', rut: '17.333.333-3' },
-            { name: 'Prof. Puertos', email: 'profe.puertos', specialty: 'Operaciones Portuarias', rut: '18.444.444-4' },
-            { name: 'Prof. Gastronomía', email: 'profe.gastro', specialty: 'Gastronomía', rut: '19.555.555-5' }
+        // 2. Define Contexts/Careers
+        const careers = [
+            {
+                code: 'MEC',
+                name: 'Mecánica Automotriz',
+                teacher: { name: 'Prof. Mecánica', email: 'profe.mecanica' },
+                rubricCriteria: [
+                    { name: 'Diagnóstico de Fallas', descriptors: ['Identifica la falla exactitud', 'Identifica fallas generales', 'Confunde síntomas', 'No identifica fallas'] },
+                    { name: 'Uso de Herramientas', descriptors: ['Uso experto y seguro', 'Uso correcto', 'Uso descuidado', 'Uso peligroso'] }
+                ],
+                questions: [
+                    '¿Qué indica el humo azul en el escape?',
+                    'Orden de encendido motor 4 cilindros',
+                    'Función del alternador',
+                    'Medición de compresión',
+                    'Torque de culata'
+                ]
+            },
+            {
+                code: 'GAS',
+                name: 'Gastronomía',
+                teacher: { name: 'Prof. Gastronomía', email: 'profe.gastro' },
+                rubricCriteria: [
+                    { name: 'Higiene y Manipulación', descriptors: ['Normas HACCP perfectas', 'Cumple normas básicas', 'Errores menores de higiene', 'Riesgo de contaminación'] },
+                    { name: 'Presentación (Emplatado)', descriptors: ['Creativo y balanceado', 'Limpio y ordenado', 'Desordenado', 'Sin presentación'] }
+                ],
+                questions: [
+                    'Temperatura interna del pollo cocido',
+                    'Dimensiones del corte Brunoise',
+                    'Ingredientes de la Salsa Bechamel',
+                    'Contaminación cruzada',
+                    'Tiempos de leudado'
+                ]
+            },
+            {
+                code: 'QUI',
+                name: 'Química Industrial',
+                teacher: { name: 'Prof. Química', email: 'profe.quimica' },
+                rubricCriteria: [
+                    { name: 'Seguridad en Laboratorio', descriptors: ['Uso EPP completo y correcto', 'Uso parcial de EPP', 'Olvida normas básicas', 'Conducta riesgosa'] },
+                    { name: 'Análisis de Muestras', descriptors: ['Resultado exacto <1% error', 'Error <5%', 'Error <10%', 'Resultado incorrecto'] }
+                ],
+                questions: [
+                    'Cálculo de Molaridad',
+                    'Balanceo de ecuaciones redox',
+                    'Uso de la pipeta aforada',
+                    'Reacción ácido-base',
+                    'Norma ISO 17025'
+                ]
+            },
+            {
+                code: 'POR',
+                name: 'Operaciones Portuarias',
+                teacher: { name: 'Prof. Puertos', email: 'profe.puertos' },
+                rubricCriteria: [
+                    { name: 'Logística y Estiba', descriptors: ['Optimización máxima de carga', 'Carga balanceada', 'Errores de distribución', 'Carga inestable'] },
+                    { name: 'Documentación Aduanera', descriptors: ['Documentación impecable', 'Errores menores', 'Faltan datos clave', 'Documentación rechazada'] }
+                ],
+                questions: [
+                    'Tipos de contenedores',
+                    'Documento BL (Bill of Lading)',
+                    'Uso de Grúa Pórtico',
+                    'Seguridad en patio de camiones',
+                    'Código IMDG'
+                ]
+            },
+            {
+                code: 'ALI',
+                name: 'Elaboración de Alimentos',
+                teacher: { name: 'Prof. Alimentos', email: 'profe.alimentos' },
+                rubricCriteria: [
+                    { name: 'Control de Calidad', descriptors: ['Muestreo representativo', 'Muestreo aceptable', 'Errores en muestreo', 'Sin control'] },
+                    { name: 'Procesamiento', descriptors: ['Proceso estandarizado', 'Variaciones menores', 'Variaciones notables', 'Producto defectuoso'] }
+                ],
+                questions: [
+                    'Pasteurización vs Esterilización',
+                    'Uso de Aditivos alimentarios',
+                    'Cadena de frío',
+                    'Fermentación láctica',
+                    'Etiquetado nutricional'
+                ]
+            }
         ];
 
-        const teachers = [];
-        for (const t of teachersData) {
+        // 3. Cleanup Previous Data (for these specific teachers)
+        console.log('🧹 Cleaning up previous test data...');
+        for (const c of careers) {
+            const email = `${c.teacher.email}.${tenant._id}@maritimo.cl`;
+            const user = await User.findOne({ email });
+            if (user) {
+                // Delete associated data
+                const course = await Course.findOne({ teacherId: user._id });
+                if (course) {
+                    await Enrollment.deleteMany({ courseId: course._id });
+                    await Evaluation.deleteMany({ courseId: course._id });
+                    await Course.deleteOne({ _id: course._id });
+                }
+                const subject = await Subject.findOne({ teacherId: user._id });
+                if (subject) {
+                    await Planning.deleteMany({ subjectId: subject._id });
+                    await Rubric.deleteMany({ subjectId: subject._id });
+                    await Question.deleteMany({ subjectId: subject._id });
+                    await Subject.deleteOne({ _id: subject._id });
+                }
+                await User.deleteOne({ _id: user._id }); // Delete Teacher
+            }
+        }
+        console.log('✅ Cleanup complete.');
+
+
+        // 4. Create New Data
+        const planningDates = [
+            new Date('2026-03-09T10:00:00'),
+            new Date('2026-03-23T10:00:00'),
+            new Date('2026-04-06T10:00:00'),
+            new Date('2026-04-20T10:00:00')
+        ];
+        const difficulties = ['Básico', 'Intermedio', 'Avanzado', 'Experto'];
+
+        for (let i = 0; i < careers.length; i++) {
+            const car = careers[i];
+
+            // A. Create Teacher
             const teacher = await User.create({
                 tenantId: tenant._id,
-                name: t.name,
-                email: `${t.email}.${tenant._id}@maritimo.cl`, // Unique email per tenant
+                name: car.teacher.name,
+                email: `${car.teacher.email}.${tenant._id}@maritimo.cl`,
                 passwordHash,
                 role: 'teacher',
-                rut: t.rut,
-                specialization: t.specialty
+                rut: `${15 + i}.111.111-${i}`,
+                specialization: car.name
             });
-            teachers.push(teacher);
-            console.log(`✅ Teacher created: ${teacher.name} (${teacher.specialization})`);
-        }
 
-        // 3. Create Courses (One for each specialty)
-        const courses = [];
-        for (let i = 0; i < teachers.length; i++) {
-            const teacher = teachers[i];
-            const letter = String.fromCharCode(65 + i); // A, B, C, D, E
+            // B. Create Course & Subject
+            const letter = String.fromCharCode(65 + i);
             const course = await Course.create({
                 tenantId: tenant._id,
-                name: `3° Medio ${letter} - ${teacher.specialization}`,
+                name: `3° Medio ${letter} - ${car.name}`,
                 level: 'III° Medio',
                 letter: letter,
                 teacherId: teacher._id,
-                description: `Especialidad de ${teacher.specialization}`
+                description: `Especialidad de ${car.name}`
             });
-            courses.push({ course, teacher });
 
-            // Create Specialty Subject
             const subject = await Subject.create({
                 tenantId: tenant._id,
-                name: `Módulo: ${teacher.specialization}`,
+                name: `Módulo: ${car.name}`,
                 courseId: course._id,
                 teacherId: teacher._id
             });
-            courses[i].subject = subject;
-        }
-        console.log(`✅ ${courses.length} Courses and Specialty Subjects created.`);
 
-        // 4. Create Students & Guardians
-        for (const item of courses) {
-            const { course, subject } = item;
-
+            // C. Create Students (5)
             const students = [];
             for (let j = 1; j <= 5; j++) {
-                const middle = Math.floor(Math.random() * 900) + 100;
-                const rutRandom = `${20 + j}.000.${middle}-${Math.floor(Math.random() * 9)}`;
-
+                const rutRandom = `${20 + j}.000.${100 + i}-${j}`;
                 const student = await Estudiante.create({
                     tenantId: tenant._id,
                     nombres: `Alumno ${j}`,
-                    apellidos: `De ${course.letter}`,
+                    apellidos: `De ${car.code}`,
                     rut: rutRandom,
                     email: `alumno${j}.${course._id}@maritimo.cl`,
-                    matricula: `MAR-${course.letter}-${j}`
+                    matricula: `MAR-${car.code}-${j}`
                 });
 
-                // User for Student
                 await User.create({
                     tenantId: tenant._id,
                     name: `${student.nombres} ${student.apellidos}`,
@@ -136,7 +230,6 @@ const generateMaritimoData = async () => {
                     rut: rutRandom
                 });
 
-                // Enroll
                 await Enrollment.create({
                     tenantId: tenant._id,
                     estudianteId: student._id,
@@ -144,162 +237,96 @@ const generateMaritimoData = async () => {
                     period: '2026',
                     status: 'confirmada'
                 });
-
-                // Guardian
-                const gRut = `${10 + j}.${middle}.${middle}-${Math.floor(Math.random() * 9)}`;
-                const guardian = await Apoderado.create({
-                    tenantId: tenant._id,
-                    estudianteId: student._id,
-                    nombre: `Apoderado ${j}`,
-                    apellidos: `Del Alumno ${j}`,
-                    rut: gRut,
-                    correo: `apoderado${j}.${course._id}@maritimo.cl`,
-                    tipo: 'principal',
-                    parentesco: 'Padre/Madre',
-                    telefono: '+56999999999'
-                });
-
-                // User for Guardian
-                await User.create({
-                    tenantId: tenant._id,
-                    name: `${guardian.nombre} ${guardian.apellidos}`,
-                    email: guardian.correo,
-                    passwordHash,
-                    role: 'apoderado',
-                    profileId: guardian._id,
-                    rut: gRut
-                });
-
                 students.push(student);
             }
-            item.students = students;
-        }
-        console.log(`✅ Students and Guardians created for all courses.`);
 
-        // 5. Create Progressive Rubrics linked to Planning
-        // We will enable strict dates: March and April
-        const planningDates = [
-            new Date('2026-03-10'),
-            new Date('2026-03-24'),
-            new Date('2026-04-07'),
-            new Date('2026-04-21')
-        ];
-
-        const difficulties = ['Básico', 'Intermedio', 'Avanzado', 'Experto'];
-
-        for (const item of courses) {
-            const { course, subject, students, teacher } = item;
-
-            for (let i = 0; i < 4; i++) {
-                // A. Create Rubric first (to link to Planning)
+            // D. Create Planning & Rubrics & Evaluations
+            for (let k = 0; k < 4; k++) {
+                // 1. Create Rubric (Adapted Content)
                 const rubric = await Rubric.create({
                     tenantId: tenant._id,
                     teacherId: teacher._id,
                     subjectId: subject._id,
-                    title: `Rúbrica: ${difficulties[i]} - ${subject.name}`,
-                    description: `Criterios de evaluación para nivel ${difficulties[i]}`,
+                    title: `Rúbrica ${difficulties[k]}: ${car.name}`,
+                    description: `Evaluación de ${car.rubricCriteria[0].name} y ${car.rubricCriteria[1].name}`,
                     levels: [
-                        { name: 'Excelente', points: 4 },
-                        { name: 'Bueno', points: 3 },
-                        { name: 'Suficiente', points: 2 },
-                        { name: 'Insuficiente', points: 1 }
+                        { name: 'Experto', points: 4 },
+                        { name: 'Avanzado', points: 3 },
+                        { name: 'Intermedio', points: 2 },
+                        { name: 'Novato', points: 1 }
                     ],
-                    criteria: [
-                        {
-                            name: 'Conocimiento Teórico',
-                            descriptors: [
-                                { levelName: 'Excelente', text: 'Domina todos los conceptos' },
-                                { levelName: 'Bueno', text: 'Domina la mayoría' },
-                                { levelName: 'Suficiente', text: 'Domina lo básico' },
-                                { levelName: 'Insuficiente', text: 'No domina conceptos' }
-                            ]
-                        },
-                        {
-                            name: 'Aplicación Práctica',
-                            descriptors: [
-                                { levelName: 'Excelente', text: 'Ejecuta sin errores' },
-                                { levelName: 'Bueno', text: 'Ejecuta con errores menores' },
-                                { levelName: 'Suficiente', text: 'Ejecuta con ayuda' },
-                                { levelName: 'Insuficiente', text: 'No logra ejecutar' }
-                            ]
-                        }
-                    ]
+                    criteria: car.rubricCriteria.map(crit => ({
+                        name: crit.name,
+                        descriptors: [
+                            { levelName: 'Experto', text: crit.descriptors[0] },
+                            { levelName: 'Avanzado', text: crit.descriptors[1] },
+                            { levelName: 'Intermedio', text: crit.descriptors[2] },
+                            { levelName: 'Novato', text: crit.descriptors[3] }
+                        ]
+                    }))
                 });
 
-                // B. Create Objectives (required for Planning)
-                const createdObjectives = [];
-                for (let k = 1; k <= 2; k++) {
-                    const obj = await Objective.create({
-                        tenantId: tenant._id,
-                        subjectId: subject._id,
-                        code: `OA ${k + (i * 2)}`, // OA 1, OA 2...
-                        description: `Objetivo de Aprendizaje ${k} para nivel ${difficulties[i]}`,
-                        active: true
-                    });
-                    createdObjectives.push(obj._id);
-                }
+                // 2. Create Objectives
+                const obj = await Objective.create({
+                    tenantId: tenant._id,
+                    subjectId: subject._id,
+                    code: `OA-TP-${k + 1}`,
+                    description: `Domina competencias de ${car.name} nivel ${difficulties[k]}`,
+                    active: true
+                });
 
-                // C. Create Planning (Planificación) linked to Rubric & Objectives
-                const planning = await Planning.create({
+                // 3. Create Planning Linked to Rubric
+                await Planning.create({
                     tenantId: tenant._id,
                     subjectId: subject._id,
                     teacherId: teacher._id,
-                    unit: `Unidad ${i + 1}: Competencias ${difficulties[i]}`,
-                    title: `Planificación Evaluación ${i + 1}`,
-                    description: `Preparación y ejecución de la evaluación de nivel ${difficulties[i]}`,
-                    startDate: new Date(planningDates[i].getTime() - 86400000 * 5), // 5 days before
-                    endDate: planningDates[i],
-                    status: 'approved', // So it's visible/active
+                    unit: `Unidad ${k + 1}: ${difficulties[k]} en ${car.name}`,
+                    title: `Planificación ${difficulties[k]}`,
+                    description: `Preparación de la prueba práctica de ${car.name}`,
+                    startDate: new Date(planningDates[k].getTime() - 86400000 * 5),
+                    endDate: planningDates[k],
+                    status: 'approved',
                     rubricId: rubric._id,
-                    objectives: createdObjectives, // Use real Objective IDs
-                    activities: 'Clases teóricas y prácticas en taller.'
+                    objectives: [obj._id],
+                    activities: `Taller práctico de ${car.name}`
                 });
 
-                // D. Create Questions for the Exam
+                // 4. Create Questions (Adapted)
                 const questionsDocs = [];
-                for (let q = 1; q <= 5; q++) {
+                for (let q = 0; q < car.questions.length; q++) {
                     const question = await Question.create({
                         tenantId: tenant._id,
                         subjectId: subject._id,
-                        questionText: `Pregunta ${q} (${difficulties[i]}): ¿Cuál es el procedimiento correcto para...?`,
+                        questionText: `${car.questions[q]} (Nivel ${difficulties[k]})`,
                         type: 'multiple_choice',
-                        difficulty: i === 0 ? 'easy' : (i === 3 ? 'hard' : 'medium'),
+                        difficulty: k === 0 ? 'easy' : (k === 3 ? 'hard' : 'medium'),
                         options: [
-                            { text: 'Procedimiento A (Correcto)', isCorrect: true },
-                            { text: 'Procedimiento B (Incorrecto)', isCorrect: false },
-                            { text: 'Procedimiento C (Incorrecto)', isCorrect: false },
-                            { text: 'Procedimiento D (Incorrecto)', isCorrect: false }
+                            { text: 'Respuesta Correcta', isCorrect: true },
+                            { text: 'Opción Incorrecta A', isCorrect: false },
+                            { text: 'Opción Incorrecta B', isCorrect: false }
                         ],
-                        createdBy: teacher._id,
-                        tags: [difficulties[i], subject.name]
+                        createdBy: teacher._id
                     });
                     questionsDocs.push(question._id);
                 }
 
-                // E. Create Evaluation (The actual test event)
+                // 5. Create Evaluation (Test)
                 const evaluation = await Evaluation.create({
                     tenantId: tenant._id,
                     courseId: course._id,
                     subjectId: subject._id,
-                    title: `Prueba ${difficulties[i]} (Base: Planificación ${i + 1})`,
+                    title: `Prueba ${difficulties[k]}: ${car.name}`,
                     type: 'sumativa',
                     category: 'planificada',
-                    date: planningDates[i],
+                    date: planningDates[k],
                     questions: questionsDocs,
                     maxScore: 7.0,
-                    objectives: [`Evaluar unidad ${i + 1}`] // This is consistent with evaluationModel (array of strings)
+                    objectives: [`Evaluar ${difficulties[k]}`]
                 });
 
-                // Link Evaluation to Planning ? (Not strictly in model but good conceptual link)
-                // We don't have a direct field, so we rely on subject/date proximity or manually if needed.
-                // But the user asked for "creation of tests based on planning". The naming and dates align.
-
-                // F. Assign Grades
+                // 6. Grades
                 for (const student of students) {
-                    // Grades improve slightly or vary randomly
-                    const baseScore = 3.5 + (Math.random() * 3.5); // 3.5 to 7.0
-                    const score = parseFloat(baseScore.toFixed(1));
-
+                    const score = parseFloat((Math.random() * (3.0) + 4.0).toFixed(1));
                     await Grade.create({
                         tenantId: tenant._id,
                         evaluationId: evaluation._id,
@@ -309,23 +336,8 @@ const generateMaritimoData = async () => {
                 }
             }
         }
-        console.log(`✅ Planning (w/Objectives), Rubrics, Exams, and Grades created for March/April 2026.`);
 
-        console.log('\n=============================================');
-        console.log('🏫 COLEGIO BICENTENARIO MARÍTIMO - DATA GENERATED');
-        console.log('=============================================');
-        console.log(`Tenant ID: ${tenant._id}`);
-        console.log(`Domain: ${tenant.domain}`);
-        console.log('---------------------------------------------');
-
-        console.log('👨‍🏫 PROFESORES Y CARRERAS (Password: 123456):');
-        teachers.forEach(t => console.log(`- ${t.name}: ${t.email}`));
-
-        console.log('---------------------------------------------');
-        console.log('📆 HITOS DE EVALUACIÓN (Marzo - Abril):');
-        planningDates.forEach((d, i) => console.log(`- Hito ${i + 1} (${difficulties[i]}): ${d.toLocaleDateString('es-CL')}`));
-        console.log('=============================================');
-
+        console.log(`✅ Career-specific data created for 5 specialties with adapted Rubrics/Questions.`);
         process.exit(0);
 
     } catch (error) {
