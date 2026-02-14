@@ -37,16 +37,12 @@ export default class SubjectController {
             if (req.query.courseId) query.courseId = req.query.courseId;
             if (req.query.teacherId) query.teacherId = req.query.teacherId;
 
-            // Security: Allow admin roles to see all subjects
-            const adminRoles = ['admin', 'director', 'utp', 'sostenedor'];
-
             // If admin, no restrictions (can see all subjects in tenant)
             // If NOT an admin/staff, apply restricted filters
             if (!adminRoles.includes(req.user.role)) {
-                // [STRICT ISOLATION] Teachers only see their own subjects
-                if (req.user.role === 'teacher') {
-                    // But if they are asking for a specific course, we might let them see others 
-                    // depending on school policy. For now, strictly their own unless admin.
+                // [MODIFIED] If they are asking for a specific course, we let staff (teachers) see them 
+                // to enable schedule management and shared visibility, but keep strict isolation for students/guardians.
+                if (req.user.role === 'teacher' && !req.query.courseId) {
                     query.teacherId = req.user.userId;
                 }
 
