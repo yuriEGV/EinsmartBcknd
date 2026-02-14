@@ -37,6 +37,8 @@ export default class SubjectController {
             if (req.query.courseId) query.courseId = req.query.courseId;
             if (req.query.teacherId) query.teacherId = req.query.teacherId;
 
+            const adminRoles = ['admin', 'director', 'utp', 'sostenedor', 'teacher'];
+
             // If admin, no restrictions (can see all subjects in tenant)
             // If NOT an admin/staff, apply restricted filters
             if (!adminRoles.includes(req.user.role)) {

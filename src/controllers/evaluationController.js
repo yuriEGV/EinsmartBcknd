@@ -155,7 +155,8 @@ class EvaluationController {
             const evaluations = await Evaluation.find(query)
                 .populate('courseId', 'name code')
                 .populate('subjectId', 'name')
-                .populate('questions');
+                .populate('questions')
+                .populate('rubricId');
 
             res.status(200).json(evaluations);
         } catch (error) {
@@ -172,7 +173,8 @@ class EvaluationController {
                 tenantId: req.user.tenantId
             })
                 .populate('courseId', 'name code')
-                .populate('subjectId', 'name');
+                .populate('subjectId', 'name')
+                .populate('rubricId');
             res.status(200).json(evaluations);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -189,7 +191,8 @@ class EvaluationController {
 
             const evaluations = await Evaluation.find({ tenantId: targetTenant })
                 .populate('courseId', 'name code')
-                .populate('subjectId', 'name');
+                .populate('subjectId', 'name')
+                .populate('rubricId');
             res.status(200).json(evaluations);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -204,7 +207,8 @@ class EvaluationController {
                 tenantId: req.user.tenantId
             })
                 .populate('courseId', 'name code')
-                .populate('subjectId', 'name');
+                .populate('subjectId', 'name')
+                .populate('rubricId');
             if (!evaluation) {
                 return res.status(404).json({ message: 'Evaluación no encontrada' });
             }
@@ -263,7 +267,7 @@ class EvaluationController {
                 { _id: req.params.id, tenantId: req.user.tenantId },
                 req.body,
                 { new: true }
-            ).populate('courseId', 'name code').populate('subjectId', 'name');
+            ).populate('courseId', 'name code').populate('subjectId', 'name').populate('rubricId');
 
             res.status(200).json(updatedEvaluation);
         } catch (error) {
@@ -302,7 +306,8 @@ class EvaluationController {
             })
                 .populate('courseId', 'name level')
                 .populate('subjectId', 'name')
-                .populate('questions');
+                .populate('questions')
+                .populate('rubricId');
 
             if (!evaluation) {
                 return res.status(404).json({ message: 'Evaluación no encontrada' });

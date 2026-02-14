@@ -26,7 +26,8 @@ const evaluationSchema = new mongoose.Schema({
         default: 'approved' // Default to approved for legacy data compatibility if needed, or 'draft'
     },
     feedback: { type: String },
-    approvedBy: { type: mongoose.Types.ObjectId, ref: 'User' }
+    approvedBy: { type: mongoose.Types.ObjectId, ref: 'User' },
+    rubricId: { type: mongoose.Types.ObjectId, ref: 'Rubric' }
 }, { timestamps: true });
 
 export default mongoose.model('Evaluation', evaluationSchema);
