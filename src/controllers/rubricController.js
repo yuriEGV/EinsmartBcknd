@@ -19,11 +19,15 @@ class RubricController {
         try {
             const query = { tenantId: req.user.tenantId };
 
-            // Filters
-            if (req.query.subjectId) query.subjectId = req.query.subjectId;
-            if (req.user.role === 'teacher') {
+            // Security: Restrict visibility based on role
+            const adminRoles = ['admin', 'director', 'utp', 'sostenedor'];
+
+            // If NOT an admin role, restrict to own rubrics (Teachers)
+            if (!adminRoles.includes(req.user.role)) {
                 query.teacherId = req.user.userId;
             }
+
+            console.log(`[Rubrics List] User: ${req.user.userId} (${req.user.role}) - Query:`, query);
 
             const rubrics = await Rubric.find(query)
                 .populate('subjectId', 'name')
