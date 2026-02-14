@@ -149,6 +149,13 @@ const generateMaritimoData = async () => {
                 // Delete associated data
                 const course = await Course.findOne({ teacherId: user._id });
                 if (course) {
+                    // Delete students and their grades
+                    const enrollments = await Enrollment.find({ courseId: course._id });
+                    for (const enrollment of enrollments) {
+                        await Grade.deleteMany({ estudianteId: enrollment.estudianteId });
+                        await User.deleteOne({ profileId: enrollment.estudianteId, role: 'student' });
+                        await Estudiante.deleteOne({ _id: enrollment.estudianteId });
+                    }
                     await Enrollment.deleteMany({ courseId: course._id });
                     await Evaluation.deleteMany({ courseId: course._id });
                     await Course.deleteOne({ _id: course._id });
@@ -158,6 +165,7 @@ const generateMaritimoData = async () => {
                     await Planning.deleteMany({ subjectId: subject._id });
                     await Rubric.deleteMany({ subjectId: subject._id });
                     await Question.deleteMany({ subjectId: subject._id });
+                    await Objective.deleteMany({ subjectId: subject._id });
                     await Subject.deleteOne({ _id: subject._id });
                 }
                 await User.deleteOne({ _id: user._id }); // Delete Teacher
@@ -168,12 +176,20 @@ const generateMaritimoData = async () => {
 
         // 4. Create New Data
         const planningDates = [
-            new Date('2026-03-09T10:00:00'),
-            new Date('2026-03-23T10:00:00'),
-            new Date('2026-04-06T10:00:00'),
-            new Date('2026-04-20T10:00:00')
+            // March
+            { unit: 'Unidad 1', evalDate: new Date('2026-03-13T10:00:00'), planStart: new Date('2026-03-02T10:00:00'), planEnd: new Date('2026-03-13T10:00:00') },
+            { unit: 'Unidad 2', evalDate: new Date('2026-03-27T10:00:00'), planStart: new Date('2026-03-16T10:00:00'), planEnd: new Date('2026-03-27T10:00:00') },
+            // April
+            { unit: 'Unidad 3', evalDate: new Date('2026-04-10T10:00:00'), planStart: new Date('2026-03-30T10:00:00'), planEnd: new Date('2026-04-10T10:00:00') },
+            { unit: 'Unidad 4', evalDate: new Date('2026-04-24T10:00:00'), planStart: new Date('2026-04-13T10:00:00'), planEnd: new Date('2026-04-24T10:00:00') },
+            // May
+            { unit: 'Unidad 5', evalDate: new Date('2026-05-08T10:00:00'), planStart: new Date('2026-04-27T10:00:00'), planEnd: new Date('2026-05-08T10:00:00') },
+            { unit: 'Unidad 6', evalDate: new Date('2026-05-22T10:00:00'), planStart: new Date('2026-05-11T10:00:00'), planEnd: new Date('2026-05-22T10:00:00') },
+            // June
+            { unit: 'Unidad 7', evalDate: new Date('2026-06-05T10:00:00'), planStart: new Date('2026-05-25T10:00:00'), planEnd: new Date('2026-06-05T10:00:00') },
+            { unit: 'Unidad 8 (Final)', evalDate: new Date('2026-06-19T10:00:00'), planStart: new Date('2026-06-08T10:00:00'), planEnd: new Date('2026-06-19T10:00:00') }
         ];
-        const difficulties = ['Básico', 'Intermedio', 'Avanzado', 'Experto'];
+        const difficulties = ['Básico', 'Intermedio', 'Intermedio', 'Avanzado', 'Avanzado', 'Avanzado', 'Experto', 'Experto'];
 
         for (let i = 0; i < careers.length; i++) {
             const car = careers[i];
@@ -240,14 +256,17 @@ const generateMaritimoData = async () => {
                 students.push(student);
             }
 
-            // D. Create Planning & Rubrics & Evaluations
-            for (let k = 0; k < 4; k++) {
+            // D. Create Planning & Rubrics & Evaluations for each unit
+            for (let k = 0; k < planningDates.length; k++) {
+                const unitData = planningDates[k];
+                const difficulty = difficulties[k];
+
                 // 1. Create Rubric (Adapted Content)
                 const rubric = await Rubric.create({
                     tenantId: tenant._id,
                     teacherId: teacher._id,
                     subjectId: subject._id,
-                    title: `Rúbrica ${difficulties[k]}: ${car.name}`,
+                    title: `Rúbrica ${difficulty}: ${car.name} - ${unitData.unit}`,
                     description: `Evaluación de ${car.rubricCriteria[0].name} y ${car.rubricCriteria[1].name}`,
                     levels: [
                         { name: 'Experto', points: 4 },
@@ -271,7 +290,7 @@ const generateMaritimoData = async () => {
                     tenantId: tenant._id,
                     subjectId: subject._id,
                     code: `OA-TP-${k + 1}`,
-                    description: `Domina competencias de ${car.name} nivel ${difficulties[k]}`,
+                    description: `Domina competencias de ${car.name} nivel ${difficulty} - ${unitData.unit}`,
                     active: true
                 });
 
@@ -280,15 +299,15 @@ const generateMaritimoData = async () => {
                     tenantId: tenant._id,
                     subjectId: subject._id,
                     teacherId: teacher._id,
-                    unit: `Unidad ${k + 1}: ${difficulties[k]} en ${car.name}`,
-                    title: `Planificación ${difficulties[k]}`,
+                    unit: unitData.unit,
+                    title: `Planificación ${difficulty} - ${unitData.unit}`,
                     description: `Preparación de la prueba práctica de ${car.name}`,
-                    startDate: new Date(planningDates[k].getTime() - 86400000 * 5),
-                    endDate: planningDates[k],
+                    startDate: unitData.planStart,
+                    endDate: unitData.planEnd,
                     status: 'approved',
                     rubricId: rubric._id,
                     objectives: [obj._id],
-                    activities: `Taller práctico de ${car.name}`
+                    activities: `Taller práctico de ${car.name} nivel ${difficulty}`
                 });
 
                 // 4. Create Questions (Adapted)
@@ -297,9 +316,9 @@ const generateMaritimoData = async () => {
                     const question = await Question.create({
                         tenantId: tenant._id,
                         subjectId: subject._id,
-                        questionText: `${car.questions[q]} (Nivel ${difficulties[k]})`,
+                        questionText: `${car.questions[q]} (Nivel ${difficulty})`,
                         type: 'multiple_choice',
-                        difficulty: k === 0 ? 'easy' : (k === 3 ? 'hard' : 'medium'),
+                        difficulty: k < 2 ? 'easy' : (k >= 6 ? 'hard' : 'medium'),
                         options: [
                             { text: 'Respuesta Correcta', isCorrect: true },
                             { text: 'Opción Incorrecta A', isCorrect: false },
@@ -315,13 +334,13 @@ const generateMaritimoData = async () => {
                     tenantId: tenant._id,
                     courseId: course._id,
                     subjectId: subject._id,
-                    title: `Prueba ${difficulties[k]}: ${car.name}`,
+                    title: `Prueba ${difficulty}: ${car.name} - ${unitData.unit}`,
                     type: 'sumativa',
                     category: 'planificada',
-                    date: planningDates[k],
+                    date: unitData.evalDate,
                     questions: questionsDocs,
                     maxScore: 7.0,
-                    objectives: [`Evaluar ${difficulties[k]}`]
+                    objectives: [`Evaluar ${difficulty} - ${unitData.unit}`]
                 });
 
                 // 6. Grades

@@ -37,38 +37,46 @@ export default class SubjectController {
             if (req.query.courseId) query.courseId = req.query.courseId;
             if (req.query.teacherId) query.teacherId = req.query.teacherId;
 
-            // [STRICT ISOLATION] Teachers only see their own subjects
-            if (req.user.role === 'teacher') {
-                query.teacherId = req.user.userId;
-            }
+            // Security: Allow admin roles to see all subjects
+            const adminRoles = ['admin', 'director', 'utp', 'sostenedor'];
 
-            // [STRICT ISOLATION] Students and Guardians only see their enrolled subjects
-            if (req.user.role === 'student' || req.user.role === 'apoderado') {
-                let studentId;
-                if (req.user.role === 'student') {
-                    studentId = req.user.profileId;
-                } else {
-                    const apoderado = await Apoderado.findById(req.user.profileId);
-                    studentId = apoderado?.estudianteId;
+            // If admin, no restrictions (can see all subjects in tenant)
+            if (!adminRoles.includes(req.user.role)) {
+                // [STRICT ISOLATION] Teachers only see their own subjects
+                if (req.user.role === 'teacher') {
+                    query.teacherId = req.user.userId;
                 }
 
-                if (studentId) {
-                    const enrollment = await Enrollment.findOne({
-                        estudianteId: studentId,
-                        tenantId: req.user.tenantId,
-                        status: { $in: ['confirmada', 'activo', 'activa'] }
-                    });
-                    if (enrollment) {
-                        query.courseId = enrollment.courseId;
+                // [STRICT ISOLATION] Students and Guardians only see their enrolled subjects
+                if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                    let studentId;
+                    if (req.user.role === 'student') {
+                        studentId = req.user.profileId;
                     } else {
-                        // No enrollment found, return empty list or specific error?
-                        // For UX, return empty list if not specifically filtered by courseId already
-                        if (!query.courseId) return res.json([]);
+                        const apoderado = await Apoderado.findById(req.user.profileId);
+                        studentId = apoderado?.estudianteId;
                     }
-                } else {
-                    return res.status(403).json({ message: 'Perfil no vinculado' });
+
+                    if (studentId) {
+                        const enrollment = await Enrollment.findOne({
+                            estudianteId: studentId,
+                            tenantId: req.user.tenantId,
+                            status: { $in: ['confirmada', 'activo', 'activa'] }
+                        });
+                        if (enrollment) {
+                            query.courseId = enrollment.courseId;
+                        } else {
+                            // No enrollment found, return empty list or specific error?
+                            // For UX, return empty list if not specifically filtered by courseId already
+                            if (!query.courseId) return res.json([]);
+                        }
+                    } else {
+                        return res.status(403).json({ message: 'Perfil no vinculado' });
+                    }
                 }
             }
+
+            console.log(`[Subjects] User: ${req.user.userId} (${req.user.role}) - Query:`, query);
 
             const subjects = await Subject.find(query)
                 .populate('courseId', 'name')
