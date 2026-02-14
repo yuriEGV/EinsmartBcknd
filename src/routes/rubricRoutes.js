@@ -1,11 +1,11 @@
 
 import express from 'express';
 import RubricController from '../controllers/rubricController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.use(protect);
+router.use(authMiddleware);
 
 router.post('/', RubricController.create);
 router.get('/', RubricController.list);
