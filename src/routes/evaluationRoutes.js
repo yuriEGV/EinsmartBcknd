@@ -7,6 +7,12 @@ const router = express.Router();
 // Create a new evaluation
 router.post('/', authMiddleware, authorizeRoles('admin', 'sostenedor', 'director', 'teacher', 'utp'), evaluationController.createEvaluation);
 
+// Submit for review
+router.post('/:id/submit', authMiddleware, authorizeRoles('teacher'), evaluationController.submitEvaluation);
+
+// Review evaluation (UTP/Director/Admin)
+router.post('/:id/review', authMiddleware, authorizeRoles('admin', 'director', 'utp'), evaluationController.reviewEvaluation);
+
 // Get all evaluations
 router.get('/', authMiddleware, evaluationController.getEvaluations);
 

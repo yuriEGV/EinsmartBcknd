@@ -7,7 +7,8 @@ class RubricController {
             const rubric = await Rubric.create({
                 ...req.body,
                 teacherId: req.user.userId,
-                tenantId: req.user.tenantId
+                tenantId: req.user.tenantId,
+                status: (['admin', 'director', 'utp'].includes(req.user.role)) ? 'approved' : 'draft'
             });
             res.status(201).json(rubric);
         } catch (error) {
@@ -79,6 +80,40 @@ class RubricController {
             res.status(204).send();
         } catch (error) {
             res.status(500).json({ message: error.message });
+        }
+    }
+
+    static async submit(req, res) {
+        try {
+            const rubric = await Rubric.findOneAndUpdate(
+                { _id: req.params.id, tenantId: req.user.tenantId, teacherId: req.user.userId, status: { $in: ['draft', 'rejected'] } },
+                { status: 'submitted' },
+                { new: true }
+            );
+            if (!rubric) return res.status(404).json({ message: 'Rúbrica no encontrada o ya enviada.' });
+            res.json(rubric);
+        } catch (error) {
+            res.status(400).json({ message: error.message });
+        }
+    }
+
+    static async review(req, res) {
+        try {
+            const { status, feedback } = req.body;
+            const staffRoles = ['admin', 'director', 'utp'];
+            if (!staffRoles.includes(req.user.role)) {
+                return res.status(403).json({ message: 'No autorizado para revisar rúbricas.' });
+            }
+
+            const rubric = await Rubric.findOneAndUpdate(
+                { _id: req.params.id, tenantId: req.user.tenantId },
+                { status, feedback, approvedBy: req.user.userId },
+                { new: true }
+            );
+            if (!rubric) return res.status(404).json({ message: 'Rúbrica no encontrada' });
+            res.json(rubric);
+        } catch (error) {
+            res.status(400).json({ message: error.message });
         }
     }
 }

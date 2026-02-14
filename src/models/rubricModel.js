@@ -34,7 +34,14 @@ const rubricSchema = new mongoose.Schema({
             levelName: { type: String, required: true },
             text: { type: String, required: true }
         }]
-    }]
+    }],
+    status: {
+        type: String,
+        enum: ['draft', 'submitted', 'approved', 'rejected'],
+        default: 'approved'
+    },
+    feedback: { type: String },
+    approvedBy: { type: mongoose.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
 
 // Index for performance

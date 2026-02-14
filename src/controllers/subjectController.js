@@ -41,9 +41,12 @@ export default class SubjectController {
             const adminRoles = ['admin', 'director', 'utp', 'sostenedor'];
 
             // If admin, no restrictions (can see all subjects in tenant)
+            // If NOT an admin/staff, apply restricted filters
             if (!adminRoles.includes(req.user.role)) {
                 // [STRICT ISOLATION] Teachers only see their own subjects
                 if (req.user.role === 'teacher') {
+                    // But if they are asking for a specific course, we might let them see others 
+                    // depending on school policy. For now, strictly their own unless admin.
                     query.teacherId = req.user.userId;
                 }
 
