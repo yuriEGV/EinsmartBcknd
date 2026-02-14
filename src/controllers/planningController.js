@@ -24,10 +24,15 @@ class PlanningController {
             if (req.query.subjectId) query.subjectId = req.query.subjectId;
             if (req.query.status) query.status = req.query.status;
 
-            // Teachers only see their own plannings
-            if (req.user.role === 'teacher') {
+            // Security: Restrict visibility based on role
+            const adminRoles = ['admin', 'director', 'utp', 'sostenedor'];
+
+            // If NOT an admin role, restrict to own planning (Teachers)
+            if (!adminRoles.includes(req.user.role)) {
                 query.teacherId = req.user.userId;
             }
+
+            console.log(`[Planning List] User: ${req.user.userId} (${req.user.role}) - Query:`, query);
 
             const plannings = await Planning.find(query)
                 .populate('subjectId', 'name')
