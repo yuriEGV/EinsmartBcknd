@@ -33,6 +33,7 @@ import userNotificationRoutes from './userNotificationRoutes.js';
 import eventRequestRoutes from './eventRequestRoutes.js';
 import careerRoutes from './careerRoutes.js';
 import planningRoutes from './planningRoutes.js';
+import rubricRoutes from './rubricRoutes.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -81,6 +82,7 @@ router.use('/objectives', objectiveRoutes);
 router.use('/curriculum-materials', curriculumMaterialsRoutes);
 router.use('/questions', questionRoutes);
 router.use('/planning', planningRoutes);
+router.use('/rubrics', rubricRoutes);
 
 // Administrative
 router.use('/users', userRoutes);

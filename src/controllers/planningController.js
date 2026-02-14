@@ -33,6 +33,7 @@ class PlanningController {
                 .populate('subjectId', 'name')
                 .populate('teacherId', 'name')
                 .populate('objectives')
+                .populate('rubricId')
                 .sort({ createdAt: -1 });
 
             res.json(plannings);

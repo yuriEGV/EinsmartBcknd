@@ -60,6 +60,10 @@ const planningSchema = new mongoose.Schema({
     },
     endDate: {
         type: Date
+    },
+    rubricId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Rubric'
     }
 }, { timestamps: true });
 
