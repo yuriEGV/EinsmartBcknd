@@ -54,7 +54,7 @@ class QuestionController {
 
     static async list(req, res) {
         try {
-            const { subjectId, grade, type, difficulty } = req.query;
+            const { subjectId, grade, type, difficulty, status } = req.query;
             const query = { tenantId: req.user.tenantId };
 
             if (subjectId) {
@@ -70,6 +70,16 @@ class QuestionController {
             if (grade) query.grade = grade;
             if (type) query.type = type;
             if (difficulty) query.difficulty = difficulty;
+
+            // Handle status: approved OR (pending AND createdBy current user)
+            if (status === 'approved') {
+                query.$or = [
+                    { status: 'approved' },
+                    { createdBy: req.user.userId, status: 'pending' }
+                ];
+            } else if (status) {
+                query.status = status;
+            }
 
             const questions = await Question.find(query)
                 .populate('subjectId', 'name')
