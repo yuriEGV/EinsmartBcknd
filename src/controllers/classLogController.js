@@ -192,12 +192,23 @@ class ClassLogController {
     static async sign(req, res) {
         try {
             const { id } = req.params;
-            const log = await ClassLog.findOne({ _id: id, tenantId: req.user.tenantId });
+            const { pin } = req.body;
+
+            const [log, user] = await Promise.all([
+                ClassLog.findOne({ _id: id, tenantId: req.user.tenantId }),
+                User.findById(req.user.userId)
+            ]);
 
             if (!log) return res.status(404).json({ message: 'Registro no encontrado' });
+            if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
             if (req.user.role === 'teacher' && log.teacherId.toString() !== req.user.userId.toString()) {
                 return res.status(403).json({ message: 'No autorizado para firmar este registro' });
+            }
+
+            // PIN Verification
+            if (user.signaturePin !== pin) {
+                return res.status(401).json({ message: 'PIN de firma digital inválido' });
             }
 
             log.isSigned = true;

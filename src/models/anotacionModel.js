@@ -21,6 +21,15 @@ const anotacionSchema = new mongoose.Schema({
         enum: ['positiva', 'negativa'],
         required: [true, 'El tipo de anotación es obligatorio']
     },
+    categoria: {
+        type: String,
+        enum: ['leve', 'grave', 'muy_grave', 'positiva_destacada', 'positiva_normal'],
+        default: 'leve'
+    },
+    subtipo: {
+        type: String,
+        default: '' // e.g., "No trae materiales", "Interrupción"
+    },
     titulo: {
         type: String,
         required: [true, 'El título es obligatorio'],

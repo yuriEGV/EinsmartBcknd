@@ -21,8 +21,24 @@ const estudianteSchema = new mongoose.Schema({
   },
 
   edad: { type: Number, min: 0, max: 120 },
+  fechaNacimiento: { type: Date },
+  genero: { type: String, enum: ['Masculino', 'Femenino', 'Otro', 'No informado'], default: 'No informado' },
   grado: { type: String, trim: true },
   direccion: { type: String, trim: true, default: '' },
+  salud: {
+    seguro: { type: String, default: '' }, // e.g., Fonasa, Isapre
+    alergias: [String],
+    cronicas: [String],
+    medicamentos: [String],
+    observaciones: { type: String, default: '' }
+  },
+  etnia: { type: String, default: '' },
+  programaPIE: { type: Boolean, default: false },
+  certificadosAnteriores: [{
+    nombre: String,
+    url: String,
+    fecha: { type: Date, default: Date.now }
+  }],
 
   fechaRegistro: {
     type: Date,
