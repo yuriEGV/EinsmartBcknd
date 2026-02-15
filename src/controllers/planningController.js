@@ -11,8 +11,19 @@ class PlanningController {
                 ...req.body,
                 teacherId: req.user.userId,
                 tenantId: req.user.tenantId,
-                status: 'draft'
+                status: req.body.status || 'draft'
             });
+
+            if (planning.status === 'submitted') {
+                await NotificationService.broadcastToAdmins({
+                    tenantId: req.user.tenantId,
+                    title: 'Nueva Planificación Recibida',
+                    message: `El docente ha enviado la planificación: "${planning.title}" para revisión.`,
+                    type: 'planning_submitted',
+                    link: '/academic'
+                });
+            }
+
             res.status(201).json(planning);
         } catch (error) {
             res.status(400).json({ message: error.message });
