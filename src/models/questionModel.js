@@ -27,19 +27,21 @@ const questionSchema = new mongoose.Schema({
         text: String,
         isCorrect: Boolean
     }],
-    enum: ['easy', 'medium', 'hard'],
-    default: 'medium'
-},
+    difficulty: {
+        type: String,
+        enum: ['easy', 'medium', 'hard'],
+        default: 'medium'
+    },
     status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'approved' // Default to approved for now to simplify usage
-},
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'approved'
+    },
     tags: [String],
     createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-}
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }
 }, { timestamps: true });
 
 export default mongoose.model('Question', questionSchema);
