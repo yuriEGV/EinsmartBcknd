@@ -190,10 +190,39 @@ class AnalyticsController {
         try {
             await connectDB();
             const tenantId = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
+            const courseId = req.query.courseId ? new mongoose.Types.ObjectId(req.query.courseId) : null;
+
+            // Build match criteria
+            let matchCriteria = { tenantId: new mongoose.Types.ObjectId(tenantId) };
+
+            // If courseId is provided, get students in that course first
+            if (courseId) {
+                const course = await Course.findById(courseId);
+                if (course) {
+                    // Find students whose grado matches the course name
+                    const studentsInCourse = await Estudiante.find({
+                        tenantId: new mongoose.Types.ObjectId(tenantId),
+                        grado: { $regex: course.name, $options: 'i' }
+                    });
+
+                    const studentIdsInCourse = studentsInCourse.map(s => s._id);
+
+                    if (studentIdsInCourse.length > 0) {
+                        matchCriteria.estudianteId = { $in: studentIdsInCourse };
+                    } else {
+                        // No students in this course, return empty results
+                        return res.status(200).json({
+                            mostPositive: [],
+                            mostNegative: [],
+                            allStudents: []
+                        });
+                    }
+                }
+            }
 
             // Most positive annotations
             const positiveRankings = await Anotacion.aggregate([
-                { $match: { tenantId: new mongoose.Types.ObjectId(tenantId), tipo: 'positiva' } },
+                { $match: { ...matchCriteria, tipo: 'positiva' } },
                 {
                     $lookup: {
                         from: 'estudiantes',
@@ -217,7 +246,7 @@ class AnalyticsController {
 
             // Most negative annotations
             const negativeRankings = await Anotacion.aggregate([
-                { $match: { tenantId: new mongoose.Types.ObjectId(tenantId), tipo: 'negativa' } },
+                { $match: { ...matchCriteria, tipo: 'negativa' } },
                 {
                     $lookup: {
                         from: 'estudiantes',
@@ -241,7 +270,7 @@ class AnalyticsController {
 
             // Combined view (all students with both counts)
             const combinedRankings = await Anotacion.aggregate([
-                { $match: { tenantId: new mongoose.Types.ObjectId(tenantId) } },
+                { $match: matchCriteria },
                 {
                     $lookup: {
                         from: 'estudiantes',
