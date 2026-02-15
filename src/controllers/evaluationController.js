@@ -76,8 +76,13 @@ class EvaluationController {
                 }
             }
 
+            const evaluationData = { ...req.body };
+            if (evaluationData.rubricId === '') {
+                evaluationData.rubricId = null;
+            }
+
             const evaluation = new Evaluation({
-                ...req.body,
+                ...evaluationData,
                 tenantId: req.user.tenantId,
                 status: (['admin', 'director', 'utp'].includes(req.user.role)) ? 'approved' : 'draft'
             });
@@ -233,9 +238,14 @@ class EvaluationController {
             // [RELAXED SCHEDULE ENFORCEMENT FOR UPDATES]
             // We allow updates even if out of schedule for flexibility.
 
+            const updateData = { ...req.body };
+            if (updateData.rubricId === '') {
+                updateData.rubricId = null;
+            }
+
             const updatedEvaluation = await Evaluation.findOneAndUpdate(
                 { _id: req.params.id, tenantId: req.user.tenantId },
-                req.body,
+                updateData,
                 { new: true }
             ).populate('courseId', 'name code').populate('subjectId', 'name').populate('rubricId');
 
