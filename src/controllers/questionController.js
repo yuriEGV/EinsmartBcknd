@@ -8,7 +8,16 @@ class QuestionController {
             if (!staffRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para crear preguntas.' });
             }
-            const { subjectId, grade, questionText, type, options, difficulty, tags, status } = req.body;
+            const { subjectId, questionText, type, options, difficulty, tags } = req.body;
+
+            // Integrity check: fetch actual grade from subject
+            const Subject = await import('../models/subjectModel.js').then(m => m.default);
+            const subject = await Subject.findById(subjectId).populate('courseId');
+            const grade = subject?.courseId?.name || subject?.grade || req.body.grade;
+
+            // Security check: Teacher = pending, Director/UTP/Admin = approved
+            const isAdmin = ['admin', 'director', 'utp'].includes(req.user.role);
+            const status = isAdmin ? 'approved' : 'pending';
 
             const question = new Question({
                 tenantId: req.user.tenantId,
@@ -19,11 +28,24 @@ class QuestionController {
                 options,
                 difficulty,
                 tags,
-                status: status || 'approved', // Auto-approve if not specified, or based on role later
+                status,
                 createdBy: req.user.userId
             });
 
             await question.save();
+
+            // Notify Admins if pending
+            if (status === 'pending') {
+                const NotificationService = await import('../services/notificationService.js').then(m => m.default);
+                await NotificationService.broadcastToAdmins({
+                    tenantId: req.user.tenantId,
+                    title: 'Nueva Pregunta para Revisar',
+                    message: `El docente ${req.user.name} ha añadido una pregunta al banco que requiere aprobación.`,
+                    type: 'system',
+                    link: '/academic'
+                });
+            }
+
             res.status(201).json(question);
         } catch (error) {
             res.status(500).json({ message: error.message });
