@@ -9,6 +9,23 @@ const createEstudiante = async (req, res) => {
 
     const { guardian, ...estudianteData } = req.body;
 
+    // [NUEVO] Prevent duplicates by RUT or Email
+    if (estudianteData.rut || estudianteData.email) {
+      const existing = await Estudiante.findOne({
+        tenantId,
+        $or: [
+          { rut: estudianteData.rut },
+          { email: estudianteData.email }
+        ].filter(c => Object.values(c)[0] && Object.values(c)[0] !== '')
+      });
+
+      if (existing) {
+        return res.status(400).json({
+          message: `Ya existe un estudiante con el ${existing.rut === estudianteData.rut ? 'RUT' : 'Email'} ingresado.`
+        });
+      }
+    }
+
     const estudiante = await Estudiante.create({
       ...estudianteData,
       tenantId

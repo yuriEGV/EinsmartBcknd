@@ -38,23 +38,6 @@ class EnrollmentController {
                 return res.status(400).json({ message: 'ID de curso inválido.' });
             }
 
-            // [CRITICAL] Prevent Double Enrollment for the same period
-            if (finalStudentId && period) {
-                const existingEnrollment = await Enrollment.findOne({
-                    tenantId: new mongoose.Types.ObjectId(tenantId),
-                    estudianteId: new mongoose.Types.ObjectId(finalStudentId),
-                    period,
-                    status: { $in: ['pendiente', 'confirmada', 'activo', 'activa', 'pre-matricula'] }
-                });
-
-                if (existingEnrollment) {
-                    return res.status(400).json({
-                        message: `El estudiante ya se encuentra matriculado en un curso para el periodo ${period}. No se permiten duplicados.`,
-                        code: 'DOUBLE_ENROLLMENT'
-                    });
-                }
-            }
-
             // 1. Logic for New Student Creation (Improved & Tenant Isolated)
             if (!finalStudentId && newStudent && newStudent.nombres) {
                 const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
@@ -105,6 +88,24 @@ class EnrollmentController {
                         });
                         console.log(`User account created for student: ${newStudent.email}`);
                     }
+                }
+            }
+
+            // [CRITICAL] Prevent Double Enrollment for the same period
+            // Moved here to catch cases where a "New Student" actually matched an existing record
+            if (finalStudentId && period) {
+                const existingEnrollment = await Enrollment.findOne({
+                    tenantId: new mongoose.Types.ObjectId(tenantId),
+                    estudianteId: new mongoose.Types.ObjectId(finalStudentId),
+                    period,
+                    status: { $in: ['pendiente', 'confirmada', 'activo', 'activa', 'pre-matricula'] }
+                });
+
+                if (existingEnrollment) {
+                    return res.status(400).json({
+                        message: `El estudiante ya se encuentra matriculado en un curso para el periodo ${period}. No se permiten duplicados.`,
+                        code: 'DOUBLE_ENROLLMENT'
+                    });
                 }
             }
 

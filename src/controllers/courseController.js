@@ -264,6 +264,10 @@ export default class CourseController {
                 });
             }
 
+            // [NUEVO] Eliminar matrículas asociadas para evitar huérfanos "Sin Curso"
+            const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+            await Enrollment.deleteMany({ courseId: id, tenantId: req.user.tenantId });
+
             return res.status(204).send();
 
         } catch (error) {
