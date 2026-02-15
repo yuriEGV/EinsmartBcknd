@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema({
     profileId: { type: mongoose.Types.ObjectId, default: null }, // Link to Estudiante or Apoderado
     specialization: { type: String, trim: true }, // Especialidad del profesor (ej: Matemáticas)
     mustChangePassword: { type: Boolean, default: false },
+    mustChangePin: { type: Boolean, default: true }, // Teachers must change default PIN
     signaturePin: { type: String, default: '1234' }, // PIN for digital signature
 }, { timestamps: true });
 

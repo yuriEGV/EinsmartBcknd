@@ -19,7 +19,7 @@ const planningSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['anual', 'unidad', 'clase'],
+        enum: ['anual', 'unidad', 'clase', 'material', 'evaluacion'],
         default: 'unidad'
     },
     title: {

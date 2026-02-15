@@ -1,5 +1,6 @@
 import ClassLog from '../models/classLogModel.js';
 import Schedule from '../models/scheduleModel.js';
+import User from '../models/userModel.js';
 import mongoose from 'mongoose';
 
 class ClassLogController {

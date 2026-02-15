@@ -88,4 +88,18 @@ router.delete(
     UserController.deleteUser
 );
 
+// Update PIN (any authenticated user for their own account)
+router.put(
+    '/update-pin',
+    authMiddleware,
+    UserController.updatePin
+);
+
+// Reset password (profile)
+router.put(
+    '/reset-password',
+    authMiddleware,
+    UserController.resetProfilePassword
+);
+
 export default router;

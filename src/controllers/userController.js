@@ -94,7 +94,9 @@ class UserController {
                 email: normalizedEmail,
                 passwordHash,
                 role: finalRole,
-                specialization
+                specialization,
+                mustChangePassword: finalRole === 'teacher',
+                mustChangePin: finalRole === 'teacher'
             });
 
             // [NUEVO] Notificar a Directores/Sostenedores sobre el nuevo personal
@@ -110,6 +112,23 @@ class UserController {
                     });
                 } catch (notifyErr) {
                     console.error('Error broadcasting user notification:', notifyErr);
+                }
+            }
+
+            // Notify new teacher to change PIN and password
+            if (finalRole === 'teacher') {
+                try {
+                    const NotificationService = await import('../services/notificationService.js').then(m => m.default);
+                    await NotificationService.createNotification({
+                        userId: user._id,
+                        tenantId,
+                        title: 'Cambio de Credenciales Requerido',
+                        message: 'Por seguridad, debe cambiar su contraseña y PIN de firma digital en su perfil.',
+                        type: 'warning',
+                        link: '/profile'
+                    });
+                } catch (notifyErr) {
+                    console.error('Error creating teacher notification:', notifyErr);
                 }
             }
 
@@ -307,6 +326,54 @@ class UserController {
             }
 
             res.status(200).json({ message: 'Contraseña actualizada correctamente' });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+
+    /* =====================================================
+       UPDATE PIN
+    ===================================================== */
+    static async updatePin(req, res) {
+        try {
+            const { currentPin, newPin, confirmPin } = req.body;
+
+            if (!currentPin || !newPin || !confirmPin) {
+                return res.status(400).json({ message: 'Todos los campos son obligatorios' });
+            }
+
+            if (newPin !== confirmPin) {
+                return res.status(400).json({ message: 'Los PINs no coinciden' });
+            }
+
+            // Validate PIN format (4 digits)
+            if (!/^\d{4}$/.test(newPin)) {
+                return res.status(400).json({ message: 'El PIN debe ser de 4 dígitos' });
+            }
+
+            // Reject sequential PINs
+            const sequential = ['0123', '1234', '2345', '3456', '4567', '5678', '6789', '7890',
+                '9876', '8765', '7654', '6543', '5432', '4321', '3210'];
+            if (sequential.includes(newPin)) {
+                return res.status(400).json({ message: 'No puede usar PINs secuenciales' });
+            }
+
+            const user = await User.findById(req.user.userId);
+            if (!user) {
+                return res.status(404).json({ message: 'Usuario no encontrado' });
+            }
+
+            // Verify current PIN
+            if (user.signaturePin !== currentPin) {
+                return res.status(401).json({ message: 'PIN actual incorrecto' });
+            }
+
+            // Update PIN
+            user.signaturePin = newPin;
+            user.mustChangePin = false;
+            await user.save();
+
+            res.status(200).json({ message: 'PIN actualizado correctamente' });
         } catch (error) {
             res.status(500).json({ message: error.message });
         }

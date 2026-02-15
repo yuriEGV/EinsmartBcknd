@@ -23,6 +23,7 @@ class PlanningController {
 
             if (req.query.subjectId) query.subjectId = req.query.subjectId;
             if (req.query.status) query.status = req.query.status;
+            if (req.query.type) query.type = req.query.type;
 
             // Security: Restrict visibility based on role
             const adminRoles = ['admin', 'director', 'utp', 'sostenedor'];
