@@ -150,6 +150,23 @@ class EvaluationController {
 
             if (subjectId) query.subjectId = subjectId;
 
+            // [NEW] Date and Month Filtering
+            if (req.query.date) {
+                const startOfDay = new Date(req.query.date);
+                startOfDay.setHours(0, 0, 0, 0);
+                const endOfDay = new Date(req.query.date);
+                endOfDay.setHours(23, 59, 59, 999);
+                query.date = { $gte: startOfDay, $lte: endOfDay };
+            } else if (req.query.month) {
+                const startOfMonth = new Date(req.query.month);
+                startOfMonth.setDate(1);
+                startOfMonth.setHours(0, 0, 0, 0);
+                const endOfMonth = new Date(startOfMonth);
+                endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+                endOfMonth.setMilliseconds(-1);
+                query.date = { $gte: startOfMonth, $lte: endOfMonth };
+            }
+
             // [APPROVAL STATUS FILTERING]
             if (req.user.role === 'student' || req.user.role === 'apoderado') {
                 query.status = 'approved';
