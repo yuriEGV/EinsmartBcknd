@@ -61,9 +61,13 @@ class QuestionController {
                 if (mongoose.Types.ObjectId.isValid(subjectId)) {
                     query.subjectId = subjectId;
                 } else {
-                    // Search by subject name if not a valid ID
+                    // Search by subject name if not a valid ID - Case Insensitive
                     const Subject = await import('../models/subjectModel.js').then(m => m.default);
-                    const subjects = await Subject.find({ name: subjectId, tenantId: req.user.tenantId });
+                    // Use regex for flexible matching (case insensitive)
+                    const subjects = await Subject.find({
+                        name: { $regex: new RegExp(`^${subjectId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+                        tenantId: req.user.tenantId
+                    });
                     query.subjectId = { $in: subjects.map(s => s._id) };
                 }
             }
