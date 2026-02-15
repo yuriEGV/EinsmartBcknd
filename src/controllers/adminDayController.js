@@ -1,5 +1,6 @@
 import AdminDay from '../models/adminDayModel.js';
 import User from '../models/userModel.js';
+import Event from '../models/eventModel.js';
 import mongoose from 'mongoose';
 import connectDB from '../config/db.js';
 import NotificationService from '../services/notificationService.js';
@@ -109,7 +110,19 @@ class AdminDayController {
                 link: '/admin-days'
             });
 
-            // Optional: Broadcast update to other admins? Probably not necessary unless requested.
+            // If approved, create a calendar event
+            if (status === 'aprobado') {
+                const user = await User.findById(request.userId);
+                await Event.create({
+                    tenantId: req.user.tenantId,
+                    title: `Permiso Administrativo: ${user?.name || 'Funcionario'}`,
+                    description: `Ausencia programada por día administrativo.`,
+                    date: request.date,
+                    type: 'otro',
+                    target: 'global',
+                    creadoPor: req.user.userId
+                });
+            }
 
             res.json(request);
         } catch (error) {

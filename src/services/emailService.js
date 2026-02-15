@@ -1,5 +1,6 @@
 
 import nodemailer from 'nodemailer';
+import Tenant from '../models/tenantModel.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -11,13 +12,32 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-export const sendEmail = async (to, subject, html) => {
+/**
+ * Generic email sending service with tenant-based branding
+ */
+export const sendEmail = async (to, subject, html, tenantId = null) => {
     try {
+        let fromName = "EinSmart";
+        let replyTo = process.env.EMAIL_USER;
+
+        if (tenantId) {
+            try {
+                const tenant = await Tenant.findById(tenantId);
+                if (tenant) {
+                    fromName = tenant.emailConfig?.senderName || tenant.name;
+                    replyTo = tenant.emailConfig?.senderEmail || tenant.contactEmail || process.env.EMAIL_USER;
+                }
+            } catch (err) {
+                console.warn('⚠️ Could not fetch tenant for email branding:', err.message);
+            }
+        }
+
         const mailOptions = {
-            from: process.env.EMAIL_USER,
+            from: `"${fromName}" <${process.env.EMAIL_USER}>`,
             to,
             subject,
-            html
+            html,
+            replyTo
         };
 
         const info = await transporter.sendMail(mailOptions);
@@ -29,7 +49,13 @@ export const sendEmail = async (to, subject, html) => {
     }
 };
 
-export const sendPasswordRecoveryEmail = async (email, token) => {
+// Housekeeping: Alias for notificationService and others using the old name
+export const sendMail = sendEmail;
+
+/**
+ * Specialized email for password recovery
+ */
+export const sendPasswordRecoveryEmail = async (email, token, tenantId = null) => {
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
     const html = `
         <div style="font-family: Arial, sans-serif; color: #333;">
@@ -40,7 +66,7 @@ export const sendPasswordRecoveryEmail = async (email, token) => {
             <p style="margin-top: 20px; font-size: 12px; color: #777;">Si no solicitaste esto, puedes ignorar este correo.</p>
         </div>
     `;
-    return sendEmail(email, 'Recuperación de Contraseña - Maritimo 4.0', html);
+    return sendEmail(email, 'Recuperación de Contraseña', html, tenantId);
 };
 
-export default { sendEmail, sendPasswordRecoveryEmail };
+export default { sendEmail, sendMail, sendPasswordRecoveryEmail };

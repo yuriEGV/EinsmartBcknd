@@ -41,15 +41,15 @@ class EnrollmentController {
             // [CRITICAL] Prevent Double Enrollment for the same period
             if (finalStudentId && period) {
                 const existingEnrollment = await Enrollment.findOne({
-                    tenantId,
-                    estudianteId: finalStudentId,
+                    tenantId: new mongoose.Types.ObjectId(tenantId),
+                    estudianteId: new mongoose.Types.ObjectId(finalStudentId),
                     period,
-                    status: { $in: ['confirmada', 'activo', 'activa', 'pre-matricula'] }
+                    status: { $in: ['pendiente', 'confirmada', 'activo', 'activa', 'pre-matricula'] }
                 });
 
                 if (existingEnrollment) {
                     return res.status(400).json({
-                        message: 'El estudiante ya se encuentra matriculado en un curso activo para este periodo académico.',
+                        message: `El estudiante ya se encuentra matriculado en un curso para el periodo ${period}. No se permiten duplicados.`,
                         code: 'DOUBLE_ENROLLMENT'
                     });
                 }
@@ -420,15 +420,24 @@ class EnrollmentController {
     // Get enrollments by course (Secure)
     static async getEnrollmentsByCourse(req, res) {
         try {
+            const { courseId } = req.params;
+            const tenantId = req.user.tenantId;
+
+            console.log(`[DEBUG] getEnrollmentsByCourse - CourseID: ${courseId}, TenantID: ${tenantId}`);
+
+            const mongoose = await import('mongoose').then(m => m.default);
             const enrollments = await Enrollment.find({
-                courseId: req.params.courseId,
-                tenantId: req.user.tenantId
+                courseId: new mongoose.Types.ObjectId(courseId),
+                tenantId: new mongoose.Types.ObjectId(tenantId)
             })
                 .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
+
+            console.log(`[DEBUG] getEnrollmentsByCourse - Found ${enrollments.length} enrollments`);
             res.status(200).json(enrollments);
         } catch (error) {
+            console.error('[ERROR] getEnrollmentsByCourse:', error);
             res.status(500).json({ message: error.message });
         }
     }
@@ -580,7 +589,8 @@ class EnrollmentController {
                     nombres: e.estudianteId?.nombres || 'N/A',
                     apellidos: e.estudianteId?.apellidos || 'N/A',
                     curso: e.courseId?.name || 'N/A'
-                }))
+                })),
+                tenantId
             );
 
             res.status(200).json({ message: `Listado enviado correctamente a ${tenant.contactEmail || 'administracion@einsmart.cl'}` });

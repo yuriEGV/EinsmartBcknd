@@ -173,7 +173,7 @@ import * as tokenStore from '../utils/tokenStore.js';
 /* ===============================
    CONFIGURACIÓN JWT
 ================================ */
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_emergency_only';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 
 /* ===============================

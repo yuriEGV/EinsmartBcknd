@@ -31,35 +31,46 @@ const allowedOrigins = [
   'https://einsmart-bcknd.vercel.app'
 ];
 
+// Robust CORS configuration
 app.use(cors({
   origin: (origin, callback) => {
-    // allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    const isVercel = origin.endsWith('.vercel.app');
-    const isLocal = origin.startsWith('http://localhost:');
-    const isExplicitlyAllowed = allowedOrigins.includes(origin);
+    const isAllowed = allowedOrigins.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      origin.includes('localhost');
 
-    if (isVercel || isLocal || isExplicitlyAllowed) {
+    if (isAllowed) {
       callback(null, true);
     } else {
-      console.warn(`Blocked by CORS: ${origin}`);
       callback(null, false);
     }
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'X-Requested-With', 'Accept', 'X-CSRF-Token'],
+  credentials: true,
   optionsSuccessStatus: 200
 }));
 
-// Handle preflight requests for all routes
-app.options('*', cors());
-
-// Middleware
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
+
+// Single Health check & Root
+app.get('/health', async (req, res) => {
+  try {
+    await connectDB();
+    res.status(200).json({ status: 'OK', db: mongoose.connection.readyState });
+  } catch (err) {
+    res.status(500).json({ status: 'ERROR', error: err.message });
+  }
+});
+
+app.get('/', (req, res) => res.json({
+  message: 'Einsmart API is running 🚀',
+  version: '5.2.4',
+  timestamp: new Date().toISOString()
+}));
 
 // --- TEMPORARY SETUP ROUTE ---
 app.get('/setup-admin', async (req, res) => {
@@ -108,19 +119,8 @@ app.get('/setup-admin', async (req, res) => {
   }
 });
 
-// Health & Test
-app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
-app.get('/test', (req, res) => res.json({ message: 'Backend is working' }));
-app.get('/', (req, res) => res.json({ message: 'API funcionando correctamente 🚀', version: '5.1.0' }));
-
-// Register routes - Mount at both /api and / to be resilient to environment prefix stripping
+// Register routes
 app.use(['/api', '/'], apiRoutes);
-
-// Backup for specific legacy routes if needed (though index.js covers them)
-app.use('/api/payroll', payrollRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/admin-days', adminDayRoutes);
-app.use('/api/user-notifications', userNotificationRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {

@@ -37,7 +37,7 @@ class AttendanceController {
 
             // [NUEVO] Alerta de asistencia baja (< 75%)
             if (estado === 'ausente') {
-                this.checkAttendanceAlert(req.user.tenantId, estudianteId).catch(err =>
+                AttendanceController.checkAttendanceAlert(req.user.tenantId, estudianteId).catch(err =>
                     console.error('Error in attendance alert check:', err)
                 );
             }

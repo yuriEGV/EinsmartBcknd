@@ -10,6 +10,7 @@ router.post('/', ClassLogController.create);
 router.post('/start', ClassLogController.startClass);
 router.get('/', ClassLogController.list);
 router.post('/:id/sign', ClassLogController.sign);
+router.patch('/:id/justification', ClassLogController.updateJustification);
 router.delete('/:id', ClassLogController.delete);
 
 export default router;

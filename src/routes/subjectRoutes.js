@@ -8,9 +8,9 @@ const router = express.Router();
 // Get is open to all authenticated users (students need to see their subjects)
 router.get('/', authMiddleware, SubjectController.getSubjects);
 
-// Manage: Admin, Sostenedor, Teacher, Director
-router.post('/', authMiddleware, authorizeRoles('admin', 'sostenedor', 'teacher', 'director'), SubjectController.createSubject);
-router.put('/:id', authMiddleware, authorizeRoles('admin', 'sostenedor', 'teacher', 'director'), SubjectController.updateSubject);
-router.delete('/:id', authMiddleware, authorizeRoles('admin', 'sostenedor', 'teacher', 'director'), SubjectController.deleteSubject);
+// Manage: Admin, Sostenedor, Teacher, Director, UTP
+router.post('/', authMiddleware, authorizeRoles('admin', 'sostenedor', 'teacher', 'director', 'utp'), SubjectController.createSubject);
+router.put('/:id', authMiddleware, authorizeRoles('admin', 'sostenedor', 'teacher', 'director', 'utp'), SubjectController.updateSubject);
+router.delete('/:id', authMiddleware, authorizeRoles('admin', 'sostenedor', 'teacher', 'director', 'utp'), SubjectController.deleteSubject);
 
 export default router;

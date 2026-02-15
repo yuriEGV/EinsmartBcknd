@@ -20,6 +20,14 @@ const evaluationSchema = new mongoose.Schema({
     date: { type: Date, required: true },
     questions: [{ type: mongoose.Types.ObjectId, ref: 'Question' }],
     objectives: [{ type: String }],
+    status: {
+        type: String,
+        enum: ['draft', 'submitted', 'approved', 'rejected'],
+        default: 'approved' // Default to approved for legacy data compatibility if needed, or 'draft'
+    },
+    feedback: { type: String },
+    approvedBy: { type: mongoose.Types.ObjectId, ref: 'User' },
+    rubricId: { type: mongoose.Types.ObjectId, ref: 'Rubric' }
 }, { timestamps: true });
 
 export default mongoose.model('Evaluation', evaluationSchema);

@@ -18,7 +18,12 @@ const tenantSchema = new mongoose.Schema({
     phone: { type: String, default: '', trim: true },
     contactEmail: { type: String, default: '', trim: true, lowercase: true },
     annualFee: { type: Number, default: 0 },
-    academicYear: { type: String, default: new Date().getFullYear().toString() }
+    academicYear: { type: String, default: new Date().getFullYear().toString() },
+    emailConfig: {
+        senderEmail: { type: String, trim: true },
+        senderName: { type: String, trim: true },
+        replyTo: { type: String, trim: true }
+    }
 }, { timestamps: true });
 
 export default mongoose.model('Tenant', tenantSchema);

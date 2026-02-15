@@ -72,11 +72,15 @@ import mercadoLibreService from './mercadoLibreService.js';
 import webpayService from './webpayService.js';
 
 // Config MercadoPago
-// Config MercadoPago
 if (process.env.MERCADOPAGO_ACCESS_TOKEN) {
-  mercadopago.configure({
-    access_token: process.env.MERCADOPAGO_ACCESS_TOKEN,
-  });
+  try {
+    mercadopago.configure({
+      access_token: process.env.MERCADOPAGO_ACCESS_TOKEN,
+    });
+    console.log("✅ MercadoPago configurado correctamente");
+  } catch (err) {
+    console.error("❌ Error al configurar MercadoPago:", err.message);
+  }
 } else {
   console.warn("⚠️ MERCADOPAGO_ACCESS_TOKEN no definido en variables de entorno. Los pagos con MP fallarán.");
 }

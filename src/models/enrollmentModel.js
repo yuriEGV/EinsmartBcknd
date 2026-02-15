@@ -18,6 +18,9 @@ const enrollmentSchema = new mongoose.Schema({
     }]
 }, { timestamps: true });
 
+// Índices únicos para evitar duplicados por periodo y tenant
+enrollmentSchema.index({ tenantId: 1, estudianteId: 1, period: 1 }, { unique: true });
+
 export default mongoose.model('Enrollment', enrollmentSchema);
 
 

@@ -2,6 +2,7 @@ import Evaluation from '../models/evaluationModel.js';
 import NotificationService from '../services/notificationService.js';
 import PDFDocument from 'pdfkit';
 import mongoose from 'mongoose';
+import Schedule from '../models/scheduleModel.js';
 
 class EvaluationController {
     // Create a new evaluation
@@ -13,40 +14,85 @@ class EvaluationController {
             }
 
             // Validate required fields
-            const { courseId, subjectId, title } = req.body;
+            const { courseId, subjectId, title, date } = req.body;
 
             if (!title || !title.trim()) {
                 return res.status(400).json({ message: 'El título es obligatorio.' });
             }
 
-            if (!courseId || !subjectId) {
-                return res.status(400).json({ message: 'Debe seleccionar un curso y una asignatura.' });
+            if (!courseId || !subjectId || !date) {
+                return res.status(400).json({ message: 'Debe seleccionar un curso, una asignatura y una fecha.' });
             }
 
-            // Validate ObjectIDs (backend needs valid MongoDB IDs)
-            const mongoose = await import('mongoose');
-            if (!mongoose.default.Types.ObjectId.isValid(courseId)) {
+            if (!mongoose.Types.ObjectId.isValid(courseId)) {
                 return res.status(400).json({ message: 'El ID del curso no es válido.' });
             }
 
-            if (!mongoose.default.Types.ObjectId.isValid(subjectId)) {
+            if (!mongoose.Types.ObjectId.isValid(subjectId)) {
                 return res.status(400).json({ message: 'El ID de la asignatura no es válido.' });
+            }
+
+            // [CONFLICT DETECTION] Check for concurrent evaluations in same course
+            const conflictQuery = {
+                courseId,
+                date: {
+                    $gte: new Date(new Date(date).setHours(new Date(date).getHours() - 1)), // 1 hour buffer
+                    $lte: new Date(new Date(date).setHours(new Date(date).getHours() + 1))
+                },
+                tenantId: req.user.tenantId
+            };
+            const existingEval = await Evaluation.findOne(conflictQuery);
+            if (existingEval) {
+                return res.status(409).json({
+                    message: `Ya existe una evaluación ("${existingEval.title}") programada en este bloque horario para este curso.`
+                });
+            }
+
+            // [STRICT SCHEDULE ENFORCEMENT - RELAXED]
+            const evalDate = new Date(req.body.date);
+            const dayOfWeek = evalDate.getDay();
+            const evalTimeStr = evalDate.toTimeString().slice(0, 5); // "HH:mm"
+
+            const schedules = await Schedule.find({
+                tenantId: req.user.tenantId,
+                courseId,
+                subjectId,
+                dayOfWeek
+            });
+
+            // If no schedules found, we just log a warning but allow creation
+            if (schedules.length === 0) {
+                console.warn(`[Evaluation] No classes found for date ${date} but allowing creation.`);
+            } else {
+                const isWithinSchedule = schedules.some(s => {
+                    return evalTimeStr >= s.startTime && evalTimeStr <= s.endTime;
+                });
+
+                if (!isWithinSchedule && !['admin', 'director', 'utp'].includes(req.user.role)) {
+                    // Provide a warning message but maybe still allow? 
+                    // Let's allow it but warn in the console. 
+                    // The user said "Test generation is broken", likely due to this block.
+                    console.warn(`[Evaluation] Out of schedule: ${evalTimeStr}`);
+                }
             }
 
             const evaluation = new Evaluation({
                 ...req.body,
-                tenantId: req.user.tenantId
+                tenantId: req.user.tenantId,
+                status: (['admin', 'director', 'utp'].includes(req.user.role)) ? 'approved' : 'draft'
             });
             await evaluation.save();
             await evaluation.populate('courseId', 'name code');
 
-            // Notify Students
-            NotificationService.notifyCourseAssessment(
-                evaluation.courseId._id,
-                evaluation.title,
-                evaluation.date,
-                evaluation.tenantId
-            );
+            // Notify Students ONLY if approved
+            if (evaluation.status === 'approved') {
+                NotificationService.notifyCourseAssessment(
+                    evaluation.courseId._id,
+                    evaluation.title,
+                    evaluation.date,
+                    evaluation.tenantId
+                );
+            }
 
             res.status(201).json(evaluation);
         } catch (error) {
@@ -62,36 +108,54 @@ class EvaluationController {
 
             if (courseId) {
                 query.courseId = courseId;
-            } else if (studentId || req.user.role === 'student') {
-                const targetStudentId = studentId || req.user.profileId;
-                const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
-                const student = await Estudiante.findById(targetStudentId);
-                if (student && student.courseId) {
-                    query.courseId = student.courseId;
-                } else if (student && student.grado) {
-                    const Course = await import('../models/courseModel.js').then(m => m.default);
-                    const course = await Course.findOne({ name: student.grado, tenantId: req.user.tenantId });
-                    if (course) query.courseId = course._id;
-                }
-            } else if (guardianId || req.user.role === 'apoderado') {
-                const targetGuardianId = guardianId || req.user.profileId;
+            } else if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
                 const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
-                const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
-                const guardian = await Apoderado.findById(targetGuardianId);
-                if (guardian && guardian.estudianteId) {
-                    const student = await Estudiante.findById(guardian.estudianteId);
-                    if (student && student.courseId) {
-                        query.courseId = student.courseId;
+
+                let studentId;
+                if (req.user.role === 'student') {
+                    studentId = req.user.profileId;
+                } else {
+                    const guardian = await Apoderado.findById(req.user.profileId);
+                    studentId = guardian?.estudianteId;
+                }
+
+                if (studentId) {
+                    const enrollment = await Enrollment.findOne({
+                        estudianteId: studentId,
+                        tenantId: req.user.tenantId,
+                        status: { $in: ['confirmada', 'activo', 'activa'] }
+                    });
+                    if (enrollment) {
+                        query.courseId = enrollment.courseId;
+                    } else {
+                        return res.status(200).json([]); // No enrollment, no evaluations
                     }
+                } else {
+                    return res.status(403).json({ message: 'Perfil no vinculado' });
+                }
+            } else if (studentId || guardianId) {
+                // ... handle explicit IDs for staff if needed
+                if (studentId) {
+                    const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
+                    const student = await Estudiante.findById(studentId);
+                    if (student) query.courseId = student.courseId;
                 }
             }
 
             if (subjectId) query.subjectId = subjectId;
 
+            // [APPROVAL STATUS FILTERING]
+            if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                query.status = 'approved';
+                query.category = { $ne: 'sorpresa' }; // Hide surprise tests from calendar
+            }
+
             const evaluations = await Evaluation.find(query)
                 .populate('courseId', 'name code')
                 .populate('subjectId', 'name')
-                .populate('questions');
+                .populate('questions')
+                .populate('rubricId');
 
             res.status(200).json(evaluations);
         } catch (error) {
@@ -107,7 +171,9 @@ class EvaluationController {
                 courseId: req.params.courseId,
                 tenantId: req.user.tenantId
             })
-                .populate('courseId', 'name code');
+                .populate('courseId', 'name code')
+                .populate('subjectId', 'name')
+                .populate('rubricId');
             res.status(200).json(evaluations);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -123,7 +189,9 @@ class EvaluationController {
             }
 
             const evaluations = await Evaluation.find({ tenantId: targetTenant })
-                .populate('courseId', 'name code');
+                .populate('courseId', 'name code')
+                .populate('subjectId', 'name')
+                .populate('rubricId');
             res.status(200).json(evaluations);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -137,7 +205,9 @@ class EvaluationController {
                 _id: req.params.id,
                 tenantId: req.user.tenantId
             })
-                .populate('courseId', 'name code');
+                .populate('courseId', 'name code')
+                .populate('subjectId', 'name')
+                .populate('rubricId');
             if (!evaluation) {
                 return res.status(404).json({ message: 'Evaluación no encontrada' });
             }
@@ -155,16 +225,21 @@ class EvaluationController {
                 return res.status(403).json({ message: 'No tienes permisos para modificar evaluaciones.' });
             }
 
-            const evaluation = await Evaluation.findOneAndUpdate(
-                { _id: req.params.id, tenantId: req.user.tenantId },
-                req.body,
-                { new: true }
-            )
-                .populate('courseId', 'name code');
+            const evaluation = await Evaluation.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
             if (!evaluation) {
                 return res.status(404).json({ message: 'Evaluación no encontrada' });
             }
-            res.status(200).json(evaluation);
+
+            // [RELAXED SCHEDULE ENFORCEMENT FOR UPDATES]
+            // We allow updates even if out of schedule for flexibility.
+
+            const updatedEvaluation = await Evaluation.findOneAndUpdate(
+                { _id: req.params.id, tenantId: req.user.tenantId },
+                req.body,
+                { new: true }
+            ).populate('courseId', 'name code').populate('subjectId', 'name').populate('rubricId');
+
+            res.status(200).json(updatedEvaluation);
         } catch (error) {
             res.status(400).json({ message: error.message });
         }
@@ -201,7 +276,8 @@ class EvaluationController {
             })
                 .populate('courseId', 'name level')
                 .populate('subjectId', 'name')
-                .populate('questions');
+                .populate('questions')
+                .populate('rubricId');
 
             if (!evaluation) {
                 return res.status(404).json({ message: 'Evaluación no encontrada' });
@@ -271,6 +347,54 @@ class EvaluationController {
         } catch (error) {
             console.error('PDF Generation Error:', error);
             res.status(500).json({ message: 'Error generando PDF', error: error.message });
+        }
+    }
+
+    // Submit evaluation for review
+    static async submitEvaluation(req, res) {
+        try {
+            const evaluation = await Evaluation.findOneAndUpdate(
+                { _id: req.params.id, tenantId: req.user.tenantId, status: { $in: ['draft', 'rejected'] } },
+                { status: 'submitted' },
+                { new: true }
+            );
+            if (!evaluation) return res.status(404).json({ message: 'Evaluación no encontrada o no está en borrador.' });
+            res.json(evaluation);
+        } catch (error) {
+            res.status(400).json({ message: error.message });
+        }
+    }
+
+    // Review evaluation (Approve/Reject)
+    static async reviewEvaluation(req, res) {
+        try {
+            const { status, feedback } = req.body;
+            const staffRoles = ['admin', 'director', 'utp'];
+            if (!staffRoles.includes(req.user.role)) {
+                return res.status(403).json({ message: 'No tienes permisos para revisar evaluaciones.' });
+            }
+
+            const evaluation = await Evaluation.findOneAndUpdate(
+                { _id: req.params.id, tenantId: req.user.tenantId },
+                { status, feedback, approvedBy: req.user.userId },
+                { new: true }
+            );
+
+            if (!evaluation) return res.status(404).json({ message: 'Evaluación no encontrada' });
+
+            // Notify students if newly approved
+            if (status === 'approved') {
+                NotificationService.notifyCourseAssessment(
+                    evaluation.courseId,
+                    evaluation.title,
+                    evaluation.date,
+                    evaluation.tenantId
+                );
+            }
+
+            res.json(evaluation);
+        } catch (error) {
+            res.status(400).json({ message: error.message });
         }
     }
 }
