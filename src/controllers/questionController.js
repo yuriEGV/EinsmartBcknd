@@ -1,4 +1,5 @@
 import Question from '../models/questionModel.js';
+import mongoose from 'mongoose';
 
 class QuestionController {
     static async create(req, res) {
@@ -7,7 +8,7 @@ class QuestionController {
             if (!staffRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para crear preguntas.' });
             }
-            const { subjectId, grade, questionText, type, options, difficulty, tags } = req.body;
+            const { subjectId, grade, questionText, type, options, difficulty, tags, status } = req.body;
 
             const question = new Question({
                 tenantId: req.user.tenantId,
@@ -18,6 +19,7 @@ class QuestionController {
                 options,
                 difficulty,
                 tags,
+                status: status || 'approved', // Auto-approve if not specified, or based on role later
                 createdBy: req.user.userId
             });
 
