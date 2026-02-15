@@ -65,6 +65,20 @@ router.get(
     UserController.getUsers
 );
 
+// Update PIN (any authenticated user for their own account) - MUST BE BEFORE /:id
+router.put(
+    '/update-pin',
+    authMiddleware,
+    UserController.updatePin
+);
+
+// Reset password (profile) - MUST BE BEFORE /:id
+router.put(
+    '/reset-password',
+    authMiddleware,
+    UserController.resetProfilePassword
+);
+
 // Obtener usuario por ID (del mismo tenant)
 router.get(
     '/:id',
@@ -86,20 +100,6 @@ router.delete(
     authMiddleware,
     authorizeRoles('admin', 'sostenedor', 'director'),
     UserController.deleteUser
-);
-
-// Update PIN (any authenticated user for their own account)
-router.put(
-    '/update-pin',
-    authMiddleware,
-    UserController.updatePin
-);
-
-// Reset password (profile)
-router.put(
-    '/reset-password',
-    authMiddleware,
-    UserController.resetProfilePassword
 );
 
 export default router;
