@@ -1,6 +1,8 @@
 
 import Planning from '../models/planningModel.js';
 import mongoose from 'mongoose';
+import NotificationService from '../services/notificationService.js';
+import User from '../models/userModel.js';
 
 class PlanningController {
     static async create(req, res) {
@@ -81,6 +83,16 @@ class PlanningController {
                 { new: true }
             );
             if (!planning) return res.status(404).json({ message: 'Planificación no encontrada' });
+
+            // Notify Admins/UTP
+            await NotificationService.broadcastToAdmins({
+                tenantId: req.user.tenantId,
+                title: 'Nueva Planificación Recibida',
+                message: `El docente ha enviado la planificación: "${planning.title}" para revisión.`,
+                type: 'planning_submitted',
+                link: '/academic'
+            });
+
             res.json(planning);
         } catch (error) {
             res.status(400).json({ message: error.message });
@@ -107,6 +119,19 @@ class PlanningController {
             );
 
             if (!planning) return res.status(404).json({ message: 'Planificación no encontrada' });
+
+            // Notify Teacher
+            await NotificationService.createInternalNotification({
+                tenantId: req.user.tenantId,
+                userId: planning.teacherId,
+                title: status === 'approved' ? 'Planificación Aprobada' : 'Planificación Rechazada',
+                message: status === 'approved'
+                    ? `Tu planificación "${planning.title}" ha sido aprobada.`
+                    : `Tu planificación "${planning.title}" necesita correcciones: ${feedback}`,
+                type: status === 'approved' ? 'planning_approved' : 'planning_rejected',
+                link: '/academic'
+            });
+
             res.json(planning);
         } catch (error) {
             res.status(400).json({ message: error.message });

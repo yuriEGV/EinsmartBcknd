@@ -1,5 +1,5 @@
-
 import Rubric from '../models/rubricModel.js';
+import NotificationService from '../services/notificationService.js';
 
 class RubricController {
     static async create(req, res) {
@@ -97,6 +97,16 @@ class RubricController {
                 { new: true }
             );
             if (!rubric) return res.status(404).json({ message: 'Rúbrica no encontrada o ya enviada.' });
+
+            // Notify Admins/UTP
+            await NotificationService.broadcastToAdmins({
+                tenantId: req.user.tenantId,
+                title: 'Nueva Rúbrica Recibida',
+                message: `El docente ha enviado la rúbrica: "${rubric.title}" para revisión.`,
+                type: 'rubric_submitted',
+                link: '/academic'
+            });
+
             res.json(rubric);
         } catch (error) {
             res.status(400).json({ message: error.message });
@@ -117,6 +127,19 @@ class RubricController {
                 { new: true }
             );
             if (!rubric) return res.status(404).json({ message: 'Rúbrica no encontrada' });
+
+            // Notify Teacher
+            await NotificationService.createInternalNotification({
+                tenantId: req.user.tenantId,
+                userId: rubric.teacherId,
+                title: status === 'approved' ? 'Rúbrica Aprobada' : 'Rúbrica Rechazada',
+                message: status === 'approved'
+                    ? `Tu rúbrica "${rubric.title}" ha sido aprobada.`
+                    : `Tu rúbrica "${rubric.title}" necesita correcciones: ${feedback}`,
+                type: status === 'approved' ? 'rubric_approved' : 'rubric_rejected',
+                link: '/academic'
+            });
+
             res.json(rubric);
         } catch (error) {
             res.status(400).json({ message: error.message });

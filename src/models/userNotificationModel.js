@@ -21,7 +21,18 @@ const userNotificationSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['grade_change', 'admin_day_request', 'admin_day_update', 'system'],
+        enum: [
+            'grade_change',
+            'admin_day_request',
+            'admin_day_update',
+            'system',
+            'planning_submitted',
+            'planning_approved',
+            'planning_rejected',
+            'rubric_submitted',
+            'rubric_approved',
+            'rubric_rejected'
+        ],
         default: 'system'
     },
     isRead: {
