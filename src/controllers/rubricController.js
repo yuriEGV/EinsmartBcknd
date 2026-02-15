@@ -57,11 +57,14 @@ class RubricController {
 
     static async update(req, res) {
         try {
-            const rubric = await Rubric.findOneAndUpdate(
-                { _id: req.params.id, tenantId: req.user.tenantId, teacherId: req.user.userId },
-                req.body,
-                { new: true }
-            );
+            const adminRoles = ['admin', 'director', 'utp'];
+            const query = { _id: req.params.id, tenantId: req.user.tenantId };
+
+            if (!adminRoles.includes(req.user.role)) {
+                query.teacherId = req.user.userId;
+            }
+
+            const rubric = await Rubric.findOneAndUpdate(query, req.body, { new: true });
             if (!rubric) return res.status(404).json({ message: 'Rúbrica no encontrada o no autorizado' });
             res.json(rubric);
         } catch (error) {
@@ -71,11 +74,14 @@ class RubricController {
 
     static async delete(req, res) {
         try {
-            const rubric = await Rubric.findOneAndDelete({
-                _id: req.params.id,
-                tenantId: req.user.tenantId,
-                teacherId: req.user.userId
-            });
+            const adminRoles = ['admin', 'director', 'utp'];
+            const query = { _id: req.params.id, tenantId: req.user.tenantId };
+
+            if (!adminRoles.includes(req.user.role)) {
+                query.teacherId = req.user.userId;
+            }
+
+            const rubric = await Rubric.findOneAndDelete(query);
             if (!rubric) return res.status(404).json({ message: 'Rúbrica no encontrada o no autorizado' });
             res.status(204).send();
         } catch (error) {

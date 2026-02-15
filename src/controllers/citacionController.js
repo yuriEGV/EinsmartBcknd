@@ -1,11 +1,19 @@
 import Citacion from '../models/citacionModel.js';
 import User from '../models/userModel.js';
+import mongoose from 'mongoose';
 
 class CitacionController {
     static async create(req, res) {
         try {
+            const { estudianteId } = req.body;
+
+            // Auto-lookup the apoderado for this student
+            const student = await mongoose.model('Estudiante').findById(estudianteId);
+            if (!student) return res.status(404).json({ message: 'Estudiante no encontrado' });
+
             const citacion = new Citacion({
                 ...req.body,
+                apoderadoId: student.apoderadoId,
                 tenantId: req.user.tenantId,
                 profesorId: req.user.userId
             });
