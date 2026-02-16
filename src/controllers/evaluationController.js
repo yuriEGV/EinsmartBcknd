@@ -139,6 +139,23 @@ class EvaluationController {
                 } else {
                     return res.status(403).json({ message: 'Perfil no vinculado' });
                 }
+            } else if (req.user.role === 'teacher') {
+                // [FIX] Data Isolation for Teachers
+                const Course = await import('../models/courseModel.js').then(m => m.default);
+                const Subject = await import('../models/subjectModel.js').then(m => m.default);
+
+                // Courses as Head Teacher
+                const headCourses = await Course.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('_id');
+
+                // Courses as Subject Teacher
+                const subjectAssignments = await Subject.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('courseId');
+
+                const courseIds = [
+                    ...headCourses.map(c => c._id),
+                    ...subjectAssignments.map(s => s.courseId)
+                ];
+
+                query.courseId = { $in: courseIds };
             } else if (studentId || guardianId) {
                 // ... handle explicit IDs for staff if needed
                 if (studentId) {
@@ -287,6 +304,11 @@ class EvaluationController {
             if (!evaluation) {
                 return res.status(404).json({ message: 'Evaluación no encontrada' });
             }
+
+            // Cleanup associated grades
+            const Grade = await import('../models/gradeModel.js').then(m => m.default);
+            await Grade.deleteMany({ evaluationId: evaluation._id, tenantId: req.user.tenantId });
+
             res.status(204).send();
         } catch (error) {
             res.status(500).json({ message: error.message });

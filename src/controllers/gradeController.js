@@ -79,12 +79,42 @@ class GradeController {
             else if (req.user.role === 'student' || req.user.role === 'apoderado') {
                 return res.status(200).json([]);
             }
+            // [FIX] Data Isolation for Teachers
+            else if (req.user.role === 'teacher') {
+                // 1. Find courses where the teacher is assigned (Head Teacher or Subject Teacher)
+                const Course = await import('../models/courseModel.js').then(m => m.default);
+                const Subject = await import('../models/subjectModel.js').then(m => m.default);
+                const Evaluation = await import('../models/evaluationModel.js').then(m => m.default);
+
+                // Courses as Head Teacher
+                const headCourses = await Course.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('_id');
+
+                // Courses as Subject Teacher
+                const subjectAssignments = await Subject.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('courseId');
+
+                const courseIds = [
+                    ...headCourses.map(c => c._id),
+                    ...subjectAssignments.map(s => s.courseId)
+                ];
+
+                // 2. Find Evaluations linked to these courses
+                const teacherEvaluations = await Evaluation.find({
+                    courseId: { $in: courseIds },
+                    tenantId: req.user.tenantId
+                }).select('_id');
+
+                const evaluationIds = teacherEvaluations.map(e => e._id);
+
+                // 3. Filter Grades by these Evaluations
+                query.evaluationId = { $in: evaluationIds };
+            }
 
             const grades = await Grade.find(query)
                 .populate('estudianteId', 'nombres apellidos')
-                .populate('evaluationId', 'title maxScore');
+                .populate('evaluationId', 'title maxScore subject'); // Added subject population
             res.status(200).json(grades);
         } catch (error) {
+            console.error('getGrades Error:', error);
             res.status(500).json({ message: error.message });
         }
     }
