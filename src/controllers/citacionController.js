@@ -10,6 +10,7 @@ class CitacionController {
             // Auto-lookup the apoderado for this student
             const student = await mongoose.model('Estudiante').findById(estudianteId);
             if (!student) return res.status(404).json({ message: 'Estudiante no encontrado' });
+            if (!student.apoderadoId) return res.status(400).json({ message: 'El estudiante no tiene un apoderado asignado. No se puede crear la citación.' });
 
             const citacion = new Citacion({
                 ...req.body,

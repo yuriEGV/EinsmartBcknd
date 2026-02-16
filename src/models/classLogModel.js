@@ -52,7 +52,11 @@ const classLogSchema = new mongoose.Schema({
         type: Date
     },
     duration: {
-        type: Number, // in minutes
+        type: Number, // in minutes (planned)
+        default: 0
+    },
+    effectiveDuration: {
+        type: Number, // in minutes (actual)
         default: 0
     },
     scheduleId: {
