@@ -386,12 +386,44 @@ class AnalyticsController {
             await connectDB();
             const tenantId = req.user.tenantId;
 
-            // Count students
-            const studentCount = await Estudiante.countDocuments({ tenantId: new mongoose.Types.ObjectId(tenantId) });
+            let studentCount = 0;
+            let courseCount = 0;
 
-            // Count courses
-            const Course = mongoose.model('Course');
-            const courseCount = await Course.countDocuments({ tenantId: new mongoose.Types.ObjectId(tenantId) });
+            if (req.user.role === 'teacher') {
+                const Course = mongoose.model('Course');
+                const Subject = mongoose.model('Subject');
+                const Enrollment = mongoose.model('Enrollment');
+
+                // 1. Find courses where teacher is Head Teacher
+                const headCourses = await Course.find({ teacherId: req.user.userId, tenantId }).select('_id');
+                // 2. Find courses where teacher teaches a Subject
+                const subjectAssignments = await Subject.find({ teacherId: req.user.userId, tenantId }).select('courseId');
+
+                const courseIds = new Set([
+                    ...headCourses.map(c => c._id.toString()),
+                    ...subjectAssignments.map(s => s.courseId.toString())
+                ]);
+
+                courseCount = courseIds.size;
+
+                // 3. Count unique students in those courses
+                if (courseCount > 0) {
+                    const enrollments = await Enrollment.find({
+                        courseId: { $in: Array.from(courseIds) },
+                        tenantId
+                    }).distinct('estudianteId');
+                    studentCount = enrollments.length;
+                }
+
+            } else {
+                // Admin/Director/Sostenedor see global stats
+                // Count students
+                studentCount = await Estudiante.countDocuments({ tenantId: new mongoose.Types.ObjectId(tenantId) });
+
+                // Count courses
+                const Course = mongoose.model('Course');
+                courseCount = await Course.countDocuments({ tenantId: new mongoose.Types.ObjectId(tenantId) });
+            }
 
             return res.status(200).json({
                 studentCount,
