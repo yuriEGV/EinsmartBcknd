@@ -59,6 +59,42 @@ const getEstudiantes = async (req, res) => {
       query.tenantId = new mongoose.Types.ObjectId(req.user.tenantId);
     }
 
+    // AT-RISK FILTER: If filter=at-risk is requested, we need a special pipeline
+    if (req.query.filter === 'at-risk') {
+      const Grade = await import('../models/gradeModel.js').then(m => m.default);
+
+      // We first find students at risk via grades aggregation
+      const atRiskAgg = await Grade.aggregate([
+        { $match: { tenantId: query.tenantId } },
+        {
+          $lookup: {
+            from: 'evaluations',
+            localField: 'evaluationId',
+            foreignField: '_id',
+            as: 'evaluation'
+          }
+        },
+        { $unwind: '$evaluation' },
+        {
+          $group: {
+            _id: { studentId: '$estudianteId', subject: '$evaluation.subject' },
+            avg: { $avg: '$score' }
+          }
+        },
+        {
+          $group: {
+            _id: '$_id.studentId',
+            overallAvg: { $avg: '$avg' }
+          }
+        },
+        { $match: { overallAvg: { $lt: 4.0 } } }
+      ]);
+
+      const atRiskIds = atRiskAgg.map(a => a._id);
+      query._id = { $in: atRiskIds };
+      console.log('GET ESTUDIANTES - At-Risk Filter: found', atRiskIds.length, 'students');
+    }
+
     // RESTRICTIVE FILTERS: Apply to student/apoderado AND teachers
     const restrictiveRoles = ['student', 'apoderado', 'teacher'];
     const isTeacher = req.user.role === 'teacher';
