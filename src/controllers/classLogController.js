@@ -193,7 +193,7 @@ class ClassLogController {
     static async sign(req, res) {
         try {
             const { id } = req.params;
-            const { pin } = req.body;
+            const { pin, effectiveDuration } = req.body;
 
             const [log, user] = await Promise.all([
                 ClassLog.findOne({ _id: id, tenantId: req.user.tenantId }),
@@ -215,10 +215,22 @@ class ClassLogController {
             log.isSigned = true;
             log.signedAt = new Date();
 
+            if (effectiveDuration !== undefined) {
+                log.effectiveDuration = effectiveDuration;
+            }
+
             // Calculate duration and final metrics if startTime exists
             if (log.startTime) {
                 const diffMs = log.signedAt.getTime() - log.startTime.getTime();
-                log.duration = Math.max(0, Math.round(diffMs / 60000)); // Round to nearest minute
+                const calculatedDuration = Math.max(0, Math.round(diffMs / 60000));
+
+                // If effectiveDuration wasn't provided, use calculated
+                if (log.effectiveDuration === 0) {
+                    log.effectiveDuration = calculatedDuration;
+                }
+
+                // Update legacy duration field for compatibility
+                log.duration = log.effectiveDuration;
 
                 // If it was linked to a schedule, finalize status
                 if (log.scheduleId) {

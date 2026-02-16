@@ -651,7 +651,7 @@ class AnalyticsController {
                 {
                     $group: {
                         _id: { courseId: '$courseId', subjectId: '$subjectId' },
-                        totalDuration: { $sum: '$duration' },
+                        totalDuration: { $sum: '$effectiveDuration' },
                         totalDelay: { $sum: '$delayMinutes' },
                         totalInterruption: { $sum: '$interruptionMinutes' },
                         classCount: { $sum: 1 }
