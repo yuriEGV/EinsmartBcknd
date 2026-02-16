@@ -169,8 +169,37 @@ const getEstudiantes = async (req, res) => {
         }
       },
       {
+        $lookup: {
+          from: 'enrollments',
+          let: { studentId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$estudianteId', '$$studentId'] },
+                    { $in: ['$status', ['confirmada', 'activo', 'activa']] }
+                  ]
+                }
+              }
+            },
+            { $limit: 1 }
+          ],
+          as: 'activeEnrollment'
+        }
+      },
+      {
+        $lookup: {
+          from: 'courses',
+          localField: 'activeEnrollment.0.courseId',
+          foreignField: '_id',
+          as: 'enrolledCourse'
+        }
+      },
+      {
         $addFields: {
-          guardian: { $arrayElemAt: ['$guardian', 0] }
+          guardian: { $arrayElemAt: ['$guardian', 0] },
+          grado: { $ifNull: [{ $arrayElemAt: ['$enrolledCourse.name', 0] }, '$grado'] }
         }
       }
     ];
