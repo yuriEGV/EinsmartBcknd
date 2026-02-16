@@ -56,9 +56,12 @@ class ReportController {
 
             const [student, grades, attendance, annotations] = await Promise.all([
                 Estudiante.findById(studentId).select('nombres apellidos rut grado'),
-                Grade.find({ estudianteId: studentId, tenantId }).populate('evaluationId'),
+                Grade.find({ estudianteId: studentId, tenantId }).populate({
+                    path: 'evaluationId',
+                    populate: { path: 'subjectId', select: 'name' }
+                }),
                 Attendance.find({ estudianteId: studentId, tenantId }).sort({ fecha: -1 }),
-                Anotacion.find({ estudianteId: studentId, tenantId }).populate('creadoPor', 'name').sort({ fecha: -1 })
+                Anotacion.find({ estudianteId: studentId, tenantId }).populate('creadoPor', 'name').sort({ createdAt: -1 })
             ]);
 
             if (!student) return res.status(404).json({ message: 'Estudiante no encontrado' });
@@ -66,10 +69,11 @@ class ReportController {
             res.status(200).json({
                 student,
                 grades: grades.map(g => ({
-                    title: g.evaluationId?.title || 'Sin título',
+                    title: g.evaluationId?.title || 'Evaluación',
+                    subjectName: g.evaluationId?.subjectId?.name || 'Varios',
                     score: g.score,
                     maxScore: g.evaluationId?.maxScore,
-                    date: g.date
+                    date: g.evaluationId?.date || g.createdAt
                 })),
                 attendance: {
                     total: attendance.length,

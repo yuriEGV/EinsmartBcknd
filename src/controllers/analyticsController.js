@@ -415,12 +415,21 @@ class AnalyticsController {
                     studentCount = enrollments.length;
                 }
 
+            } else if (req.user.role === 'admin') {
+                // [NEW] Global Admin stats for platform view
+                const [students, tenants] = await Promise.all([
+                    mongoose.model('Estudiante').countDocuments({}),
+                    mongoose.model('Tenant').countDocuments({})
+                ]);
+                return res.status(200).json({
+                    studentCount: students,
+                    tenantCount: tenants,
+                    isPlatformView: true
+                });
             } else {
-                // Admin/Director/Sostenedor see global stats
-                // Count students
+                // Admin/Director/Sostenedor see local school stats
                 studentCount = await Estudiante.countDocuments({ tenantId: new mongoose.Types.ObjectId(tenantId) });
 
-                // Count courses
                 const Course = mongoose.model('Course');
                 courseCount = await Course.countDocuments({ tenantId: new mongoose.Types.ObjectId(tenantId) });
             }
@@ -428,7 +437,7 @@ class AnalyticsController {
             return res.status(200).json({
                 studentCount,
                 courseCount,
-                isTenantActive: true // Simplification for now
+                isTenantActive: true
             });
         } catch (error) {
             return res.status(500).json({ message: error.message });
