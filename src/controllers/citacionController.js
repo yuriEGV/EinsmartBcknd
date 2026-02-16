@@ -1,3 +1,4 @@
+import NotificationService from '../services/notificationService.js';
 import Citacion from '../models/citacionModel.js';
 import User from '../models/userModel.js';
 import mongoose from 'mongoose';
@@ -22,6 +23,17 @@ class CitacionController {
                 profesorId: req.user.userId
             });
             await citacion.save();
+
+            // [NUEVO] Notificar al apoderado
+            NotificationService.notifyNewCitation(
+                citacion.estudianteId,
+                citacion.motivo,
+                citacion.fecha,
+                citacion.hora,
+                citacion.observaciones || citacion.motivo,
+                req.user.tenantId
+            );
+
             res.status(201).json(citacion);
         } catch (error) {
             res.status(500).json({ message: error.message });

@@ -201,6 +201,80 @@ class NotificationService {
         }
     }
 
+    /**
+     * Send notification to guardians when a citation is created
+     */
+    static async notifyNewCitation(studentId, subject, date, hour, motivo, tenantId) {
+        try {
+            const student = await Estudiante.findById(studentId);
+            const guardians = await Apoderado.find({ estudianteId: studentId, tenantId });
+            const tenant = await Tenant.findById(tenantId);
+            const tenantName = tenant?.name || 'EinSmart';
+
+            if (!student) return;
+
+            const formattedDate = new Date(date).toLocaleDateString('es-CL', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            // 1. Notify Guardians via Email
+            for (const guardian of guardians) {
+                if (guardian.correo) {
+                    const guardianHtml = `
+                        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
+                            <div style="background-color: #11355a; color: white; padding: 25px; text-align: center;">
+                                <h1 style="margin: 0; font-size: 22px;">📅 Citación de Apoderado</h1>
+                            </div>
+                            <div style="padding: 30px;">
+                                <p>Estimado(a) <strong>${guardian.nombre} ${guardian.apellidos}</strong>,</p>
+                                <p>Le informamos que se ha agendado una citación formal para tratar temas relacionados con el alumno <strong>${student.nombres} ${student.apellidos}</strong>.</p>
+                                
+                                <div style="background-color: #f0f7ff; padding: 25px; border-radius: 12px; margin: 25px 0; border-left: 5px solid #11355a;">
+                                    <h3 style="margin-top: 0; color: #11355a;">Detalles de la Cita</h3>
+                                    <p style="margin: 8px 0;"><strong>Fecha:</strong> ${formattedDate}</p>
+                                    <p style="margin: 8px 0;"><strong>Hora:</strong> ${hour}</p>
+                                    <p style="margin: 8px 0;"><strong>Asignatura/Motivo:</strong> ${subject}</p>
+                                    <p style="margin: 15px 0; padding-top: 10px; border-top: 1px dashed #cbd5e1;"><strong>Detalle Estimado:</strong><br/>${motivo}</p>
+                                </div>
+
+                                <p>Su asistencia es de suma importancia para el seguimiento académico del estudiante. En caso de no poder asistir, por favor comuníquese a la brevedad con el establecimiento.</p>
+                                
+                                <div style="margin-top: 30px; text-align: center;">
+                                    <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard" 
+                                       style="background-color: #11355a; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                                        Ver en el Portal
+                                    </a>
+                                </div>
+                            </div>
+                            <div style="background-color: #f4f7f6; padding: 15px; text-align: center; font-size: 12px; color: #777;">
+                                ${tenantName} - Sistema de Gestión Escolar
+                            </div>
+                        </div>
+                    `;
+                    await sendMail(guardian.correo, `Citación de Apoderado: ${student.nombres} - ${formattedDate}`, guardianHtml, tenantId);
+                }
+
+                // Internal Notification for Guardian
+                const guardianUser = await User.findOne({ profileId: guardian._id, role: 'apoderado', tenantId });
+                if (guardianUser) {
+                    await NotificationService.createInternalNotification({
+                        tenantId,
+                        userId: guardianUser._id,
+                        title: 'Nueva Citación Agendada',
+                        message: `Se ha agendado una citación para el alumno ${student.nombres} el día ${formattedDate} a las ${hour}.`,
+                        type: 'system',
+                        link: '/dashboard'
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error in notifyNewCitation:', error);
+        }
+    }
+
 
     /**
      * Send notification to guardians when a debt block occurs (debt > 3 months)
