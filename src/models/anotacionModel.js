@@ -9,6 +9,11 @@ const anotacionSchema = new mongoose.Schema({
     estudianteId: {
         type: mongoose.Types.ObjectId,
         ref: 'Estudiante',
+        required: false
+    },
+    cursoId: {
+        type: mongoose.Types.ObjectId,
+        ref: 'Course',
         required: true
     },
     creadoPor: {

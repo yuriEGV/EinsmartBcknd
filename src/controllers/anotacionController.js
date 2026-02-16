@@ -6,36 +6,40 @@ class AnotacionController {
     // Crear una nueva anotación
     static async createAnotacion(req, res) {
         try {
-            const { estudianteId, tipo, titulo, descripcion, fechaOcurrencia, medidas, archivos } = req.body;
+            const { estudianteId, cursoId, tipo, titulo, descripcion, fechaOcurrencia, medidas, archivos } = req.body;
 
-            if (!estudianteId || !tipo || !titulo || !descripcion) {
+            // Al menos cursoId o estudianteId debe estar (aunque ahora pedimos cursoId siempre para contexto)
+            if (!cursoId || !tipo || !titulo || !descripcion) {
                 return res.status(400).json({
-                    message: 'Estudiante, tipo, título y descripción son obligatorios'
+                    message: 'Curso, tipo, título y descripción son obligatorios'
                 });
             }
 
-            if (!['positiva', 'negativa'].includes(tipo)) {
+            if (!['positiva', 'negativa', 'general'].includes(tipo)) {
                 return res.status(400).json({
-                    message: 'El tipo debe ser "positiva" o "negativa"'
+                    message: 'El tipo debe ser "positiva", "negativa" o "general"'
                 });
             }
 
-            // [NUEVO] Bloquear si el alumno no tiene matrícula confirmada
-            const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
-            const enrollment = await Enrollment.findOne({
-                estudianteId,
-                tenantId: req.user.tenantId,
-                status: { $in: ['confirmada', 'activo', 'activa'] }
-            });
-
-            if (!enrollment) {
-                return res.status(400).json({
-                    message: 'El alumno no tiene una matrícula vigente/confirmada. No se pueden registrar anotaciones sin matrícula.'
+            // [NUEVO] Si hay estudianteId, validar matrícula
+            if (estudianteId) {
+                const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+                const enrollment = await Enrollment.findOne({
+                    estudianteId,
+                    tenantId: req.user.tenantId,
+                    status: { $in: ['confirmada', 'activo', 'activa'] }
                 });
+
+                if (!enrollment) {
+                    return res.status(400).json({
+                        message: 'El alumno no tiene una matrícula vigente/confirmada. No se pueden registrar anotaciones sin matrícula.'
+                    });
+                }
             }
 
             const anotacion = new Anotacion({
-                estudianteId,
+                estudianteId: estudianteId || null,
+                cursoId,
                 tipo,
                 titulo,
                 descripcion,
@@ -47,17 +51,21 @@ class AnotacionController {
             });
 
             await anotacion.save();
-            await anotacion.populate('estudianteId', 'nombre apellido grado');
+            if (estudianteId) {
+                await anotacion.populate('estudianteId', 'nombres apellidos grado');
+            }
             await anotacion.populate('creadoPor', 'name email role');
 
-            // Send notification
-            NotificationService.notifyNewAnnotation(
-                anotacion.estudianteId._id,
-                anotacion.tipo,
-                anotacion.titulo,
-                anotacion.descripcion,
-                anotacion.tenantId
-            );
+            // Send notification only if student is present
+            if (estudianteId && anotacion.estudianteId) {
+                NotificationService.notifyNewAnnotation(
+                    anotacion.estudianteId._id,
+                    anotacion.tipo,
+                    anotacion.titulo,
+                    anotacion.descripcion,
+                    anotacion.tenantId
+                );
+            }
 
             res.status(201).json({
                 message: 'Anotación creada exitosamente',
@@ -76,7 +84,7 @@ class AnotacionController {
     // Obtener todas las anotaciones del tenant (Filtrado por Usuario)
     static async getAnotaciones(req, res) {
         try {
-            const { tipo, estudianteId } = req.query;
+            const { tipo, estudianteId, cursoId } = req.query;
             let query = (req.user.role === 'admin')
                 ? {}
                 : { tenantId: req.user.tenantId };
@@ -94,8 +102,9 @@ class AnotacionController {
                 }
             } else if (req.user.role === 'student' || req.user.role === 'apoderado') {
                 return res.status(200).json([]);
-            } else if (estudianteId) {
-                query.estudianteId = estudianteId;
+            } else {
+                if (estudianteId) query.estudianteId = estudianteId;
+                if (cursoId) query.cursoId = cursoId;
             }
 
             if (tipo) {
@@ -105,7 +114,7 @@ class AnotacionController {
             const anotaciones = await Anotacion.find(query)
                 .populate('estudianteId', 'nombres apellidos grado')
                 .populate('creadoPor', 'name email role')
-                .sort({ fecha: -1 });
+                .sort({ createdAt: -1 });
 
             res.status(200).json(anotaciones);
         } catch (error) {
