@@ -89,6 +89,10 @@ const classLogSchema = new mongoose.Schema({
     justification: {
         type: String,
         default: ''
+    },
+    bloqueHorario: {
+        type: String,
+        default: ''
     }
 }, { timestamps: true });
 

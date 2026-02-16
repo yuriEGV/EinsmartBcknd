@@ -650,7 +650,12 @@ class AnalyticsController {
                 { $match: { tenantId } },
                 {
                     $group: {
-                        _id: { courseId: '$courseId', subjectId: '$subjectId' },
+                        _id: {
+                            courseId: '$courseId',
+                            subjectId: '$subjectId',
+                            date: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+                            bloqueHorario: '$bloqueHorario'
+                        },
                         totalDuration: { $sum: '$effectiveDuration' },
                         totalDelay: { $sum: '$delayMinutes' },
                         totalInterruption: { $sum: '$interruptionMinutes' },
@@ -679,6 +684,8 @@ class AnalyticsController {
                     $project: {
                         courseName: '$course.name',
                         subjectName: '$subject.name',
+                        date: '$_id.date',
+                        bloqueHorario: '$_id.bloqueHorario',
                         totalDuration: 1,
                         plannedDuration: {
                             $multiply: [
@@ -696,7 +703,7 @@ class AnalyticsController {
                                     $multiply: [
                                         {
                                             $divide: [
-                                                '$duration',
+                                                '$totalDuration',
                                                 { $divide: [{ $subtract: ['$plannedEndTime', '$plannedStartTime'] }, 60000] }
                                             ]
                                         },
