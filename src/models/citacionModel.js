@@ -16,6 +16,11 @@ const citacionSchema = new mongoose.Schema({
         ref: 'Apoderado',
         required: true
     },
+    courseId: {
+        type: mongoose.Types.ObjectId,
+        ref: 'Course',
+        required: true
+    },
     profesorId: {
         type: mongoose.Types.ObjectId,
         ref: 'User',

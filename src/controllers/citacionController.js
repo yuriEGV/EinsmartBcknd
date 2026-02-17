@@ -16,9 +16,19 @@ class CitacionController {
 
             if (!apoderado) return res.status(400).json({ message: 'El estudiante no tiene un apoderado principal asignado. No se puede crear la citación.' });
 
+            // [NUEVO] Obtener el curso actual del estudiante desde su matricula activa
+            const enrollment = await mongoose.model('Enrollment').findOne({
+                estudianteId,
+                tenantId: req.user.tenantId,
+                status: { $in: ['confirmada', 'activo', 'activa'] }
+            });
+
+            if (!enrollment) return res.status(400).json({ message: 'El estudiante no tiene una matrícula activa. No se puede crear la citación.' });
+
             const citacion = new Citacion({
                 ...req.body,
                 apoderadoId: apoderado._id,
+                courseId: enrollment.courseId,
                 tenantId: req.user.tenantId,
                 profesorId: req.user.userId
             });
@@ -45,22 +55,45 @@ class CitacionController {
             const { courseId } = req.query;
             const query = { tenantId: req.user.tenantId };
 
-            // If we want to filter by course, we'll need to join with estudiantes
-            // For now, let's keep it simple and filter by professor if not admin
+            if (courseId) {
+                query.courseId = courseId;
+            }
+
+            // Privacy Logic: Stricter for teachers
             if (req.user.role === 'teacher') {
-                query.profesorId = req.user.userId;
+                const Subject = mongoose.model('Subject');
+                const Course = mongoose.model('Course');
+
+                const [teacherSubjects, headCourses] = await Promise.all([
+                    Subject.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('courseId'),
+                    Course.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('_id')
+                ]);
+
+                const allowedCourseIds = [
+                    ...new Set([
+                        ...teacherSubjects.map(s => s.courseId.toString()),
+                        ...headCourses.map(c => c._id.toString())
+                    ])
+                ];
+
+                if (courseId && !allowedCourseIds.includes(courseId)) {
+                    return res.status(403).json({ message: 'No tienes permisos para ver citaciones de este curso.' });
+                }
+
+                query.courseId = { $in: allowedCourseIds };
             } else if (['director', 'inspector_general', 'utp', 'admin', 'sostenedor'].includes(req.user.role)) {
                 // Keep query as is (tenant only)
             } else if (req.user.role === 'apoderado' || req.user.role === 'student') {
                 // If they are parents/students, they should only see their own
-                // This might need more logic depending on how they are linked, 
+                // This might need more logic depending on how they are linked,
                 // but usually these roles have their own logic in Dashboard.
                 // For now, let's just restrict by profileId if applicable or keep simple.
             }
 
             const citaciones = await Citacion.find(query)
                 .populate('estudianteId', 'nombres apellidos')
-                .populate('profesorId', 'name')
+                .populate('profesorId', 'name email')
+                .populate('apoderadoId', 'nombre apellidos correo telefono')
                 .sort({ fecha: 1, hora: 1 });
 
             res.json(citaciones);
