@@ -36,6 +36,7 @@ import planningRoutes from './planningRoutes.js';
 import rubricRoutes from './rubricRoutes.js';
 import scheduleRoutes from './scheduleRoutes.js';
 import citacionRoutes from './citacionRoutes.js';
+import payrollRoutes from './payrollRoutes.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -111,5 +112,6 @@ router.use('/user-notifications', userNotificationRoutes);
 router.use('/careers', careerRoutes);
 router.use('/schedules', scheduleRoutes);
 router.use('/citaciones', citacionRoutes);
+router.use('/payroll', payrollRoutes);
 
 export default router;

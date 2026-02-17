@@ -10,11 +10,8 @@ import { fileURLToPath } from 'url';
 import apiRoutes from './routes/index.js';
 import reportRoutes from './routes/reportRoutes.js';
 import authMiddleware from './middleware/authMiddleware.js';
-import payrollRoutes from './routes/payrollRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
-import adminDayRoutes from './routes/adminDayRoutes.js';
-import userNotificationRoutes from './routes/userNotificationRoutes.js';
 
 // Import models for setup route
 import User from './models/userModel.js';
