@@ -32,4 +32,8 @@ router.post('/bulk-assign', authMiddleware, PaymentController.assignBulkTariff);
 // Update status (e.g. approve cash payment)
 router.put('/:id/status', authMiddleware, PaymentController.updatePaymentStatus);
 
+// Specialized routes for Secretary/Admin
+router.get('/student/:studentId/debt', authMiddleware, PaymentController.getStudentTotalDebt);
+router.post('/:id/pay-cash', authMiddleware, PaymentController.processCashPayment);
+
 export default router;

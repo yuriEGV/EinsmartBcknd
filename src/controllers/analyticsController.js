@@ -448,26 +448,37 @@ class AnalyticsController {
     static async getDebtorRanking(req, res) {
         try {
             await connectDB();
-            const tenantId = new mongoose.Types.ObjectId(req.user.tenantId);
+            const tid = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
+            const tenantId = new mongoose.Types.ObjectId(tid);
+            const courseId = req.query.courseId ? new mongoose.Types.ObjectId(req.query.courseId) : null;
 
-            console.log('DEBTOR RANKING - Fetching for tenant:', tenantId);
+            console.log('DEBTOR RANKING - Fetching for tenant:', tenantId, 'course:', courseId);
+
+            // Match stage
+            const matchStage = {
+                tenantId,
+                estado: { $in: ['pendiente', 'vencido'] } // Match with paymentModel.js enum
+            };
+
+            // If courseId is provided, filter by students in that course
+            if (courseId) {
+                const Enrollment = mongoose.model('Enrollment');
+                const enrollments = await Enrollment.find({ courseId, tenantId }).select('estudianteId');
+                const studentIds = enrollments.map(e => e.estudianteId);
+                matchStage.estudianteId = { $in: studentIds };
+            }
 
             const ranking = await Payment.aggregate([
-                {
-                    $match: {
-                        tenantId,
-                        status: { $in: ['pending', 'rejected'] } // Pending = unpaid debts, rejected = failed payments
-                    }
-                },
+                { $match: matchStage },
                 {
                     $group: {
                         _id: '$estudianteId',
                         totalDebt: { $sum: '$amount' },
                         overdueCount: {
-                            $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] }
+                            $sum: { $cond: [{ $eq: ['$estado', 'vencido'] }, 1, 0] }
                         },
                         pendingCount: {
-                            $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] }
+                            $sum: { $cond: [{ $eq: ['$estado', 'pendiente'] }, 1, 0] }
                         },
                         lastPaymentDate: { $max: '$createdAt' }
                     }
@@ -508,8 +519,8 @@ class AnalyticsController {
                                         in: {
                                             $cond: {
                                                 if: { $ne: ['$$principal', null] },
-                                                then: { $concat: ['$$principal.nombre', ' ', '$$principal.apellidos'] },
-                                                else: { $concat: ['$$anyGuardian.nombre', ' ', '$$anyGuardian.apellidos'] }
+                                                then: { $concat: ['$$principal.nombres', ' ', '$$principal.apellidos'] },
+                                                else: { $concat: ['$$anyGuardian.nombres', ' ', '$$anyGuardian.apellidos'] }
                                             }
                                         }
                                     }
@@ -521,7 +532,7 @@ class AnalyticsController {
                     }
                 },
                 { $sort: { totalDebt: -1 } },
-                { $limit: 50 }
+                { $limit: 100 }
             ]);
 
             console.log('DEBTOR RANKING - Found', ranking.length, 'debtors');

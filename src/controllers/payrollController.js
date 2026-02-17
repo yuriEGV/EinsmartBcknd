@@ -59,7 +59,13 @@ class PayrollController {
                 .populate('userId', 'name email role') // Obtener info del usuario al que se le paga
                 .sort({ paymentDate: -1 });
 
-            res.status(200).json(payments);
+            const totalAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+            res.status(200).json({
+                payments,
+                totalAmount,
+                count: payments.length
+            });
         } catch (error) {
             console.error('Error getting payroll payments:', error);
             res.status(500).json({ message: error.message });

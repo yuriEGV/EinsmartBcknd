@@ -137,26 +137,48 @@ class PaymentController {
       }
 
       const payments = await Payment.find(query)
-        .populate('estudianteId', 'nombres apellidos')
-        .populate('tariffId', 'name amount');
-      res.json(payments);
+        .populate('estudianteId', 'nombres apellidos rut')
+        .populate('tariffId', 'name amount')
+        .sort({ createdAt: -1 });
+
+      const totalCollected = payments
+        .filter(p => p.estado === 'pagado')
+        .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      const totalPending = payments
+        .filter(p => p.estado === 'pendiente' || p.estado === 'vencido')
+        .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      res.json({
+        payments,
+        stats: {
+          totalCollected,
+          totalPending,
+          count: payments.length
+        }
+      });
     } catch (error) {
       res.status(500).json({ message: error.message });
     }
   }
 
   static async getPaymentById(req, res) {
-    await connectDB();
-    const payment = await Payment.findOne({
-      _id: req.params.id,
-      tenantId: req.user.tenantId
-    });
+    try {
+      await connectDB();
+      const payment = await Payment.findOne({
+        _id: req.params.id,
+        tenantId: req.user.tenantId
+      }).populate('estudianteId', 'nombres apellidos rut')
+        .populate('tariffId', 'name amount');
 
-    if (!payment) {
-      return res.status(404).json({ message: 'Pago no encontrado' });
+      if (!payment) {
+        return res.status(404).json({ message: 'Pago no encontrado' });
+      }
+
+      res.json(payment);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
     }
-
-    res.json(payment);
   }
 
   static async assignBulkTariff(req, res) {
@@ -178,7 +200,6 @@ class PaymentController {
 
       let targetStudentIds = studentIds || [];
 
-      // If courseId is provided, get all enrolled students in that course
       if (courseId) {
         const enrollments = await Enrollment.find({
           courseId,
@@ -198,15 +219,14 @@ class PaymentController {
         tenantId,
         estudianteId: sid,
         tariffId: tariff._id,
+        concepto: tariff.name,
         amount: tariff.amount,
         currency: tariff.currency || 'CLP',
-        status: 'vencido', // Typically bulk assignment creates a debt
+        estado: 'pendiente',
         fechaVencimiento: dueDate ? new Date(dueDate) : new Date(),
         metadata: { ...metadata, bulkAssign: true }
       }));
 
-      // Avoid duplicates for the same student, same tariff, same month? 
-      // For now, simple bulk insert.
       const result = await Payment.insertMany(paymentsToCreate);
 
       res.status(201).json({
@@ -227,10 +247,9 @@ class PaymentController {
 
       const matchStage = {
         tenantId: new mongoose.Types.ObjectId(tenantId),
-        status: { $ne: 'pagado' } // Only unpaid payments count as debt
+        estado: { $ne: 'pagado' }
       };
 
-      // If filtering by course, we need to find students in that course first
       if (courseId) {
         const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
         const enrollments = await Enrollment.find({ courseId: courseId, tenantId: tenantId }).select('estudianteId');
@@ -247,7 +266,7 @@ class PaymentController {
             count: { $sum: 1 },
             overdueCount: {
               $sum: {
-                $cond: [{ $lt: ["$fechaVencimiento", new Date()] }, 1, 0]
+                $cond: [{ $eq: ["$estado", 'vencido'] }, 1, 0]
               }
             }
           }
@@ -256,7 +275,58 @@ class PaymentController {
 
       res.json(stats);
     } catch (error) {
-      console.error('Debt stats error:', error);
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  static async getStudentTotalDebt(req, res) {
+    try {
+      await connectDB();
+      const { studentId } = req.params;
+      const tenantId = req.user.tenantId;
+
+      const unpaidPayments = await Payment.find({
+        estudianteId: studentId,
+        tenantId,
+        estado: { $in: ['pendiente', 'vencido'] }
+      }).populate('tariffId', 'name');
+
+      const totalDebt = unpaidPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      res.json({
+        studentId,
+        totalDebt,
+        details: unpaidPayments.map(p => ({
+          id: p._id,
+          concepto: p.tariffId?.name || p.concepto || 'Otro',
+          amount: p.amount,
+          estado: p.estado,
+          fechaVencimiento: p.fechaVencimiento
+        }))
+      });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  static async processCashPayment(req, res) {
+    try {
+      await connectDB();
+      const { id } = req.params;
+      const tenantId = req.user.tenantId;
+
+      const payment = await Payment.findOne({ _id: id, tenantId });
+      if (!payment) return res.status(404).json({ message: 'Cobro no encontrado' });
+
+      payment.estado = 'pagado';
+      payment.metodoPago = 'efectivo';
+      payment.fechaPago = new Date();
+      payment.metadata = { ...payment.metadata, processedBy: req.user._id, officePayment: true };
+
+      await payment.save();
+
+      res.json(payment);
+    } catch (error) {
       res.status(500).json({ message: error.message });
     }
   }
