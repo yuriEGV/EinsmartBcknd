@@ -49,6 +49,13 @@ class CitacionController {
             // For now, let's keep it simple and filter by professor if not admin
             if (req.user.role === 'teacher') {
                 query.profesorId = req.user.userId;
+            } else if (['director', 'inspector_general', 'utp', 'admin', 'sostenedor'].includes(req.user.role)) {
+                // Keep query as is (tenant only)
+            } else if (req.user.role === 'apoderado' || req.user.role === 'student') {
+                // If they are parents/students, they should only see their own
+                // This might need more logic depending on how they are linked, 
+                // but usually these roles have their own logic in Dashboard.
+                // For now, let's just restrict by profileId if applicable or keep simple.
             }
 
             const citaciones = await Citacion.find(query)
@@ -65,10 +72,10 @@ class CitacionController {
     static async updateStatus(req, res) {
         try {
             const { id } = req.params;
-            const { estado, actaReunion } = req.body;
+            const { estado, actaReunion, acuerdo, resultado, asistioApoderado } = req.body;
             const citacion = await Citacion.findOneAndUpdate(
                 { _id: id, tenantId: req.user.tenantId },
-                { estado, actaReunion },
+                { estado, actaReunion, acuerdo, resultado, asistioApoderado },
                 { new: true }
             );
             if (!citacion) return res.status(404).json({ message: 'Citación no encontrada' });

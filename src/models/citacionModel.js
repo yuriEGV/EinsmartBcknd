@@ -66,6 +66,18 @@ const citacionSchema = new mongoose.Schema({
     },
     googleEventId: {
         type: String
+    },
+    acuerdo: {
+        type: String,
+        default: ''
+    },
+    resultado: {
+        type: String,
+        default: ''
+    },
+    asistioApoderado: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true

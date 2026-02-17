@@ -270,6 +270,14 @@ class NotificationService {
                     });
                 }
             }
+            // 3. Notify Directors and Inspectors
+            await NotificationService.broadcastToAdmins({
+                tenantId,
+                title: 'Nueva Citación Agendada',
+                message: `Se ha agendado una citación para el alumno ${student.nombres} ${student.apellidos} el día ${formattedDate} a las ${hour}.`,
+                type: 'system',
+                link: '/class-book'
+            });
         } catch (error) {
             console.error('❌ Error in notifyNewCitation:', error);
         }
