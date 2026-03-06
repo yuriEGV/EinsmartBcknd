@@ -37,6 +37,8 @@ import rubricRoutes from './rubricRoutes.js';
 import scheduleRoutes from './scheduleRoutes.js';
 import citacionRoutes from './citacionRoutes.js';
 import payrollRoutes from './payrollRoutes.js';
+import atrasoRoutes from './atrasoRoutes.js';
+import alternanciaRoutes from './alternanciaRoutes.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -86,6 +88,8 @@ router.use('/curriculum-materials', curriculumMaterialsRoutes);
 router.use('/questions', questionRoutes);
 router.use('/planning', planningRoutes);
 router.use('/rubrics', rubricRoutes);
+router.use('/atrasos', atrasoRoutes);
+router.use('/alternancias', alternanciaRoutes);
 
 // Administrative
 router.use('/users', userRoutes);
