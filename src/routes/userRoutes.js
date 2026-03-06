@@ -79,6 +79,14 @@ router.put(
     UserController.resetProfilePassword
 );
 
+// Reset password by Admin (for other users)
+router.put(
+    '/:id/reset-password-admin',
+    authMiddleware,
+    authorizeRoles('admin', 'sostenedor', 'director'),
+    UserController.resetPasswordAdmin
+);
+
 // Obtener usuario por ID (del mismo tenant)
 router.get(
     '/:id',

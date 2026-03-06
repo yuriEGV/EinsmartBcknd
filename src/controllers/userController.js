@@ -332,6 +332,43 @@ class UserController {
     }
 
     /* =====================================================
+       RESET PASSWORD BY ADMIN (FOR OTHER USERS)
+    ===================================================== */
+    static async resetPasswordAdmin(req, res) {
+        try {
+            const { id } = req.params;
+            const { password } = req.body;
+
+            if (!password) {
+                return res.status(400).json({ message: 'La nueva contraseña es obligatoria' });
+            }
+
+            // Verify user belongs to the same tenant (unless superadmin)
+            const query = { _id: id };
+            if (req.user.role !== 'admin') {
+                query.tenantId = req.user.tenantId;
+            }
+
+            const targetUser = await User.findOne(query);
+            if (!targetUser) {
+                return res.status(404).json({ message: 'Usuario a restablecer no encontrado' });
+            }
+
+            const passwordHash = await bcrypt.hash(password, 10);
+
+            targetUser.passwordHash = passwordHash;
+            // Force the user to change this temporary administrative password on next login
+            targetUser.mustChangePassword = true;
+
+            await targetUser.save();
+
+            res.status(200).json({ message: 'Contraseña del usuario reestablecida y requerirá cambio al iniciar sesión.' });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+
+    /* =====================================================
        UPDATE PIN
     ===================================================== */
     static async updatePin(req, res) {
