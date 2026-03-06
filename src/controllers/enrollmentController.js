@@ -581,21 +581,46 @@ class EnrollmentController {
             const Tenant = await import('../models/tenantModel.js').then(m => m.default);
             const tenant = await Tenant.findById(tenantId);
             const NotificationService = await import('../services/notificationService.js').then(m => m.default);
+            const User = await import('../models/userModel.js').then(m => m.default);
 
-            await NotificationService.notifyInstitutionalBatch(
-                tenant.contactEmail || 'administracion@einsmart.cl',
-                tenant.name,
-                enrollments.map(e => ({
-                    rut: e.estudianteId?.rut || 'N/A',
-                    nombres: e.estudianteId?.nombres || 'N/A',
-                    apellidos: e.estudianteId?.apellidos || 'N/A',
-                    curso: e.courseId?.name || 'N/A'
-                })),
-                tenantId
-            );
+            // Fetch Sostenedores and Directors for this specific tenant
+            const directives = await User.find({
+                tenantId,
+                role: { $in: ['sostenedor', 'director'] }
+            });
 
-            res.status(200).json({ message: `Listado enviado correctamente a ${tenant.contactEmail || 'administracion@einsmart.cl'}` });
+            // Extract valid emails
+            const recipientEmails = directives
+                .map(d => d.email)
+                .filter(email => Boolean(email));
+
+            // Fallback to the tenant's configured contact email if no valid directive emails exist
+            if (recipientEmails.length === 0) {
+                if (tenant.contactEmail) {
+                    recipientEmails.push(tenant.contactEmail);
+                } else {
+                    return res.status(400).json({ message: 'No se encontraron correos de sostenedores, directores o de contacto institucional configurados para enviar el listado.' });
+                }
+            }
+
+            // Map over recipients and send the list
+            for (const email of recipientEmails) {
+                await NotificationService.notifyInstitutionalBatch(
+                    email,
+                    tenant.name,
+                    enrollments.map(e => ({
+                        rut: e.estudianteId?.rut || 'N/A',
+                        nombres: e.estudianteId?.nombres || 'N/A',
+                        apellidos: e.estudianteId?.apellidos || 'N/A',
+                        curso: e.courseId?.name || 'N/A'
+                    })),
+                    tenantId
+                );
+            }
+
+            res.status(200).json({ message: `Listado enviado correctamente a ${recipientEmails.length} directivo(s).` });
         } catch (error) {
+            console.error('sendInstitutionalList error:', error);
             res.status(500).json({ message: error.message });
         }
     }
