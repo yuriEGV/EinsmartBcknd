@@ -59,7 +59,11 @@ const courseSchema = new mongoose.Schema({
     type: mongoose.Types.ObjectId,
     ref: 'Career',
     default: null
-  }
+  },
+  collaborators: [{
+    type: mongoose.Types.ObjectId,
+    ref: 'User'
+  }]
 }, {
   timestamps: true
 });

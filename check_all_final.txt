@@ -1,0 +1,23 @@
+--- Tenant ---
+ID: 6984af03b00f020e9834b948, Name: Instituto Bicentenario Maritimo
+
+--- Careers ---
+ID: 6985e7c594eba18b43c0d97b, Name: Elaboración de Alimentos
+ID: 6984d023549bf21f2bcbbbd3, Name: Gastronomia
+ID: 6990d47b3ec1c6bf4bc30756, Name: Mecanica
+ID: 6984c8fa3254496842aa365c, Name: Operaciones Portuarias
+ID: 6984f0c510a926dcc0f493c6, Name: Quimica
+
+--- All Courses ---
+ID: 69ab15693869fd2ff9c2e0e0, Name: 3E, Teacher: 6984cf1c7fa2495da9d785a0, Career: 6984c8fa3254496842aa365c
+ID: 69ab157c3869fd2ff9c2e28a, Name: 3I, Teacher: 6984cf1c7fa2495da9d785a0, Career: 6984c8fa3254496842aa365c
+ID: 69ab15723869fd2ff9c2e1ad, Name: 4E, Teacher: 6984cf1c7fa2495da9d785a0, Career: 6984c8fa3254496842aa365c
+ID: 69ab15873869fd2ff9c2e38e, Name: 4I, Teacher: 6984cf1c7fa2495da9d785a0, Career: 6984c8fa3254496842aa365c
+ID: 6990d5f5ffad230258848074, Name: I°A, Teacher: 6990d4ed3ec1c6bf4bc30765, Career: 6984f0c510a926dcc0f493c6
+ID: 6990d64bffad23025884807f, Name: I°C, Teacher: 6985e7888b79cfadd8ae76a9, Career: 6985e7c594eba18b43c0d97b
+ID: 6990d66effad230258848085, Name: I°D, Teacher: 6984cf3a7fa2495da9d785a4, Career: 6984d023549bf21f2bcbbbd3
+ID: 6990d687ffad23025884808a, Name: I°E, Teacher: 6990d3d2621cbb55c44574d4, Career: 6990d47b3ec1c6bf4bc30756
+
+Total Students in Tenant: 155
+Total Enrollments in Tenant: 174
+Students without enrollments: 36

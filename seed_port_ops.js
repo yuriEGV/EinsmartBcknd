@@ -31,8 +31,10 @@ async function seed() {
         if (!tenant) throw new Error('❌ Tenant Maritimo not found');
         console.log(`✅ Tenant: ${tenant.name} (${tenant._id})`);
 
-        // 1. Career Cleanup & Identification
-        // We stick to "Operaciones Portuarias" (original) and remove "Operación Portuaria" (duplicate)
+        const carlos = await User.findOne({ tenantId: tenant._id, name: /carlos flores/i });
+        if (!carlos) throw new Error('❌ Teacher Carlos Flores must exist.');
+        console.log(`✅ Teacher: ${carlos.name} (${carlos._id})`);
+
         let career = await Career.findOne({ tenantId: tenant._id, name: /operaciones portuarias/i });
         const duplicateCareer = await Career.findOne({ tenantId: tenant._id, name: "Operación Portuaria" });
 
@@ -47,17 +49,19 @@ async function seed() {
                 name: 'Operaciones Portuarias',
                 description: 'Especialidad técnica profesional en operaciones portuarias',
                 type: 'tecnico-profesional',
-                code: 'OP-PORT'
+                code: 'OP-PORT',
+                headTeacher: carlos._id,
+                profesorJefe: carlos._id
             });
-            console.log('✅ Career created');
+            console.log('✅ Career created with Carlos as Jefe de Carrera');
         } else {
             console.log(`✅ Career found: ${career.name} (${career._id})`);
+            // Ensure roles are assigned if they were missing
+            career.headTeacher = carlos._id;
+            career.profesorJefe = carlos._id;
+            await career.save();
+            console.log('✅ Career roles updated for Carlos Flores');
         }
-
-        // 2. Teachers
-        const carlos = await User.findOne({ tenantId: tenant._id, name: /carlos flores/i });
-        if (!carlos) throw new Error('❌ Teacher Carlos Flores must exist.');
-        console.log(`✅ Teacher: ${carlos.name} (${carlos._id})`);
 
         // 3. Load Student Data
         const dataPath = path.join(__dirname, 'students_data.json');

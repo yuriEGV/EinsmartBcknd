@@ -1,0 +1,18 @@
+--- Tenant ---
+ID: 6984af03b00f020e9834b948, Name: Instituto Bicentenario Maritimo
+
+--- Carlos Flores ---
+ID: 6984cf1c7fa2495da9d785a0, Name: Carlos Flores, Email: carlosflores@maritimo.cl
+
+--- Courses Assigned (2) ---
+ID: 69aaf20a9e4e1aced5d7b8b5, Name: 3E, Level: 3° Medio, CareerId: 69aaf2099e4e1aced5d7b8af
+ID: 6990d629ffad23025884807a, Name: I°B, Level: I°, CareerId: 6984c8fa3254496842aa365c
+
+--- Total Students Enrolled: 16 ---
+Course 3E: 11 students
+Course I°B: 5 students
+
+--- All Users named Carlos Flores ---
+ID: 6984cf1c7fa2495da9d785a0, Tenant: 6984af03b00f020e9834b948, Email: carlosflores@maritimo.cl
+
+--- Career Related Courses (Portuaria) ---

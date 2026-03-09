@@ -32,6 +32,10 @@ const careerSchema = new mongoose.Schema({
     headTeacher: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
+    },
+    profesorJefe: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     }
 }, { timestamps: true });
 

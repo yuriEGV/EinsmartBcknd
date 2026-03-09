@@ -6,7 +6,7 @@ export default class CourseController {
     static async createCourse(req, res) {
         try {
             await connectDB();
-            const { name, description, teacherId, level, letter, careerId } = req.body;
+            const { name, description, teacherId, level, letter, careerId, collaborators } = req.body;
 
             if (!name || !level || !letter || !teacherId) {
                 return res.status(400).json({
@@ -55,6 +55,7 @@ export default class CourseController {
                 description,
                 teacherId,
                 careerId: careerId || null,
+                collaborators: collaborators || [],
                 tenantId: req.user.tenantId
             });
 
@@ -134,6 +135,7 @@ export default class CourseController {
             const allCourses = await Course.find(query)
                 .populate('teacherId', 'name email')
                 .populate('careerId', 'name')
+                .populate('collaborators', 'name email')
                 .sort({ createdAt: -1 });
 
             // Deduplicate courses by name - keep only the most recent one for each name
@@ -172,6 +174,7 @@ export default class CourseController {
             const courses = await Course.find({ tenantId })
                 .populate('teacherId', 'name email')
                 .populate('careerId', 'name')
+                .populate('collaborators', 'name email')
                 .sort({ createdAt: -1 });
 
             return res.status(200).json(courses);
@@ -193,7 +196,9 @@ export default class CourseController {
             const course = await Course.findOne({
                 _id: id,
                 tenantId: req.user.tenantId
-            }).populate('teacherId', 'name email').populate('careerId', 'name');
+            }).populate('teacherId', 'name email')
+                .populate('careerId', 'name')
+                .populate('collaborators', 'name email');
 
             if (!course) {
                 return res.status(404).json({
@@ -216,7 +221,7 @@ export default class CourseController {
         try {
             await connectDB();
             const { id } = req.params;
-            const { name, level, letter, description, teacherId, careerId } = req.body;
+            const { name, level, letter, description, teacherId, careerId, collaborators } = req.body;
 
             const course = await Course.findOneAndUpdate(
                 { _id: id, tenantId: req.user.tenantId },
@@ -226,10 +231,13 @@ export default class CourseController {
                     letter,
                     description,
                     teacherId,
-                    careerId: careerId || null
+                    careerId: careerId || null,
+                    collaborators
                 },
                 { new: true, runValidators: true }
-            ).populate('teacherId', 'name email').populate('careerId', 'name');
+            ).populate('teacherId', 'name email')
+                .populate('careerId', 'name')
+                .populate('collaborators', 'name email');
 
             if (!course) {
                 return res.status(404).json({
