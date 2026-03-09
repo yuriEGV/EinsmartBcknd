@@ -49,8 +49,8 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
-app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(morgan('dev'));
 
 // Single Health check & Root
