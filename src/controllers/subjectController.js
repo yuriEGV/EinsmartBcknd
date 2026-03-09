@@ -33,47 +33,85 @@ export default class SubjectController {
         try {
             const query = { tenantId: req.user.tenantId };
 
-            // Optional filters
-            if (req.query.courseId) query.courseId = req.query.courseId;
-            if (req.query.teacherId) query.teacherId = req.query.teacherId;
+            const fullAccessRoles = ['admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'psicologo', 'orientador', 'bibliotecario'];
 
-            const adminRoles = ['admin', 'director', 'utp', 'sostenedor', 'teacher'];
+            if (fullAccessRoles.includes(req.user.role)) {
+                if (req.user.role === 'admin' && req.query.tenantId) {
+                    query.tenantId = req.query.tenantId;
+                }
+            } else if (req.user.role === 'teacher') {
+                const Course = await import('../models/courseModel.js').then(m => m.default);
+                const Career = await import('../models/careerModel.js').then(m => m.default);
 
-            // If admin, no restrictions (can see all subjects in tenant)
-            // If NOT an admin/staff, apply restricted filters
-            if (!adminRoles.includes(req.user.role)) {
-                // [MODIFIED] If they are asking for a specific course, we let staff (teachers) see them 
-                // to enable schedule management and shared visibility, but keep strict isolation for students/guardians.
-                if (req.user.role === 'teacher' && !req.query.courseId) {
-                    query.teacherId = req.user.userId;
+                // 1. Subjects they teach
+                const teacherSubjectQuery = { teacherId: req.user.userId, tenantId: req.user.tenantId };
+
+                // 2. Subjects of courses where they are Profesor Jefe or Collaborator
+                const directCourses = await Course.find({
+                    $or: [
+                        { teacherId: req.user.userId },
+                        { collaborators: req.user.userId }
+                    ],
+                    tenantId: req.user.tenantId
+                }).select('_id');
+
+                // 3. Subjects of courses in careers they lead
+                const ledCareers = await Career.find({
+                    $or: [
+                        { headTeacher: req.user.userId },
+                        { profesorJefe: req.user.userId }
+                    ],
+                    tenantId: req.user.tenantId
+                }).select('_id');
+
+                const careerCourseIds = await Course.find({
+                    careerId: { $in: ledCareers.map(c => c._id) },
+                    tenantId: req.user.tenantId
+                }).select('_id');
+
+                const allowedCourseIds = [
+                    ...new Set([
+                        ...directCourses.map(c => c._id.toString()),
+                        ...careerCourseIds.map(c => c._id.toString())
+                    ])
+                ];
+
+                // [MODIFIED] If specifically asking for a courseId, check if they have access
+                if (req.query.courseId) {
+                    const isAllowed = allowedCourseIds.includes(req.query.courseId.toString());
+                    if (!isAllowed && req.query.teacherId !== req.user.userId) {
+                        // If not allowed and not teaching it, check if they are the teacher of that subject
+                        // We'll let the final query handle the teacherId filter if provided
+                    }
+                } else {
+                    // If no specific course requested, show subjects they teach OR subjects in courses they manage
+                    query.$or = [
+                        { teacherId: req.user.userId },
+                        { courseId: { $in: allowedCourseIds } }
+                    ];
+                }
+            } else if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                let studentId;
+                if (req.user.role === 'student') {
+                    studentId = req.user.profileId;
+                } else {
+                    const apoderado = await Apoderado.findById(req.user.profileId);
+                    studentId = apoderado?.estudianteId;
                 }
 
-                // [STRICT ISOLATION] Students and Guardians only see their enrolled subjects
-                if (req.user.role === 'student' || req.user.role === 'apoderado') {
-                    let studentId;
-                    if (req.user.role === 'student') {
-                        studentId = req.user.profileId;
+                if (studentId) {
+                    const enrollment = await Enrollment.findOne({
+                        estudianteId: studentId,
+                        tenantId: req.user.tenantId,
+                        status: { $in: ['confirmada', 'activo', 'activa'] }
+                    });
+                    if (enrollment) {
+                        query.courseId = enrollment.courseId;
                     } else {
-                        const apoderado = await Apoderado.findById(req.user.profileId);
-                        studentId = apoderado?.estudianteId;
+                        if (!query.courseId) return res.json([]);
                     }
-
-                    if (studentId) {
-                        const enrollment = await Enrollment.findOne({
-                            estudianteId: studentId,
-                            tenantId: req.user.tenantId,
-                            status: { $in: ['confirmada', 'activo', 'activa'] }
-                        });
-                        if (enrollment) {
-                            query.courseId = enrollment.courseId;
-                        } else {
-                            // No enrollment found, return empty list or specific error?
-                            // For UX, return empty list if not specifically filtered by courseId already
-                            if (!query.courseId) return res.json([]);
-                        }
-                    } else {
-                        return res.status(403).json({ message: 'Perfil no vinculado' });
-                    }
+                } else {
+                    return res.status(403).json({ message: 'Perfil no vinculado' });
                 }
             }
 

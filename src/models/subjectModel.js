@@ -12,6 +12,10 @@ const subjectSchema = new mongoose.Schema({
         required: [true, 'El nombre de la asignatura es obligatorio'],
         trim: true
     },
+    description: {
+        type: String,
+        trim: true
+    },
     courseId: {
         type: mongoose.Types.ObjectId,
         ref: 'Course',

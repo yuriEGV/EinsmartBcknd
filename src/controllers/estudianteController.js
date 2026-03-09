@@ -117,29 +117,47 @@ const getEstudiantes = async (req, res) => {
         const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
         const Course = await import('../models/courseModel.js').then(m => m.default);
 
-        // Find all courses where this teacher has subjects OR is head teacher
-        const [teacherSubjects, headCourses] = await Promise.all([
+        const Career = await import('../models/careerModel.js').then(m => m.default);
+
+        // Find all courses where this teacher has subjects OR is head teacher OR course belongs to led career
+        const [teacherSubjects, directCourses, ledCareers] = await Promise.all([
           Subject.find({
             teacherId: new mongoose.Types.ObjectId(req.user.userId),
             tenantId: new mongoose.Types.ObjectId(req.user.tenantId)
           }).select('courseId'),
           Course.find({
-            teacherId: new mongoose.Types.ObjectId(req.user.userId),
+            $or: [
+              { teacherId: new mongoose.Types.ObjectId(req.user.userId) },
+              { collaborators: new mongoose.Types.ObjectId(req.user.userId) }
+            ],
             tenantId: new mongoose.Types.ObjectId(req.user.tenantId)
+          }).select('_id'),
+          Career.find({
+            $or: [
+              { headTeacher: req.user.userId },
+              { profesorJefe: req.user.userId }
+            ],
+            tenantId: req.user.tenantId
           }).select('_id')
         ]);
+
+        const careerCourseIds = await Course.find({
+          careerId: { $in: ledCareers.map(c => c._id) },
+          tenantId: req.user.tenantId
+        }).select('_id');
 
         const courseIds = [
           ...new Set([
             ...teacherSubjects.map(s => s.courseId.toString()),
-            ...headCourses.map(c => c._id.toString())
+            ...directCourses.map(c => c._id.toString()),
+            ...careerCourseIds.map(c => c._id.toString())
           ])
         ];
 
-        console.log('GET ESTUDIANTES - Teacher courses:', courseIds);
+        console.log('GET ESTUDIANTES - Teacher courses (including Career Head access):', courseIds);
 
         if (courseIds.length === 0) {
-          console.log('GET ESTUDIANTES - Teacher has no assigned courses, returning empty');
+          console.log('GET ESTUDIANTES - Teacher has no assigned courses/careers, returning empty');
           return res.status(200).json([]);
         }
 
@@ -235,7 +253,15 @@ const getEstudiantes = async (req, res) => {
       {
         $addFields: {
           guardian: { $arrayElemAt: ['$guardian', 0] },
-          grado: { $ifNull: [{ $arrayElemAt: ['$enrolledCourse.name', 0] }, '$grado'] }
+          grado: { $ifNull: [{ $arrayElemAt: ['$enrolledCourse.name', 0] }, '$grado'] },
+          // [FIX] React Error #31: Convert salud object to a safe string for frontend rendering
+          salud: {
+            $cond: {
+              if: { $eq: [{ $type: '$salud' }, 'object'] },
+              then: { $ifNull: ['$salud.seguro', 'Sin Registro'] },
+              else: { $ifNull: ['$salud', 'Sin Registro'] }
+            }
+          }
         }
       }
     ];

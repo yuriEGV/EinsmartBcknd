@@ -72,7 +72,9 @@ export default class CourseController {
             await connectDB();
             let query = { tenantId: req.user.tenantId };
 
-            // [STRICT ISOLATION] Students/Guardians only see their own courses
+            // [ROLES WITH FULL ACCESS TO TENANT]
+            const fullAccessRoles = ['admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'psicologo', 'orientador', 'bibliotecario'];
+
             if (req.user.role === 'student' && req.user.profileId) {
                 const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
                 const enrollments = await Enrollment.find({
@@ -102,56 +104,68 @@ export default class CourseController {
             }
             else if (req.user.role === 'teacher') {
                 const Subject = await import('../models/subjectModel.js').then(m => m.default);
+                const Career = await import('../models/careerModel.js').then(m => m.default);
+
+                // 1. Get subjects where they teach
                 const teacherSubjects = await Subject.find({
                     teacherId: req.user.userId,
                     tenantId: req.user.tenantId
                 }).select('courseId');
 
-                // Also include courses where they are head teacher
-                const headCourses = await Course.find({
-                    teacherId: req.user.userId,
+                // 2. Get courses where they are head teacher (Profesor Jefe) or collaborator
+                const directCourses = await Course.find({
+                    $or: [
+                        { teacherId: req.user.userId },
+                        { collaborators: req.user.userId }
+                    ],
+                    tenantId: req.user.tenantId
+                }).select('_id');
+
+                // 3. Get courses in careers they lead (Jefe de Carrera or Profesor Jefe de Carrera)
+                const ledCareers = await Career.find({
+                    $or: [
+                        { headTeacher: req.user.userId },
+                        { profesorJefe: req.user.userId }
+                    ],
+                    tenantId: req.user.tenantId
+                }).select('_id');
+
+                const careerCourseIds = await Course.find({
+                    careerId: { $in: ledCareers.map(c => c._id) },
                     tenantId: req.user.tenantId
                 }).select('_id');
 
                 const courseIds = [
                     ...new Set([
                         ...teacherSubjects.map(s => s.courseId.toString()),
-                        ...headCourses.map(c => c._id.toString())
+                        ...directCourses.map(c => c._id.toString()),
+                        ...careerCourseIds.map(c => c._id.toString())
                     ])
                 ];
 
-                // FINAL CHECK: Ensure we have IDs, otherwise return nothing for this query
                 if (courseIds.length > 0) {
                     query._id = { $in: courseIds };
                 } else {
-                    // Force zero results if no assignments
-                    query._id = new mongoose.Types.ObjectId();
+                    // Force zero results if no assignments found
+                    return res.status(200).json([]);
                 }
             }
-            else if (req.user.role === 'admin' && req.query.tenantId) {
-                query.tenantId = req.query.tenantId;
+            else if (fullAccessRoles.includes(req.user.role)) {
+                if (req.user.role === 'admin' && req.query.tenantId) {
+                    query.tenantId = req.query.tenantId;
+                }
+                // Others just inherit the tenantId filter
             }
 
             const allCourses = await Course.find(query)
-                .populate('teacherId', 'name email')
+                .populate('teacherId', 'name email rut')
                 .populate('careerId', 'name')
                 .populate('collaborators', 'name email')
                 .sort({ createdAt: -1 });
 
-            // Deduplicate courses by name - keep only the most recent one for each name
-            const uniqueCourses = [];
-            const seenNames = new Set();
+            console.log(`[COURSES] Role: ${req.user.role} - Found: ${allCourses.length} courses for query:`, JSON.stringify(query));
 
-            for (const course of allCourses) {
-                const normalizedName = course.name.trim().toLowerCase();
-                if (!seenNames.has(normalizedName)) {
-                    seenNames.add(normalizedName);
-                    uniqueCourses.push(course);
-                }
-            }
-
-            console.log(`COURSES: Found ${allCourses.length} total, returning ${uniqueCourses.length} unique for role ${req.user.role}`);
-            return res.status(200).json(uniqueCourses);
+            return res.status(200).json(allCourses);
 
         } catch (error) {
             console.error('Error getCourses:', error);
