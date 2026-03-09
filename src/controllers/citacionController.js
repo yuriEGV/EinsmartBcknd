@@ -117,6 +117,17 @@ class CitacionController {
             res.status(500).json({ message: error.message });
         }
     }
+
+    static async delete(req, res) {
+        try {
+            const { id } = req.params;
+            const citacion = await Citacion.findOneAndDelete({ _id: id, tenantId: req.user.tenantId });
+            if (!citacion) return res.status(404).json({ message: 'Citación no encontrada' });
+            res.json({ message: 'Citación eliminada correctamente' });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
 }
 
 export default CitacionController;

@@ -83,6 +83,11 @@ const citacionSchema = new mongoose.Schema({
     asistioApoderado: {
         type: Boolean,
         default: false
+    },
+    tipo: {
+        type: String,
+        enum: ['citacion', 'peticion'],
+        default: 'citacion'
     }
 }, {
     timestamps: true

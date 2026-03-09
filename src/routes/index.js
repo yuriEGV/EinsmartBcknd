@@ -39,6 +39,7 @@ import citacionRoutes from './citacionRoutes.js';
 import payrollRoutes from './payrollRoutes.js';
 import atrasoRoutes from './atrasoRoutes.js';
 import alternanciaRoutes from './alternanciaRoutes.js';
+import logRoutes from './logRoutes.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -117,5 +118,6 @@ router.use('/careers', careerRoutes);
 router.use('/schedules', scheduleRoutes);
 router.use('/citaciones', citacionRoutes);
 router.use('/payroll', payrollRoutes);
+router.use('/logs', logRoutes);
 
 export default router;

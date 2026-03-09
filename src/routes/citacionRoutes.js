@@ -9,5 +9,6 @@ router.use(authMiddleware);
 router.post('/', CitacionController.create);
 router.get('/', CitacionController.list);
 router.patch('/:id/status', CitacionController.updateStatus);
+router.delete('/:id', CitacionController.delete);
 
 export default router;
