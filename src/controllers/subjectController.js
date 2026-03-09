@@ -135,8 +135,11 @@ export default class SubjectController {
             const subject = await Subject.findOne({ _id: id, tenantId: req.user.tenantId });
             if (!subject) return res.status(404).json({ message: 'Asignatura no encontrada' });
 
-            // [STRICT ISOLATION] Only assigned teacher or admin can update
-            if (req.user.role === 'teacher' && subject.teacherId.toString() !== req.user.userId) {
+            // [STRICT ISOLATION] Only assigned teacher or management roles can update
+            const managementRoles = ['admin', 'sostenedor', 'director', 'utp'];
+            const isManagement = managementRoles.includes(req.user.role);
+
+            if (req.user.role === 'teacher' && subject.teacherId.toString() !== req.user.userId && !isManagement) {
                 return res.status(403).json({ message: 'Acceso denegado: no eres el profesor asignado a esta asignatura' });
             }
 
@@ -159,8 +162,11 @@ export default class SubjectController {
             const subject = await Subject.findOne({ _id: id, tenantId: req.user.tenantId });
             if (!subject) return res.status(404).json({ message: 'Asignatura no encontrada' });
 
-            // [STRICT ISOLATION] Only assigned teacher or admin can delete
-            if (req.user.role === 'teacher' && subject.teacherId.toString() !== req.user.userId) {
+            // [STRICT ISOLATION] Only assigned teacher or management (admin/director/etc) can delete
+            const managementRoles = ['admin', 'sostenedor', 'director', 'utp'];
+            const isManagement = managementRoles.includes(req.user.role);
+
+            if (req.user.role === 'teacher' && subject.teacherId.toString() !== req.user.userId && !isManagement) {
                 return res.status(403).json({ message: 'Acceso denegado: no eres el profesor asignado a esta asignatura' });
             }
 
