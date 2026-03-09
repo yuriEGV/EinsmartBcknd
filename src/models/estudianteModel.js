@@ -9,7 +9,7 @@ const estudianteSchema = new mongoose.Schema({
     type: String,
     sparse: true,
     trim: true,
-    match: [/^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/, 'Formato de RUT inválido (ej: 12.345.678-9)']
+    // match: [/^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/, 'Formato de RUT inválido (ej: 12.345.678-9)']
   },
   matricula: { type: String, sparse: true, trim: true },
   fotoUrl: { type: String, default: '' },

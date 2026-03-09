@@ -84,6 +84,21 @@ class EventRequestController {
 
             if (!request) return res.status(404).json({ message: 'Solicitud no encontrada' });
 
+            // [NEW] If approved, create a real Event record
+            if (status === 'aprobado') {
+                const Event = await import('../models/eventModel.js').then(m => m.default);
+                await Event.create({
+                    tenantId: request.tenantId,
+                    title: request.title,
+                    description: request.description,
+                    date: request.date,
+                    location: request.location,
+                    type: 'evento',
+                    target: 'global', // As requested: appear in all calendars
+                    creadoPor: request.userId
+                });
+            }
+
             // Notify Teacher (User)
             await NotificationService.createInternalNotification({
                 tenantId: req.user.tenantId,

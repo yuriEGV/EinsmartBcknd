@@ -62,6 +62,9 @@ class EventController {
                 } else {
                     query.target = 'global';
                 }
+            } else if (req.user.role === 'teacher' || req.user.role === 'admin' || req.user.role === 'sostenedor' || req.user.role === 'director' || req.user.role === 'utp' || req.user.role === 'inspector_general') {
+                // Management and teachers see everything for their tenant
+                // Already handled by base query { tenantId }
             }
 
             const events = await Event.find(query)
