@@ -65,6 +65,14 @@ router.get(
     UserController.getUsers
 );
 
+// Bulk Delete (admin, sostenedor, director)
+router.post(
+    '/bulk-delete',
+    authMiddleware,
+    authorizeRoles('admin', 'sostenedor', 'director'),
+    UserController.bulkDeleteUsers
+);
+
 // Update PIN (any authenticated user for their own account) - MUST BE BEFORE /:id
 router.put(
     '/update-pin',

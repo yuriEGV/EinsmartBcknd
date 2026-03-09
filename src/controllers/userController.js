@@ -415,6 +415,33 @@ class UserController {
             res.status(500).json({ message: error.message });
         }
     }
+
+    /* =====================================================
+       BULK DELETE USERS
+    ===================================================== */
+    static async bulkDeleteUsers(req, res) {
+        try {
+            const { ids } = req.body;
+
+            if (!ids || !Array.isArray(ids) || ids.length === 0) {
+                return res.status(400).json({ message: 'Se requiere un array de IDs para eliminar' });
+            }
+
+            const query = { _id: { $in: ids } };
+            if (req.user.role !== 'admin') {
+                query.tenantId = req.user.tenantId;
+            }
+
+            const result = await User.deleteMany(query);
+
+            res.status(200).json({
+                message: `${result.deletedCount} usuarios eliminados correctamente`,
+                deletedCount: result.deletedCount
+            });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
 }
 
 export default UserController;

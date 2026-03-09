@@ -4,8 +4,18 @@ import mongoose from 'mongoose';
 export const getAtrasos = async (req, res) => {
     try {
         const { tenantId } = req.user;
-        const atrasos = await Atraso.find({ tenantId })
-            .populate('estudianteId', 'firstName lastName rut')
+        const { courseId } = req.query;
+        let query = { tenantId };
+
+        if (courseId) {
+            const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+            const enrollments = await Enrollment.find({ courseId, tenantId }).select('estudianteId');
+            const studentIds = enrollments.map(e => e.estudianteId);
+            query.estudianteId = { $in: studentIds };
+        }
+
+        const atrasos = await Atraso.find(query)
+            .populate('estudianteId', 'nombres apellidos rut')
             .populate('registradoPor', 'name')
             .sort({ fecha: -1 });
         res.status(200).json(atrasos);
