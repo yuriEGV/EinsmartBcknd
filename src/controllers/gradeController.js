@@ -31,11 +31,22 @@ class GradeController {
                 });
             }
 
+            // [NUEVO] Check for medical license on evaluation date
+            const MedicalLicense = await import('../models/medicalLicenseModel.js').then(m => m.default);
+            const activeLicense = await MedicalLicense.findOne({
+                tenantId,
+                userId: estudianteId,
+                fechaInicio: { $lte: evaluation.date },
+                fechaFin: { $gte: evaluation.date },
+                estado: 'Aprobado'
+            });
+
             const grade = new Grade({
                 estudianteId,
                 evaluationId,
                 score,
                 comments,
+                status: (activeLicense || req.body.status === 'justified') ? 'justified' : (req.body.status || 'graded'),
                 tenantId
             });
             await grade.save();

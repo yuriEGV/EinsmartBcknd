@@ -27,12 +27,25 @@ class AttendanceController {
                 });
             }
 
+            // [NUEVO] Check for medical license
+            const MedicalLicense = await import('../models/medicalLicenseModel.js').then(m => m.default);
+            const activeLicense = await MedicalLicense.findOne({
+                tenantId: req.user.tenantId,
+                userId: estudianteId,
+                fechaInicio: { $lte: new Date(fecha) },
+                fechaFin: { $gte: new Date(fecha) },
+                estado: 'Aprobado'
+            });
+
+            const finalEstado = activeLicense ? 'justificado' : estado;
+
             const attendance = await Attendance.create({
                 estudianteId,
                 fecha,
-                estado,
+                estado: finalEstado,
                 tenantId: req.user.tenantId,
-                registradoPor: req.user.userId
+                registradoPor: req.user.userId,
+                observacion: activeLicense ? `Auto-justificado por Licencia Médica ID: ${activeLicense._id}` : ''
             });
 
             // [NUEVO] Alerta de asistencia baja (< 75%)
@@ -109,24 +122,43 @@ class AttendanceController {
 
             const enrolledIds = enrolledStudents.map(e => e.estudianteId.toString());
 
+            // [NUEVO] Fetch all active medical licenses for these students on this date
+            const MedicalLicense = await import('../models/medicalLicenseModel.js').then(m => m.default);
+            const normalizedFecha = new Date(new Date(fecha).setUTCHours(0, 0, 0, 0));
+            const activeLicenses = await MedicalLicense.find({
+                tenantId: req.user.tenantId,
+                userId: { $in: enrolledIds },
+                fechaInicio: { $lte: normalizedFecha },
+                fechaFin: { $gte: normalizedFecha },
+                estado: 'Aprobado'
+            });
+
+            const licensedStudentIds = activeLicenses.map(l => l.userId.toString());
+
             const operations = students
                 .filter(s => enrolledIds.includes(s.estudianteId.toString()))
-                .map(s => ({
-                    updateOne: {
-                        filter: {
-                            estudianteId: s.estudianteId,
-                            fecha: new Date(new Date(fecha).setUTCHours(0, 0, 0, 0)), // Normalize to UTC midnight
-                            tenantId: req.user.tenantId
-                        },
-                        update: {
-                            $set: {
-                                estado: s.estado,
-                                registradoPor: req.user.userId
-                            }
-                        },
-                        upsert: true
-                    }
-                }));
+                .map(s => {
+                    const isLicensed = licensedStudentIds.includes(s.estudianteId.toString());
+                    const license = activeLicenses.find(l => l.userId.toString() === s.estudianteId.toString());
+                    
+                    return {
+                        updateOne: {
+                            filter: {
+                                estudianteId: s.estudianteId,
+                                fecha: normalizedFecha,
+                                tenantId: req.user.tenantId
+                            },
+                            update: {
+                                $set: {
+                                    estado: isLicensed ? 'justificado' : s.estado,
+                                    registradoPor: req.user.userId,
+                                    observacion: isLicensed ? `Auto-justificado por Licencia Médica ID: ${license._id}` : ''
+                                }
+                            },
+                            upsert: true
+                        }
+                    };
+                });
 
             await Attendance.bulkWrite(operations);
 

@@ -40,6 +40,7 @@ import payrollRoutes from './payrollRoutes.js';
 import atrasoRoutes from './atrasoRoutes.js';
 import alternanciaRoutes from './alternanciaRoutes.js';
 import logRoutes from './logRoutes.js';
+import medicalLicenseRoutes from './medicalLicenseRoutes.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -107,6 +108,7 @@ router.use('/event-requests', eventRequestRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/tariffs', tariffRoutes);
 router.use('/webhooks', webhookRoutes);
+router.use('/medical-licenses', medicalLicenseRoutes);
 
 // Communication & Events
 router.use('/messages', messageRoutes);
