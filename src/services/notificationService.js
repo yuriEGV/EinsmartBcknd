@@ -661,6 +661,93 @@ class NotificationService {
             console.error('❌ Error in sendEnrollmentSummaryReport:', error);
         }
     }
+    /**
+     * Check if a student is at high risk (Bad grades + Negative behavior)
+     * and notify the directivo team immediately.
+     */
+    static async checkAndNotifyAtRisk(studentId, tenantId) {
+        try {
+            const Grade = (await import('../models/gradeModel.js')).default;
+            const Anotacion = (await import('../models/anotacionModel.js')).default;
+            const student = await Estudiante.findById(studentId);
+            if (!student) return;
+
+            // 1. Calculate Average
+            const grades = await Grade.find({ estudianteId: studentId, tenantId });
+            const avg = grades.length > 0
+                ? grades.reduce((acc, g) => acc + g.score, 0) / grades.length
+                : 7.0; // Default to passing if no grades yet
+
+            // 2. Count Negative Annotations
+            const negativeCount = await Anotacion.countDocuments({
+                estudianteId: studentId,
+                tenantId,
+                tipo: 'negativa'
+            });
+
+            // 3. Thresholds: Average < 4.0 AND 3 or more negative annotations
+            if (avg < 4.0 && negativeCount >= 3) {
+                const tenant = await Tenant.findById(tenantId);
+                const tenantName = tenant?.name || 'EinSmart';
+
+                const alertTitle = `🚨 ALERTA: Alumno en Riesgo Crítico - ${student.nombres} ${student.apellidos}`;
+                const alertMsg = `El estudiante ${student.nombres} ${student.apellidos} presenta un promedio deficiente (${avg.toFixed(1)}) y acumula ${negativeCount} anotaciones negativas. Se requiere intervención del equipo directivo.`;
+
+                // A. Internal Broadcast to Directivos
+                await NotificationService.broadcastToAdmins({
+                    tenantId,
+                    title: alertTitle,
+                    message: alertMsg,
+                    type: 'alert',
+                    link: `/ ficha / ${studentId}`
+                });
+
+                // B. Email to Director (and Sostenedor)
+                const admins = await User.find({
+                    tenantId,
+                    role: { $in: ['director', 'sostenedor'] }
+                });
+
+                const alertHtml = `
+                    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 2px solid #ef4444; border-radius: 12px; overflow: hidden;">
+                        <div style="background-color: #ef4444; color: white; padding: 25px; text-align: center;">
+                            <h1 style="margin: 0; font-size: 20px;">⚠️ Alerta de Riesgo Académico y Conductual</h1>
+                        </div>
+                        <div style="padding: 30px;">
+                            <p>Estimado Directivo,</p>
+                            <p>El sistema de monitoreo de <strong>${tenantName}</strong> ha detectado un caso de alta prioridad que requiere su atención inmediata:</p>
+                            
+                            <div style="background-color: #fff1f2; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 5px solid #ef4444;">
+                                <p style="margin: 5px 0;"><strong>Alumno:</strong> ${student.nombres} ${student.apellidos}</p>
+                                <p style="margin: 5px 0;"><strong>Curso:</strong> ${student.grado || 'S/I'}</p>
+                                <hr style="border: 0; border-top: 1px solid #fecaca; margin: 10px 0;"/>
+                                <p style="margin: 5px 0; color: #ef4444; font-weight: bold;"><strong>Promedio General:</strong> ${avg.toFixed(2)}</p>
+                                <p style="margin: 5px 0; color: #ef4444; font-weight: bold;"><strong>Anotaciones Negativas:</strong> ${negativeCount}</p>
+                            </div>
+
+                            <p>Es fundamental coordinar una reunión con el apoderado y el equipo de convivencia para ayudar al estudiante rápidamente.</p>
+                            
+                            <div style="text-align: center; margin-top: 30px;">
+                                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/students" 
+                                   style="background-color: #11355a; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                                    Ver Ficha del Alumno
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                for (const admin of admins) {
+                    if (admin.email) {
+                        await sendMail(admin.email, alertTitle, alertHtml, tenantId);
+                    }
+                }
+                console.log(`🚨 At-risk alert triggered for ${student.nombres} and sent to ${admins.length} admins.`);
+            }
+        } catch (error) {
+            console.error('❌ Error in checkAndNotifyAtRisk:', error);
+        }
+    }
 }
 
 export default NotificationService;

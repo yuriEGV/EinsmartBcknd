@@ -62,6 +62,9 @@ class GradeController {
                 grade.tenantId
             );
 
+            // [NEW] Check if student is at risk (Grades + Annotations)
+            NotificationService.checkAndNotifyAtRisk(grade.estudianteId._id, grade.tenantId);
+
             res.status(201).json(grade);
         } catch (error) {
             res.status(400).json({ message: error.message });

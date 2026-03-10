@@ -237,6 +237,7 @@ const getEstudiantes = async (req, res) => {
                 }
               }
             },
+            { $sort: { createdAt: -1 } },
             { $limit: 1 }
           ],
           as: 'activeEnrollment'

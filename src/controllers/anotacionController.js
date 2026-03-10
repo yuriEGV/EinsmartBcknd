@@ -65,6 +65,9 @@ class AnotacionController {
                     anotacion.descripcion,
                     anotacion.tenantId
                 );
+
+                // [NEW] Check if student is at risk (Grades + Annotations)
+                NotificationService.checkAndNotifyAtRisk(anotacion.estudianteId._id, anotacion.tenantId);
             }
 
             res.status(201).json({

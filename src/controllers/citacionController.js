@@ -61,33 +61,32 @@ class CitacionController {
 
             // Privacy Logic: Stricter for teachers
             if (req.user.role === 'teacher') {
-                const Subject = mongoose.model('Subject');
-                const Course = mongoose.model('Course');
+                // [FIX] Teachers only see their OWN citations, not all teachers in the course
+                query.profesorId = new mongoose.Types.ObjectId(req.user.userId);
 
-                const [teacherSubjects, headCourses] = await Promise.all([
-                    Subject.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('courseId'),
-                    Course.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('_id')
-                ]);
-
-                const allowedCourseIds = [
-                    ...new Set([
-                        ...teacherSubjects.map(s => s.courseId.toString()),
-                        ...headCourses.map(c => c._id.toString())
-                    ])
-                ];
-
-                if (courseId && !allowedCourseIds.includes(courseId)) {
-                    return res.status(403).json({ message: 'No tienes permisos para ver citaciones de este curso.' });
+                // Additionally, restrict to courses they teach if no courseId given
+                if (!courseId) {
+                    const Subject = mongoose.model('Subject');
+                    const Course = mongoose.model('Course');
+                    const [teacherSubjects, headCourses] = await Promise.all([
+                        Subject.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('courseId'),
+                        Course.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('_id')
+                    ]);
+                    const allowedCourseIds = [
+                        ...new Set([
+                            ...teacherSubjects.map(s => s.courseId.toString()),
+                            ...headCourses.map(c => c._id.toString())
+                        ])
+                    ];
+                    query.courseId = { $in: allowedCourseIds };
+                } else {
+                    query.courseId = courseId;
                 }
-
-                query.courseId = { $in: allowedCourseIds };
             } else if (['director', 'inspector_general', 'utp', 'admin', 'sostenedor'].includes(req.user.role)) {
                 // Keep query as is (tenant only)
             } else if (req.user.role === 'apoderado' || req.user.role === 'student') {
                 // If they are parents/students, they should only see their own
-                // This might need more logic depending on how they are linked,
-                // but usually these roles have their own logic in Dashboard.
-                // For now, let's just restrict by profileId if applicable or keep simple.
+                // This might need more logic depending on how they are linked
             }
 
             const citaciones = await Citacion.find(query)
@@ -112,6 +111,14 @@ class CitacionController {
                 { new: true }
             );
             if (!citacion) return res.status(404).json({ message: 'Citación no encontrada' });
+
+            // [FIX] If the acta has been signed (actaReunion present and status is realizada),
+            // automatically delete the citation as requested by the institution's workflow.
+            if (estado === 'realizada' && actaReunion && actaReunion.trim().length > 0) {
+                await Citacion.findByIdAndDelete(id);
+                return res.json({ message: 'Acta registrada. Citación finalizada y eliminada del sistema.', deleted: true });
+            }
+
             res.json(citacion);
         } catch (error) {
             res.status(500).json({ message: error.message });
