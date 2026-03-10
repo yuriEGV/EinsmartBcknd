@@ -237,7 +237,18 @@ const getEstudiantes = async (req, res) => {
                 }
               }
             },
-            { $sort: { createdAt: -1 } },
+            {
+              $addFields: {
+                isRequestedCourse: {
+                  $cond: [
+                    { $eq: ['$courseId', req.query.cursoId ? new mongoose.Types.ObjectId(req.query.cursoId) : null] },
+                    1,
+                    0
+                  ]
+                }
+              }
+            },
+            { $sort: { isRequestedCourse: -1, createdAt: -1 } },
             { $limit: 1 }
           ],
           as: 'activeEnrollment'
