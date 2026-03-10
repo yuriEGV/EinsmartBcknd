@@ -13,6 +13,15 @@ const estudianteSchema = new mongoose.Schema({
   },
   matricula: { type: String, sparse: true, trim: true },
   fotoUrl: { type: String, default: '' },
+  estado: {
+    type: String,
+    enum: ['Activo', 'Inactivo'],
+    default: 'Activo'
+  },
+  photoUrl: {
+    type: String,
+    default: ''
+  },
   email: {
     type: String,
     required: true,
