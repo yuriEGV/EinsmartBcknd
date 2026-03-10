@@ -9,6 +9,7 @@ router.use(authenticate);
 router.post('/', MedicalLicenseController.create);
 router.get('/', MedicalLicenseController.list);
 router.get('/:id', MedicalLicenseController.getById);
+router.put('/:id', MedicalLicenseController.updateStatus);
 router.delete('/:id', MedicalLicenseController.delete);
 
 export default router;

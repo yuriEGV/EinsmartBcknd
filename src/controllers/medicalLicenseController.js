@@ -20,7 +20,7 @@ class MedicalLicenseController {
             } = req.body;
 
             // Only specific roles can manage licenses
-            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp'];
+            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp', 'inspector_general'];
             if (!authorizedRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para gestionar licencias médicas.' });
             }
@@ -126,24 +126,73 @@ class MedicalLicenseController {
     // List licenses with filters
     static async list(req, res) {
         try {
-            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp'];
+            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp', 'inspector_general'];
             if (!authorizedRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para listar licencias médicas.' });
             }
 
-            const { userId, userType, startDate, endDate } = req.query;
+            const { userId, userType, startDate, endDate, fecha } = req.query;
             const query = { tenantId: req.user.tenantId };
 
             if (userId) query.userId = userId;
             if (userType) query.userType = userType;
-            if (startDate || endDate) {
+
+            // Filter by a specific date (for attendance page indicator)
+            if (fecha) {
+                const checkDate = new Date(fecha);
+                query.fechaInicio = { $lte: checkDate };
+                query.fechaFin = { $gte: checkDate };
+                query.estado = 'Aprobado';
+            } else if (startDate || endDate) {
                 query.fechaInicio = {};
                 if (startDate) query.fechaInicio.$gte = new Date(startDate);
                 if (endDate) query.fechaInicio.$lte = new Date(endDate);
             }
 
-            const licenses = await MedicalLicense.find(query).sort({ fechaInicio: -1 });
+            const licenses = await MedicalLicense.find(query)
+                .populate('userId', 'name role email')
+                .sort({ fechaInicio: -1 });
             res.json(licenses);
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+
+    // Update license status (approve/reject)
+    static async updateStatus(req, res) {
+        try {
+            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp', 'inspector_general'];
+            if (!authorizedRoles.includes(req.user.role)) {
+                return res.status(403).json({ message: 'No tienes permisos para actualizar esta licencia.' });
+            }
+
+            const { estado } = req.body;
+            if (!['Aprobado', 'Rechazado', 'Pendiente'].includes(estado)) {
+                return res.status(400).json({ message: 'Estado inválido' });
+            }
+
+            const license = await MedicalLicense.findOneAndUpdate(
+                { _id: req.params.id, tenantId: req.user.tenantId },
+                { estado },
+                { new: true }
+            ).populate('userId', 'name role email');
+
+            if (!license) return res.status(404).json({ message: 'Licencia no encontrada' });
+
+            // If newly approved student license, auto-justify attendance
+            if (estado === 'Aprobado' && license.userType === 'Estudiante') {
+                await Attendance.updateMany(
+                    {
+                        estudianteId: license.userId,
+                        tenantId: req.user.tenantId,
+                        fecha: { $gte: license.fechaInicio, $lte: license.fechaFin },
+                        estado: 'ausente'
+                    },
+                    { $set: { estado: 'justificado', observacion: `Justificado por Licencia Médica ID: ${license._id}` } }
+                );
+            }
+
+            res.json(license);
         } catch (error) {
             res.status(500).json({ message: error.message });
         }
@@ -152,12 +201,13 @@ class MedicalLicenseController {
     // Get a specific license
     static async getById(req, res) {
         try {
-            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp'];
+            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp', 'inspector_general'];
             if (!authorizedRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para ver esta licencia médica.' });
             }
 
-            const license = await MedicalLicense.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+            const license = await MedicalLicense.findOne({ _id: req.params.id, tenantId: req.user.tenantId })
+                .populate('userId', 'name role email');
             if (!license) return res.status(404).json({ message: 'Licencia no encontrada' });
             res.json(license);
         } catch (error) {
@@ -168,7 +218,7 @@ class MedicalLicenseController {
     // Delete a license
     static async delete(req, res) {
         try {
-            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp'];
+            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp', 'inspector_general'];
             if (!authorizedRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para eliminar licencias médicas.' });
             }
