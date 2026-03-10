@@ -141,7 +141,7 @@ export default class CourseController {
                 const teacherSubjects = await Subject.find({
                     teacherId: req.user.userId,
                     tenantId: req.user.tenantId
-                }).select('courseId');
+                }).select('courseId isTechnical');
 
                 // 2. Get courses where they are head teacher (Profesor Jefe) or collaborator
                 const directCourses = await Course.find({
@@ -166,15 +166,33 @@ export default class CourseController {
                     tenantId: req.user.tenantId
                 }).select('_id');
 
+                // [NUEVO] Lógica de "Formación General" vs "Técnico"
+                // Un profesor es considerado "Técnico" si imparte al menos una asignatura técnica o lidera una carrera.
+                const isTechnicalTeacher = teacherSubjects.some(s => s.isTechnical) || ledCareers.length > 0;
+
+                let allBasicCourseIds = [];
+                if (!isTechnicalTeacher) {
+                    // Es un profesor de Formación General. Puede ver todos los cursos básicos (sin careerId)
+                    const basicCourses = await Course.find({
+                        tenantId: req.user.tenantId,
+                        careerId: null
+                    }).select('_id');
+                    allBasicCourseIds = basicCourses.map(c => c._id.toString());
+                    console.log(`[COURSES] Teacher ${req.user.userId} is Formación General. Granted access to ${allBasicCourseIds.length} basic courses.`);
+                } else {
+                    console.log(`[COURSES] Teacher ${req.user.userId} is Técnico. Limited access to specific subjects and careers.`);
+                }
+
                 const courseIds = [
                     ...new Set([
                         ...teacherSubjects.map(s => s.courseId?.toString()).filter(Boolean),
                         ...directCourses.map(c => c._id.toString()),
-                        ...careerCourseIds.map(c => c._id.toString())
+                        ...careerCourseIds.map(c => c._id.toString()),
+                        ...allBasicCourseIds // Add all basic courses if applicable
                     ])
                 ];
 
-                console.log(`[COURSES] Teacher ${req.user.userId} ledCareers: ${ledCareers.length}, careerCourses: ${careerCourseIds.length}`);
+                console.log(`[COURSES] Teacher ${req.user.userId} ledCareers: ${ledCareers.length}, careerCourses: ${careerCourseIds.length}, total allowed courses: ${courseIds.length}`);
 
                 if (courseIds.length > 0) {
                     query._id = { $in: courseIds };

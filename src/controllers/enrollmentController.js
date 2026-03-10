@@ -61,11 +61,13 @@ class EnrollmentController {
                     if (newStudent.email) existingStudent.email = newStudent.email.toLowerCase().trim();
                     if (newStudent.edad) existingStudent.edad = newStudent.edad;
                     if (newStudent.direccion) existingStudent.direccion = newStudent.direccion;
+                    if (newStudent.photoUrl) existingStudent.fotoUrl = newStudent.photoUrl; // [NUEVO] Update photo if provided
                     await existingStudent.save();
                 } else {
                     const std = new Estudiante({
                         ...newStudent,
                         direccion: newStudent.direccion,
+                        fotoUrl: newStudent.photoUrl || newStudent.fotoUrl, // [NUEVO] Save photo URL
                         tenantId
                     });
                     await std.save();
