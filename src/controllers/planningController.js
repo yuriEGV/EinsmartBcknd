@@ -153,8 +153,10 @@ class PlanningController {
         try {
             const { id } = req.params;
             const query = { _id: id, tenantId: req.user.tenantId };
+            const adminRoles = ['admin', 'director', 'utp', 'sostenedor'];
 
-            if (req.user.role === 'teacher') {
+            if (!adminRoles.includes(req.user.role)) {
+                // Teachers and others can only delete their own draft/rejected plannings
                 query.teacherId = req.user.userId;
                 query.status = { $in: ['draft', 'rejected'] };
             }
