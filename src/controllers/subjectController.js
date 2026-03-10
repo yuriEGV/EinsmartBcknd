@@ -32,6 +32,10 @@ export default class SubjectController {
     static async getSubjects(req, res) {
         try {
             const query = { tenantId: req.user.tenantId };
+            
+            if (req.query.courseId) {
+                query.courseId = req.query.courseId;
+            }
 
             const fullAccessRoles = ['admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'psicologo', 'orientador', 'bibliotecario'];
 

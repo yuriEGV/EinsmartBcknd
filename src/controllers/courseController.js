@@ -59,6 +59,37 @@ export default class CourseController {
                 tenantId: req.user.tenantId
             });
 
+            // AUTO-SEED: Create general formation subjects for the new course
+            try {
+                const Subject = await import('../models/subjectModel.js').then(m => m.default);
+                const GENERAL_SUBJECTS = [
+                    { name: 'Lengua y Literatura', description: 'Comunicación oral y escrita.' },
+                    { name: 'Inglés', description: 'Comunicación en idioma extranjero.' },
+                    { name: 'Filosofía', description: 'Reflexión crítica y ética.' },
+                    { name: 'Matemática', description: 'Pensamiento lógico.' },
+                    { name: 'Educación Física', description: 'Vida sana y actividad física.' },
+                    { name: 'Química', description: 'Estudio de la materia.' },
+                    { name: 'Física', description: 'Leyes del universo.' },
+                    { name: 'Biología', description: 'Seres vivos y sus procesos.' },
+                    { name: 'Educación Ciudadana', description: 'Derechos, deberes y participación.' }
+                ];
+
+                for (const sub of GENERAL_SUBJECTS) {
+                    await Subject.create({
+                        tenantId: req.user.tenantId,
+                        courseId: course._id,
+                        teacherId: teacherId, // usar el profesor jefe como docente por defecto
+                        name: sub.name,
+                        description: sub.description,
+                        isTechnical: false
+                    });
+                }
+                console.log(`[COURSE] Auto-seeded ${GENERAL_SUBJECTS.length} subjects for course: ${course.name}`);
+            } catch (subErr) {
+                console.error('[COURSE] Error auto-seeding subjects:', subErr.message);
+                // Don't fail the course creation if subject seeding fails
+            }
+
             return res.status(201).json(course);
 
         } catch (error) {
