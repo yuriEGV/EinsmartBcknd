@@ -168,11 +168,13 @@ export default class CourseController {
 
                 const courseIds = [
                     ...new Set([
-                        ...teacherSubjects.map(s => s.courseId.toString()),
+                        ...teacherSubjects.map(s => s.courseId?.toString()).filter(Boolean),
                         ...directCourses.map(c => c._id.toString()),
                         ...careerCourseIds.map(c => c._id.toString())
                     ])
                 ];
+
+                console.log(`[COURSES] Teacher ${req.user.userId} ledCareers: ${ledCareers.length}, careerCourses: ${careerCourseIds.length}`);
 
                 if (courseIds.length > 0) {
                     query._id = { $in: courseIds };

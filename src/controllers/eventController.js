@@ -67,9 +67,50 @@ class EventController {
                 // Already handled by base query { tenantId }
             }
 
-            const events = await Event.find(query)
-                .sort({ date: 1 });
-            res.status(200).json(events);
+            const events = await Event.find(query).sort({ date: 1 });
+
+            // [NUEVO] Integrar Alternancias al Calendario
+            const Alternancia = await import('../models/alternanciaModel.js').then(m => m.default);
+            // Si es un rol directivo o profesor, ve todas las alternancias del tenant para coordinación
+            // Si es alumno o apoderado, se filtrarán las que correspondan (o se asume global según el requerimiento "todos estén alertados")
+            let altQuery = { tenantId: req.user.tenantId };
+            
+            // Si es alumno/apoderado, solo ve las suyas/de su pupilo
+            if (req.user.role === 'student' || req.user.role === 'apoderado') {
+                let studentId;
+                if (req.user.role === 'student') studentId = req.user.profileId;
+                else {
+                    const apoderado = await Apoderado.findById(req.user.profileId);
+                    studentId = apoderado?.estudianteId;
+                }
+                if (studentId) altQuery.estudianteId = studentId;
+            }
+
+            const alternancias = await Alternancia.find(altQuery)
+                .populate('estudianteId', 'firstName lastName nombres apellidos')
+                .populate('careerId', 'name');
+
+            const alternanciaEvents = alternancias.map(alt => {
+                const studentName = alt.estudianteId ? 
+                    (alt.estudianteId.nombres || `${alt.estudianteId.firstName} ${alt.estudianteId.lastName}`) : 'Estudiante';
+                
+                return {
+                    _id: alt._id,
+                    tenantId: alt.tenantId,
+                    title: `Alternancia: ${studentName}`,
+                    description: `Actividad en ${alt.empresaInstitucion}. Especialidad: ${alt.careerId?.name || 'TP'}. Estado: ${alt.estado}`,
+                    date: alt.fechaInicio,
+                    endDate: alt.fechaTermino, // Support duration if frontend displays it
+                    location: alt.empresaInstitucion,
+                    type: 'alternancia',
+                    target: 'global' // Visibilidad global para alertas
+                };
+            });
+
+            // Combinar y retornar (ordenados por fecha)
+            const combined = [...events, ...alternanciaEvents].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            return res.status(200).json(combined);
         } catch (error) {
             res.status(500).json({ message: error.message });
         }
