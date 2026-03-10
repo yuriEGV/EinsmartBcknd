@@ -1,6 +1,6 @@
 import express from 'express';
 import MedicalLicenseController from '../controllers/medicalLicenseController.js';
-import { authenticate } from '../middleware/authMiddleware.js';
+import authenticate from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
