@@ -243,8 +243,20 @@ class ReportController {
                         as: 'subject'
                     }
                 },
-                { $unwind: '$teacher' },
-                { $unwind: '$course' },
+                {
+                    $unwind: {
+                        path: '$teacher',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$course',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                // Filtrar registros sin profesor o curso válido (datos huérfanos)
+                { $match: { 'teacher._id': { $exists: true }, 'course._id': { $exists: true } } },
                 {
                     $unwind: {
                         path: '$subject',
