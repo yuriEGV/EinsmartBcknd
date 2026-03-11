@@ -162,6 +162,62 @@ class AttendanceController {
 
             await Attendance.bulkWrite(operations);
 
+            // [NUEVO] Lateness Auto-Integration
+            try {
+                const Atraso = await import('../models/atrasoModel.js').then(m => m.default);
+                const bloque = req.body.bloqueHorario || 'Bloque 1';
+                const latenessOps = [];
+
+                for (const student of students) {
+                    if (!enrolledIds.includes(student.estudianteId.toString())) continue;
+
+                    const isLicensed = licensedStudentIds.includes(student.estudianteId.toString());
+                    // Skip if licensed
+                    if (isLicensed) continue;
+
+                    if (student.estado === 'atraso') {
+                        // Mark as atrasado in Atrasos Manager. Defaulting 10 minutes to auto-insert
+                        latenessOps.push({
+                            updateOne: {
+                                filter: {
+                                    estudianteId: student.estudianteId,
+                                    fecha: normalizedFecha,
+                                    bloque: bloque,
+                                    tenantId: req.user.tenantId
+                                },
+                                update: {
+                                    $setOnInsert: {
+                                        minutosAtraso: 10,
+                                        estado: 'injustificado',
+                                        registradoPor: req.user.userId,
+                                        motivo: 'Registrado automáticamente desde libro de clases.'
+                                    }
+                                },
+                                upsert: true
+                            }
+                        });
+                    } else if (['presente', 'ausente', 'justificado'].includes(student.estado)) {
+                        // If changed back to non-atraso, remove from Atrasos manager if it exists
+                        latenessOps.push({
+                            deleteOne: {
+                                filter: {
+                                    estudianteId: student.estudianteId,
+                                    fecha: normalizedFecha,
+                                    bloque: bloque,
+                                    tenantId: req.user.tenantId
+                                }
+                            }
+                        });
+                    }
+                }
+
+                if (latenessOps.length > 0) {
+                    await Atraso.bulkWrite(latenessOps);
+                }
+            } catch (latenessErr) {
+                console.error('Error in Lateness Auto-Integration:', latenessErr);
+            }
+
             res.status(200).json({ message: 'Asistencia guardada correctamente' });
 
         } catch (error) {

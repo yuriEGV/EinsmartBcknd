@@ -47,5 +47,6 @@ router.get('/:id', async (req, res) => {
 import ReportController from '../controllers/reportController.js';
 router.get('/student/:studentId', ReportController.getStudentSummary);
 router.get('/performance', ReportController.getWeeklyClassPerformance);
+router.get('/teacher-time', ReportController.getTeacherTimeReport);
 
 export default router;

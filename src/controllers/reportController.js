@@ -164,6 +164,80 @@ class ReportController {
             res.status(500).json({ message: error.message });
         }
     }
+    static async getTeacherTimeReport(req, res) {
+        try {
+            const tenantId = req.user.tenantId;
+            const ClassLog = await import('../models/classLogModel.js').then(m => m.default);
+            const { startDate, endDate } = req.query;
+
+            const match = {
+                tenantId: typeof tenantId === 'string' ? new mongoose.Types.ObjectId(tenantId) : tenantId,
+                isSigned: true
+            };
+
+            if (startDate || endDate) {
+                match.signedAt = {};
+                if (startDate) match.signedAt.$gte = new Date(startDate);
+                if (endDate) match.signedAt.$lte = new Date(endDate);
+            }
+
+            const performance = await ClassLog.aggregate([
+                { $match: match },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'teacherId',
+                        foreignField: '_id',
+                        as: 'teacher'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'courses',
+                        localField: 'courseId',
+                        foreignField: '_id',
+                        as: 'course'
+                    }
+                },
+                { $unwind: '$teacher' },
+                { $unwind: '$course' },
+                {
+                    $group: {
+                        _id: {
+                            teacherId: '$teacherId',
+                            teacherName: '$teacher.name',
+                            courseName: '$course.name'
+                        },
+                        totalMinutes: { $sum: { $cond: [{ $ifNull: ['$effectiveDuration', false] }, '$effectiveDuration', '$duration'] } },
+                        classesCount: { $sum: 1 }
+                    }
+                },
+                {
+                    $group: {
+                        _id: {
+                            teacherId: '$_id.teacherId',
+                            teacherName: '$_id.teacherName'
+                        },
+                        totalMinutesAllCourses: { $sum: '$totalMinutes' },
+                        totalClassesAllCourses: { $sum: '$classesCount' },
+                        courses: {
+                            $push: {
+                                courseName: '$_id.courseName',
+                                minutes: '$totalMinutes',
+                                count: '$classesCount'
+                            }
+                        }
+                    }
+                },
+                { $sort: { 'totalMinutesAllCourses': -1 } }
+            ]);
+
+            res.json(performance);
+        } catch (error) {
+            console.error('Teacher time report error:', error);
+            res.status(500).json({ message: error.message });
+        }
+    }
 }
 
 export default ReportController;
