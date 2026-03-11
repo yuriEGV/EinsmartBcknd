@@ -16,6 +16,26 @@ class EventController {
                 tenantId: req.user.tenantId
             });
             await event.save();
+
+            // [NUEVO] Integración de Notificaciones de Calendario
+            try {
+                const NotificationService = await import('../services/notificationService.js').then(m => m.default);
+                // Si el evento es global, envía a todos los admins/docentes (o a toda la comunidad si hubiera un helper).
+                // Vamos a usar una alerta general al equipo directivo y docentes para que estén al tanto, 
+                // ya que no hay un "broadcastToAll" implementado por defecto.
+                if (req.body.target === 'global' || !req.body.target) {
+                     await NotificationService.broadcastToAdmins({
+                        tenantId: req.user.tenantId,
+                        title: `Nuevo Evento: ${event.title}`,
+                        message: `Se ha agendado un nuevo evento institucional para el ${new Date(event.date).toLocaleDateString()}: ${event.description}`,
+                        type: 'system',
+                        link: '/events'
+                     });
+                }
+            } catch (notifErr) {
+                console.error("Error sending event notification:", notifErr);
+            }
+
             res.status(201).json(event);
         } catch (error) {
             res.status(400).json({ message: error.message });
@@ -107,8 +127,35 @@ class EventController {
                 };
             });
 
+            // [NUEVO] Integrar Licencias Médicas de Funcionarios
+            const MedicalLicense = await import('../models/medicalLicenseModel.js').then(m => m.default);
+            // Solo personal interno necesita ver las licencias (directivos, UTP, admins)
+            let licenseEvents = [];
+            if (['admin', 'sostenedor', 'director', 'utp', 'inspector_general'].includes(req.user.role)) {
+                const licenses = await MedicalLicense.find({
+                    tenantId: req.user.tenantId,
+                    userType: 'Funcionario',
+                    estado: 'Aprobado'
+                }).populate('userId', 'name email');
+
+                licenseEvents = licenses.map(lic => {
+                    const userName = lic.userId ? lic.userId.name : 'Funcionario';
+                    return {
+                        _id: lic._id,
+                        tenantId: lic.tenantId,
+                        title: `Licencia Médica: ${userName}`,
+                        description: `Días de reposo: ${lic.diasReposo}. Tipo: ${lic.tipo}. Observaciones: ${lic.observaciones || 'N/A'}`,
+                        date: lic.fechaInicio,
+                        endDate: lic.fechaFin, // useful if frontend uses ranges
+                        location: 'Ausente',
+                        type: 'licencia',
+                        target: 'global'
+                    };
+                });
+            }
+
             // Combinar y retornar (ordenados por fecha)
-            const combined = [...events, ...alternanciaEvents].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const combined = [...events, ...alternanciaEvents, ...licenseEvents].sort((a, b) => new Date(a.date) - new Date(b.date));
 
             return res.status(200).json(combined);
         } catch (error) {
