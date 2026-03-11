@@ -7,16 +7,16 @@ class MedicalLicenseController {
     // Create a new medical license
     static async create(req, res) {
         try {
-            const { 
-                userId, 
-                userType, 
-                fechaInicio, 
-                fechaFin, 
-                tipo, 
-                documentoUrl, 
-                esElectronica, 
-                fechaEntrega, 
-                observaciones 
+            const {
+                userId,
+                userType,
+                fechaInicio,
+                fechaFin,
+                tipo,
+                documentoUrl,
+                esElectronica,
+                fechaEntrega,
+                observaciones
             } = req.body;
 
             // Only specific roles can manage licenses
@@ -31,7 +31,7 @@ class MedicalLicenseController {
 
             const start = new Date(fechaInicio);
             const end = new Date(fechaFin);
-            
+
             // Calculate days including both start and end dates
             const diffTime = Math.abs(end - start);
             const diasReposo = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
@@ -43,14 +43,14 @@ class MedicalLicenseController {
             // Staff specific validations
             if (userType === 'Funcionario') {
                 const deliveryDate = fechaEntrega ? new Date(fechaEntrega) : new Date();
-                
+
                 // Logic for delivery deadline: 2 business days (private) / 3 business days (public)
                 // We'll use a simplified business day check for now
                 const businessDaysPassed = MedicalLicenseController.countBusinessDays(start, deliveryDate);
-                
+
                 // Assuming most users are private for now, or check tenant type if added later
                 // Let's use 3 as a general safe limit or 2 if we want to be strict
-                const limit = 3; 
+                const limit = 3;
                 if (businessDaysPassed > limit) {
                     console.warn(`Licencia entregada fuera de plazo: ${businessDaysPassed} días hábiles.`);
                     // We allow it but could flag it
@@ -59,7 +59,7 @@ class MedicalLicenseController {
                 // Check 6-month limit in 2 years
                 const twoYearsAgo = new Date();
                 twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-                
+
                 const pastLicenses = await MedicalLicense.find({
                     userId,
                     tenantId: req.user.tenantId,
@@ -68,7 +68,7 @@ class MedicalLicenseController {
 
                 const totalPastDays = pastLicenses.reduce((acc, curr) => acc + curr.diasReposo, 0);
                 if (totalPastDays + diasReposo > 180) {
-                    return res.status(200).json({ 
+                    return res.status(200).json({
                         message: 'Advertencia: El funcionario excede o está cerca de exceder los 180 días de licencia en 2 años. Riesgo de vacancia.',
                         data: null,
                         limitWarning: true
@@ -79,6 +79,7 @@ class MedicalLicenseController {
             const license = new MedicalLicense({
                 tenantId: req.user.tenantId,
                 userId,
+                userModel: userType === 'Estudiante' ? 'Estudiante' : 'User',
                 userType,
                 fechaInicio: start,
                 fechaFin: end,
@@ -150,9 +151,28 @@ class MedicalLicenseController {
             }
 
             const licenses = await MedicalLicense.find(query)
-                .populate('userId', 'name role email')
+                .populate('userId', 'name nombres apellidos role email')
                 .sort({ fechaInicio: -1 });
-            res.json(licenses);
+
+            // [BUG 3 FIX] Asegurar nombre visible en respuesta
+            const enrichedLicenses = licenses.map(lic => {
+                const doc = lic.toObject();
+                // Si es User, el nombre está en .name (poblado por populate)
+                // Si es Estudiante, el nombre suele estar en .nombres (o uniendo ambos)
+                let name = 'Desconocido';
+                if (lic.userId) {
+                    if (lic.userType === 'Funcionario') {
+                        name = lic.userId.name || 'Funcionario';
+                    } else {
+                        name = (lic.userId.nombres && lic.userId.apellidos)
+                            ? `${lic.userId.nombres} ${lic.userId.apellidos}`
+                            : (lic.userId.name || 'Estudiante');
+                    }
+                }
+                return { ...doc, userName: name };
+            });
+
+            res.json(enrichedLicenses);
         } catch (error) {
             res.status(500).json({ message: error.message });
         }

@@ -24,13 +24,13 @@ class EventController {
                 // Vamos a usar una alerta general al equipo directivo y docentes para que estén al tanto, 
                 // ya que no hay un "broadcastToAll" implementado por defecto.
                 if (req.body.target === 'global' || !req.body.target) {
-                     await NotificationService.broadcastToAdmins({
+                    await NotificationService.broadcastToAdmins({
                         tenantId: req.user.tenantId,
                         title: `Nuevo Evento: ${event.title}`,
                         message: `Se ha agendado un nuevo evento institucional para el ${new Date(event.date).toLocaleDateString()}: ${event.description}`,
                         type: 'system',
                         link: '/events'
-                     });
+                    });
                 }
             } catch (notifErr) {
                 console.error("Error sending event notification:", notifErr);
@@ -94,7 +94,7 @@ class EventController {
             // Si es un rol directivo o profesor, ve todas las alternancias del tenant para coordinación
             // Si es alumno o apoderado, se filtrarán las que correspondan (o se asume global según el requerimiento "todos estén alertados")
             let altQuery = { tenantId: req.user.tenantId };
-            
+
             // Si es alumno/apoderado, solo ve las suyas/de su pupilo
             if (req.user.role === 'student' || req.user.role === 'apoderado') {
                 let studentId;
@@ -111,9 +111,9 @@ class EventController {
                 .populate('careerId', 'name');
 
             const alternanciaEvents = alternancias.map(alt => {
-                const studentName = alt.estudianteId ? 
+                const studentName = alt.estudianteId ?
                     (alt.estudianteId.nombres || `${alt.estudianteId.firstName} ${alt.estudianteId.lastName}`) : 'Estudiante';
-                
+
                 return {
                     _id: alt._id,
                     tenantId: alt.tenantId,
@@ -138,20 +138,68 @@ class EventController {
                     estado: 'Aprobado'
                 }).populate('userId', 'name email');
 
-                licenseEvents = licenses.map(lic => {
-                    const userName = lic.userId ? lic.userId.name : 'Funcionario';
-                    return {
-                        _id: lic._id,
-                        tenantId: lic.tenantId,
-                        title: `Licencia Médica: ${userName}`,
-                        description: `Días de reposo: ${lic.diasReposo}. Tipo: ${lic.tipo}. Observaciones: ${lic.observaciones || 'N/A'}`,
-                        date: lic.fechaInicio,
-                        endDate: lic.fechaFin, // useful if frontend uses ranges
-                        location: 'Ausente',
-                        type: 'licencia',
-                        target: 'global'
-                    };
-                });
+                // [BUG 4 FIX] Agrupar licencias por fecha de inicio cuando coinciden múltiples funcionarios
+                const licensesByDate = {};
+                for (const lic of licenses) {
+                    const userName = lic.userId?.name || 'Funcionario';
+                    const dateKey = lic.fechaInicio.toISOString().split('T')[0]; // YYYY-MM-DD
+
+                    if (!licensesByDate[dateKey]) {
+                        licensesByDate[dateKey] = [];
+                    }
+                    licensesByDate[dateKey].push({ lic, userName });
+                }
+
+                // Convertir grupos a eventos del calendario
+                for (const [dateKey, group] of Object.entries(licensesByDate)) {
+                    if (group.length === 1) {
+                        // Licencia individual: evento simple con nombre del funcionario
+                        const { lic, userName } = group[0];
+                        licenseEvents.push({
+                            _id: lic._id,
+                            tenantId: lic.tenantId,
+                            title: `🔴 Licencia: ${userName}`,
+                            description: `${lic.tipo} — ${lic.diasReposo} días (hasta ${new Date(lic.fechaFin).toLocaleDateString('es-CL')}). ${lic.observaciones || ''}`.trim(),
+                            date: lic.fechaInicio,
+                            endDate: lic.fechaFin,
+                            location: 'Ausente',
+                            type: 'licencia',
+                            // [BUG 4 FIX] Metadatos de color para el frontend
+                            colorHex: '#ef4444',
+                            bgColorHex: '#fee2e2',
+                            isLicencia: true,
+                            target: 'global'
+                        });
+                    } else {
+                        // Múltiples licencias en el mismo día: evento agrupado
+                        const nombres = group.map(g => g.userName).join(', ');
+                        const lic = group[0].lic; // Usar la primera para la fecha
+                        const maxEndDate = group.reduce((max, g) =>
+                            new Date(g.lic.fechaFin) > max ? new Date(g.lic.fechaFin) : max,
+                            new Date(lic.fechaFin)
+                        );
+                        const detalles = group.map(g =>
+                            `• ${g.userName}: ${g.lic.tipo} (${g.lic.diasReposo} días)`
+                        ).join('\n');
+
+                        licenseEvents.push({
+                            _id: `group-${dateKey}`,
+                            tenantId: lic.tenantId,
+                            title: `🔴 Licencias (${group.length} funcionarios)`,
+                            description: `Funcionarios con licencia médica el ${new Date(dateKey).toLocaleDateString('es-CL')}:\n${detalles}`,
+                            date: lic.fechaInicio,
+                            endDate: maxEndDate,
+                            location: 'Varios ausentes',
+                            type: 'licencia',
+                            // [BUG 4 FIX] Metadatos de color para el frontend
+                            colorHex: '#ef4444',
+                            bgColorHex: '#fee2e2',
+                            isLicencia: true,
+                            licenciadosCount: group.length,
+                            target: 'global'
+                        });
+                    }
+                }
             }
 
             // Combinar y retornar (ordenados por fecha)

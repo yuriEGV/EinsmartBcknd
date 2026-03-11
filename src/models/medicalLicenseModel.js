@@ -9,7 +9,13 @@ const medicalLicenseSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
-        // Can be Estudiante ID or User ID (for staff)
+        refPath: 'userModel'
+    },
+    userModel: {
+        type: String,
+        required: true,
+        enum: ['User', 'Estudiante'],
+        default: 'User'
     },
     userType: {
         type: String,

@@ -53,18 +53,33 @@ class ReportController {
             const Grade = await import('../models/gradeModel.js').then(m => m.default);
             const Attendance = await import('../models/attendanceModel.js').then(m => m.default);
             const Anotacion = await import('../models/anotacionModel.js').then(m => m.default);
+            const MedicalLicense = await import('../models/medicalLicenseModel.js').then(m => m.default);
+            const Atraso = await import('../models/atrasoModel.js').then(m => m.default);
 
-            const [student, grades, attendance, annotations] = await Promise.all([
+            const [student, grades, attendance, annotations, licenses, atrasos] = await Promise.all([
                 Estudiante.findById(studentId).select('nombres apellidos rut grado'),
                 Grade.find({ estudianteId: studentId, tenantId }).populate({
                     path: 'evaluationId',
                     populate: { path: 'subjectId', select: 'name' }
                 }),
                 Attendance.find({ estudianteId: studentId, tenantId }).sort({ fecha: -1 }),
-                Anotacion.find({ estudianteId: studentId, tenantId }).populate('creadoPor', 'name').sort({ createdAt: -1 })
+                Anotacion.find({ estudianteId: studentId, tenantId }).populate('creadoPor', 'name').sort({ createdAt: -1 }),
+                // [BUG 1 FIX] Incluir licencias médicas del alumno en la ficha
+                MedicalLicense.find({ userId: studentId, tenantId, userType: 'Estudiante' })
+                    .sort({ fechaInicio: -1 }),
+                // Incluir atrasos del alumno
+                Atraso.find({ estudianteId: studentId, tenantId })
+                    .populate('registradoPor', 'name')
+                    .sort({ fecha: -1 })
             ]);
 
             if (!student) return res.status(404).json({ message: 'Estudiante no encontrado' });
+
+            // Minutos legales por bloque (normativa MINEDUC Chile)
+            const MINUTOS_LEGALES_BLOQUE = {
+                'Bloque 1': 25, 'Bloque 2': 20, 'Bloque 3': 15,
+                'Bloque 4': 10, 'Bloque 5': 10
+            };
 
             res.status(200).json({
                 student,
@@ -87,6 +102,27 @@ class ReportController {
                     descripcion: a.descripcion,
                     fecha: a.fechaOcurrencia || a.createdAt,
                     autor: a.creadoPor?.name
+                })),
+                // [BUG 1 FIX] Licencias médicas del alumno
+                licenses: licenses.map(lic => ({
+                    _id: lic._id,
+                    tipo: lic.tipo,
+                    fechaInicio: lic.fechaInicio,
+                    fechaFin: lic.fechaFin,
+                    diasReposo: lic.diasReposo,
+                    estado: lic.estado,
+                    observaciones: lic.observaciones,
+                    esElectronica: lic.esElectronica
+                })),
+                atrasos: atrasos.map(a => ({
+                    _id: a._id,
+                    fecha: a.fecha,
+                    bloque: a.bloque,
+                    minutosAtraso: a.minutosAtraso,
+                    minutosLegales: MINUTOS_LEGALES_BLOQUE[a.bloque] || a.minutosAtraso,
+                    estado: a.estado,
+                    motivo: a.motivo,
+                    registradoPor: a.registradoPor?.name
                 }))
             });
         } catch (error) {
@@ -199,17 +235,41 @@ class ReportController {
                         as: 'course'
                     }
                 },
+                {
+                    $lookup: {
+                        from: 'subjects',
+                        localField: 'subjectId',
+                        foreignField: '_id',
+                        as: 'subject'
+                    }
+                },
                 { $unwind: '$teacher' },
                 { $unwind: '$course' },
+                {
+                    $unwind: {
+                        path: '$subject',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
                 {
                     $group: {
                         _id: {
                             teacherId: '$teacherId',
                             teacherName: '$teacher.name',
-                            courseName: '$course.name'
+                            courseName: '$course.name',
+                            subjectName: { $ifNull: ['$subject.name', 'Sin asignatura'] }
                         },
-                        totalMinutes: { $sum: { $cond: [{ $ifNull: ['$effectiveDuration', false] }, '$effectiveDuration', '$duration'] } },
-                        classesCount: { $sum: 1 }
+                        // Sumar minutos efectivos (effectiveDuration tiene prioridad sobre duration)
+                        totalMinutos: {
+                            $sum: {
+                                $cond: [
+                                    { $gt: ['$effectiveDuration', 0] },
+                                    '$effectiveDuration',
+                                    '$duration'
+                                ]
+                            }
+                        },
+                        totalClases: { $sum: 1 }
                     }
                 },
                 {
@@ -218,18 +278,27 @@ class ReportController {
                             teacherId: '$_id.teacherId',
                             teacherName: '$_id.teacherName'
                         },
-                        totalMinutesAllCourses: { $sum: '$totalMinutes' },
-                        totalClassesAllCourses: { $sum: '$classesCount' },
+                        totalMinutosAllCourses: { $sum: '$totalMinutos' },
+                        totalClasesAllCourses: { $sum: '$totalClases' },
                         courses: {
                             $push: {
                                 courseName: '$_id.courseName',
-                                minutes: '$totalMinutes',
-                                count: '$classesCount'
+                                subjectName: '$_id.subjectName',
+                                minutos: '$totalMinutos',
+                                // [BUG 5 FIX] Calcular horas efectivas por curso
+                                horasEfectivas: { $divide: ['$totalMinutos', 60] },
+                                clases: '$totalClases'
                             }
                         }
                     }
                 },
-                { $sort: { 'totalMinutesAllCourses': -1 } }
+                {
+                    $addFields: {
+                        // [BUG 5 FIX] Horas efectivas totales del profesor
+                        horasEfectivasTotal: { $divide: ['$totalMinutosAllCourses', 60] }
+                    }
+                },
+                { $sort: { 'totalMinutosAllCourses': -1 } }
             ]);
 
             res.json(performance);
