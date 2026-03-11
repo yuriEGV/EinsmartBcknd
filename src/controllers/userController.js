@@ -47,10 +47,19 @@ class UserController {
                 secretario: 'secretario',
                 paradocente: 'paradocente',
                 utp: 'utp',
-                jefe_utp: 'utp'
+                jefe_utp: 'utp',
+                inspector_general: 'inspector_general',
+                'inspector general': 'inspector_general',
+                trabajador_social: 'trabajador_social',
+                'trabajador social': 'trabajador_social',
+                psicopedagogo: 'psicopedagogo',
+                auxiliar: 'auxiliar',
+                vigilante: 'vigilante',
+                administrativo: 'administrativo'
             };
 
-            const finalRole = roleMap[rol || role];
+            const rawRole = rol || role;
+            const finalRole = roleMap[rawRole ? rawRole.toLowerCase() : ''];
             if (!finalRole) {
                 return res.status(400).json({ message: 'Rol inválido' });
             }
@@ -246,10 +255,19 @@ class UserController {
                     secretario: 'secretario',
                     paradocente: 'paradocente',
                     utp: 'utp',
-                    jefe_utp: 'utp'
+                    jefe_utp: 'utp',
+                    inspector_general: 'inspector_general',
+                    'inspector general': 'inspector_general',
+                    trabajador_social: 'trabajador_social',
+                    'trabajador social': 'trabajador_social',
+                    psicopedagogo: 'psicopedagogo',
+                    auxiliar: 'auxiliar',
+                    vigilante: 'vigilante',
+                    administrativo: 'administrativo'
                 };
 
-                const newRole = roleMap[req.body.role || req.body.rol];
+                const rawRole = req.body.role || req.body.rol;
+                const newRole = roleMap[rawRole ? rawRole.toLowerCase() : ''];
                 if (!newRole) {
                     return res.status(400).json({ message: 'Rol inválido' });
                 }
