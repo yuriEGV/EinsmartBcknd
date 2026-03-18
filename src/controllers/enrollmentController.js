@@ -398,6 +398,13 @@ class EnrollmentController {
                 .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
+
+            enrollments.sort((a, b) => {
+                const apeA = a.estudianteId?.apellidos || '';
+                const apeB = b.estudianteId?.apellidos || '';
+                return apeA.localeCompare(apeB, 'es');
+            });
+
             res.status(200).json(enrollments);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -414,6 +421,13 @@ class EnrollmentController {
                 .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
+
+            enrollments.sort((a, b) => {
+                const apeA = a.estudianteId?.apellidos || '';
+                const apeB = b.estudianteId?.apellidos || '';
+                return apeA.localeCompare(apeB, 'es');
+            });
+
             res.status(200).json(enrollments);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -438,6 +452,13 @@ class EnrollmentController {
                 .populate('apoderadoId', 'nombre apellidos');
 
             console.log(`[DEBUG] getEnrollmentsByCourse - Found ${enrollments.length} enrollments`);
+
+            enrollments.sort((a, b) => {
+                const apeA = a.estudianteId?.apellidos || '';
+                const apeB = b.estudianteId?.apellidos || '';
+                return apeA.localeCompare(apeB, 'es');
+            });
+
             res.status(200).json(enrollments);
         } catch (error) {
             console.error('[ERROR] getEnrollmentsByCourse:', error);
@@ -457,6 +478,13 @@ class EnrollmentController {
                 .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
+
+            enrollments.sort((a, b) => {
+                const apeA = a.estudianteId?.apellidos || '';
+                const apeB = b.estudianteId?.apellidos || '';
+                return apeA.localeCompare(apeB, 'es');
+            });
+
             res.status(200).json(enrollments);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -473,6 +501,13 @@ class EnrollmentController {
                 .populate('estudianteId', 'nombres apellidos rut email')
                 .populate('courseId', 'name code')
                 .populate('apoderadoId', 'nombre apellidos');
+
+            enrollments.sort((a, b) => {
+                const apeA = a.estudianteId?.apellidos || '';
+                const apeB = b.estudianteId?.apellidos || '';
+                return apeA.localeCompare(apeB, 'es');
+            });
+
             res.status(200).json(enrollments);
         } catch (error) {
             res.status(500).json({ message: error.message });
