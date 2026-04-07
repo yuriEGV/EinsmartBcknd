@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log*
+.git
+.env
+*.md
+logs
+*.log
+dist
+
+# Scripts de admin/debug (no necesarios en producción)
+*.js
+!src/**

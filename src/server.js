@@ -22,26 +22,43 @@ const app = express();
 
 const allowedOrigins = [
   'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost',
   'https://maritimo4-0-frontend.vercel.app',
   'https://einsmartfrntnd.vercel.app',
   'https://einsmartfrntnd-ruby.vercel.app',
   'https://einsmart-bcknd.vercel.app'
 ];
 
-// Robust CORS configuration
+// Detecta si el origen es una IP privada de LAN (despliegue local en colegio)
+function isLocalNetworkOrigin(origin) {
+  if (!origin) return false;
+  try {
+    const { hostname } = new URL(origin);
+    return (
+      hostname === 'localhost' ||
+      /^127\./.test(hostname) ||
+      /^192\.168\./.test(hostname) ||
+      /^10\./.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Robust CORS configuration (LAN + cloud)
 app.use(cors({
   origin: (origin, callback) => {
+    // Sin origen = petición interna (nginx proxy, curl, mobile app) → permitir
     if (!origin) return callback(null, true);
 
-    const isAllowed = allowedOrigins.includes(origin) ||
+    const isAllowed =
+      allowedOrigins.includes(origin) ||
       origin.endsWith('.vercel.app') ||
-      origin.includes('localhost');
+      isLocalNetworkOrigin(origin);
 
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
+    callback(null, isAllowed);
   },
   methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'X-Requested-With', 'Accept', 'X-CSRF-Token'],
