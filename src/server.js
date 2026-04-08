@@ -88,52 +88,8 @@ app.get('/', (req, res) => res.json({
   timestamp: new Date().toISOString()
 }));
 
-// --- TEMPORARY SETUP ROUTE ---
-app.get('/setup-admin', async (req, res) => {
-  try {
-    await connectDB();
-    let tenant = await Tenant.findOne({ name: 'Einsmart' });
-    if (!tenant) {
-      tenant = await Tenant.create({
-        name: 'Einsmart',
-        domain: 'einsmart.cl',
-        theme: { primaryColor: '#3b82f6', secondaryColor: '#1e293b' }
-      });
-    }
+// El setup inicial ahora se maneja automáticamente al arrancar el servidor vía seedInitialAdmin.js
 
-    const admins = [
-      { name: 'Yuri Admin', email: 'yuri@gmail.com', rut: '12.345.678-K' },
-      { name: 'Yuri Admin Einsmart', email: 'yuri@einsmart.cl', rut: '11.222.333-4' },
-      { name: 'Vicente Admin', email: 'vicente@einsmart.cl', rut: '22.333.444-5' }
-    ];
-
-    const results = [];
-    for (const admin of admins) {
-      const passwordHash = await bcrypt.hash('123456', 10);
-      let user = await User.findOne({ email: admin.email });
-      if (user) {
-        user.passwordHash = passwordHash;
-        user.role = 'admin';
-        user.tenantId = tenant._id;
-        await user.save();
-        results.push(`${admin.email} updated`);
-      } else {
-        await User.create({
-          name: admin.name,
-          email: admin.email,
-          passwordHash,
-          role: 'admin',
-          tenantId: tenant._id,
-          rut: admin.rut
-        });
-        results.push(`${admin.email} created`);
-      }
-    }
-    return res.json({ message: 'Setup complete', details: results });
-  } catch (error) {
-    return res.status(500).json({ message: 'Setup Error', error: error.message });
-  }
-});
 
 // Register routes
 app.use(['/api', '/'], apiRoutes);

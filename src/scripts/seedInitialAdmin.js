@@ -5,16 +5,18 @@ import Tenant from '../models/tenantModel.js';
 
 export async function seedInitialAdmin() {
     try {
-        console.log('🚀 Iniciando seeding de administrador...');
+        console.log('--------------------------------------------------');
+        console.log('🚀 [SEED] Iniciando seeding de administrador...');
         
-        // 1. Obtener datos del colegio desde el entorno o valores por defecto
+        // 1. Obtener datos del colegio desde el entorno
         const schoolName = process.env.SCHOOL_NAME || 'Einsmart Default';
         const schoolDomain = process.env.SCHOOL_DOMAIN || 'einsmart.cl';
+        
+        console.log(`📡 [SEED] Configuración: "${schoolName}" (${schoolDomain})`);
         
         // 2. Asegurar que existe el Tenant
         let tenant = await Tenant.findOne({ name: schoolName });
         if (!tenant) {
-            // Buscar por dominio si no se encuentra por nombre
             tenant = await Tenant.findOne({ domain: schoolDomain });
         }
         
@@ -25,9 +27,13 @@ export async function seedInitialAdmin() {
                 theme: { primaryColor: '#3b82f6', secondaryColor: '#1e293b' },
                 plan: 'basic'
             });
-            console.log(`✅ Tenant creado: ${schoolName}`);
+            console.log(`✅ [SEED] Tenant creado: ${schoolName} (ID: ${tenant._id})`);
         } else {
-            console.log(`ℹ️ Tenant ya existe: ${tenant.name}`);
+            // Actualizar nombre si cambió en el .env
+            tenant.name = schoolName;
+            tenant.domain = schoolDomain;
+            await tenant.save();
+            console.log(`ℹ️ [SEED] Tenant existente actualizado: ${tenant.name} (ID: ${tenant._id})`);
         }
 
         // 3. Crear/Actualizar administradores
@@ -41,11 +47,13 @@ export async function seedInitialAdmin() {
         for (const admin of admins) {
             let user = await User.findOne({ email: admin.email });
             if (user) {
+                user.name = admin.name;
                 user.passwordHash = passwordHash;
                 user.role = 'admin';
                 user.tenantId = tenant._id;
+                user.rut = admin.rut;
                 await user.save();
-                console.log(`✅ Usuario actualizado: ${admin.email}`);
+                console.log(`✅ [SEED] Usuario actualizado: ${admin.email} (Role: ${user.role}, Tenant: ${tenant.name})`);
             } else {
                 await User.create({
                     name: admin.name,
@@ -55,20 +63,20 @@ export async function seedInitialAdmin() {
                     tenantId: tenant._id,
                     rut: admin.rut
                 });
-                console.log(`✅ Usuario creado: ${admin.email}`);
+                console.log(`✅ [SEED] Usuario creado: ${admin.email} (Role: admin, Tenant: ${tenant.name})`);
             }
         }
 
-        console.log('🏁 Seeding de admin completado con éxito.');
+        console.log('🏁 [SEED] Seeding completado con éxito.');
+        console.log('--------------------------------------------------');
         return true;
     } catch (error) {
-        console.error('❌ Error en seedInitialAdmin:', error);
+        console.error('❌ [SEED] Error en seedInitialAdmin:', error);
         return false;
     }
 }
 
-// Permitir ejecución directa del script
-if (process.argv[1].endsWith('seedInitialAdmin.js')) {
+if (process.argv[1] && process.argv[1].endsWith('seedInitialAdmin.js')) {
     const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/einsmart';
     mongoose.connect(MONGO_URI)
         .then(() => seedInitialAdmin())
