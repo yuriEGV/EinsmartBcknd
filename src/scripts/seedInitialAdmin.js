@@ -8,13 +8,11 @@ export async function seedInitialAdmin() {
         console.log('--------------------------------------------------');
         console.log('🚀 [SEED] Iniciando seeding de administrador...');
         
-        // 1. Obtener datos del colegio desde el entorno
         const schoolName = process.env.SCHOOL_NAME || 'Einsmart Default';
         const schoolDomain = process.env.SCHOOL_DOMAIN || 'einsmart.cl';
         
         console.log(`📡 [SEED] Configuración: "${schoolName}" (${schoolDomain})`);
         
-        // 2. Asegurar que existe el Tenant
         let tenant = await Tenant.findOne({ name: schoolName });
         if (!tenant) {
             tenant = await Tenant.findOne({ domain: schoolDomain });
@@ -29,14 +27,12 @@ export async function seedInitialAdmin() {
             });
             console.log(`✅ [SEED] Tenant creado: ${schoolName} (ID: ${tenant._id})`);
         } else {
-            // Actualizar nombre si cambió en el .env
             tenant.name = schoolName;
             tenant.domain = schoolDomain;
             await tenant.save();
-            console.log(`ℹ️ [SEED] Tenant existente actualizado: ${tenant.name} (ID: ${tenant._id})`);
+            console.log(`ℹ️ [SEED] Tenant existente: ${tenant.name} (ID: ${tenant._id})`);
         }
 
-        // 3. Crear/Actualizar administradores
         const admins = [
             { name: 'Yuri Admin', email: 'yuri@einsmart.cl', rut: '11.222.333-4' },
             { name: 'Soporte Einsmart', email: 'soporte@einsmart.cl', rut: '99.999.999-9' }
@@ -45,15 +41,20 @@ export async function seedInitialAdmin() {
         const passwordHash = await bcrypt.hash('123456', 10);
 
         for (const admin of admins) {
-            let user = await User.findOne({ email: admin.email });
-            if (user) {
-                user.name = admin.name;
-                user.passwordHash = passwordHash;
-                user.role = 'admin';
-                user.tenantId = tenant._id;
-                user.rut = admin.rut;
-                await user.save();
-                console.log(`✅ [SEED] Usuario actualizado: ${admin.email} (Role: ${user.role}, Tenant: ${tenant.name})`);
+            // Buscamos TODOS los usuarios con este email por si hay duplicados en otros tenants antiguos
+            const users = await User.find({ email: admin.email });
+            
+            if (users.length > 0) {
+                console.log(`ℹ️ [SEED] Encontrados ${users.length} usuarios con email ${admin.email}. Normalizando...`);
+                for (let user of users) {
+                    user.name = admin.name;
+                    user.passwordHash = passwordHash;
+                    user.role = 'admin';
+                    user.tenantId = tenant._id; // Mover al tenant actual
+                    user.rut = admin.rut;
+                    await user.save();
+                    console.log(`   ✅ [SEED] Usuario actualizado: ${admin.email} (ID: ${user._id})`);
+                }
             } else {
                 await User.create({
                     name: admin.name,
@@ -63,7 +64,7 @@ export async function seedInitialAdmin() {
                     tenantId: tenant._id,
                     rut: admin.rut
                 });
-                console.log(`✅ [SEED] Usuario creado: ${admin.email} (Role: admin, Tenant: ${tenant.name})`);
+                console.log(`✅ [SEED] Usuario creado: ${admin.email} (Tenant: ${tenant.name})`);
             }
         }
 
