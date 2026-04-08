@@ -76,11 +76,20 @@ app.use(morgan('dev'));
 app.get('/health', async (req, res) => {
   try {
     await connectDB();
-    res.status(200).json({ status: 'OK', db: mongoose.connection.readyState });
+    const userCount = await User.countDocuments();
+    const tenantCount = await Tenant.countDocuments();
+    res.status(200).json({ 
+      status: 'OK', 
+      db: mongoose.connection.readyState,
+      users: userCount,
+      tenants: tenantCount,
+      timestamp: new Date().toISOString()
+    });
   } catch (err) {
     res.status(500).json({ status: 'ERROR', error: err.message });
   }
 });
+
 
 app.get('/', (req, res) => res.json({
   message: 'Einsmart API is running 🚀',
