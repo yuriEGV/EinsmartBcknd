@@ -93,6 +93,9 @@ class MedicalLicenseController {
 
             await license.save();
 
+            // Trigger Notification
+            NotificationService.notifyMedicalLicenseStatus(req.user.tenantId, license, 'Pendiente');
+
             // Auto-justify existing attendance records for students
             if (userType === 'Estudiante') {
                 await Attendance.updateMany(
@@ -212,6 +215,9 @@ class MedicalLicenseController {
                 );
             }
 
+            // Trigger Notification
+            NotificationService.notifyMedicalLicenseStatus(req.user.tenantId, license, estado);
+
             res.json(license);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -261,6 +267,33 @@ class MedicalLicenseController {
             fechaFin: { $gte: checkDate },
             estado: 'Aprobado'
         });
+    }
+
+    // List only approved licenses for the tenant (for calendar)
+    static async listApproved(req, res) {
+        try {
+            const licenses = await MedicalLicense.find({
+                tenantId: req.user.tenantId,
+                estado: 'Aprobado'
+            }).populate('userId', 'name nombres apellidos email');
+
+            // Format specialized for calendar consumption if needed
+            const formatted = licenses.map(lic => {
+                const user = lic.userId;
+                const userName = lic.userType === 'Estudiante' 
+                    ? (user.nombres + ' ' + (user.apellidos || ''))
+                    : (user.name || 'Funcionario');
+                
+                return {
+                    ...lic.toObject(),
+                    userName
+                };
+            });
+
+            res.json(formatted);
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
     }
 }
 

@@ -8,6 +8,7 @@ router.use(authenticate);
 
 router.post('/', MedicalLicenseController.create);
 router.get('/', MedicalLicenseController.list);
+router.get('/approved', MedicalLicenseController.listApproved);
 router.get('/:id', MedicalLicenseController.getById);
 router.put('/:id', MedicalLicenseController.updateStatus);
 router.delete('/:id', MedicalLicenseController.delete);

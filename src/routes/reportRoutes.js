@@ -4,6 +4,15 @@ import ReportController from '../controllers/reportController.js';
 
 const router = express.Router();
 
+const authorizedRoles = ['admin', 'sostenedor', 'director', 'utp', 'inspector_general'];
+
+const checkAuth = (req, res, next) => {
+    if (authorizedRoles.includes(req.user.role)) {
+        return next();
+    }
+    return res.status(403).json({ message: 'No tienes permisos para ver estos reportes.' });
+};
+
 /**
  * LISTAR REPORTES DEL TENANT
  * GET /api/reports
@@ -33,13 +42,13 @@ router.get('/student/:studentId', ReportController.getStudentSummary);
  * RENDIMIENTO SEMANAL DE CLASES
  * GET /api/reports/performance
  */
-router.get('/performance', ReportController.getWeeklyClassPerformance);
+router.get('/performance', checkAuth, ReportController.getWeeklyClassPerformance);
 
 /**
  * REPORTE DE HORAS EN AULA POR PROFESOR
  * GET /api/reports/teacher-time?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
  */
-router.get('/teacher-time', ReportController.getTeacherTimeReport);
+router.get('/teacher-time', checkAuth, ReportController.getTeacherTimeReport);
 
 /**
  * OBTENER REPORTE POR ID

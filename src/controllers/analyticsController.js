@@ -650,15 +650,102 @@ class AnalyticsController {
     }
 
     // Get Class Book Metrics (Effective Time in Classroom)
-    static async getClassBookMetrics(req, res) {
+    // Get ranking of users with most medical licenses
+    static async getMedicalLicenseRanking(req, res) {
         try {
             await connectDB();
             const tid = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
             const tenantId = new mongoose.Types.ObjectId(tid);
 
+            const MedicalLicense = mongoose.model('MedicalLicense');
+
+            const ranking = await MedicalLicense.aggregate([
+                { $match: { tenantId, estado: 'Aprobado' } },
+                {
+                    $group: {
+                        _id: '$userId',
+                        totalDays: { $sum: '$diasReposo' },
+                        licenseCount: { $sum: 1 },
+                        userType: { $first: '$userType' }
+                    }
+                },
+                { $sort: { totalDays: -1 } },
+                { $limit: 20 },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: '_id',
+                        foreignField: '_id',
+                        as: 'userData'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'estudiantes',
+                        localField: '_id',
+                        foreignField: '_id',
+                        as: 'studentData'
+                    }
+                },
+                {
+                    $addFields: {
+                        name: {
+                            $cond: {
+                                if: { $eq: ['$userType', 'Estudiante'] },
+                                then: {
+                                    $let: {
+                                        vars: { s: { $arrayElemAt: ['$studentData', 0] } },
+                                        in: { $concat: ['$$s.nombres', ' ', '$$s.apellidos'] }
+                                    }
+                                },
+                                else: { $arrayElemAt: ['$userData.name', 0] }
+                            }
+                        }
+                    }
+                },
+                {
+                    $project: {
+                        studentData: 0,
+                        userData: 0
+                    }
+                }
+            ]);
+
+            return res.status(200).json(ranking);
+        } catch (error) {
+            console.error('Medical License Ranking Error:', error);
+            return res.status(500).json({ message: error.message });
+        }
+    }
+
+    // Get Class Book Metrics (Effective Time in Classroom + Teacher Efficiency)
+    static async getClassBookMetrics(req, res) {
+        try {
+            await connectDB();
+            const tid = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
+            const tenantId = new mongoose.Types.ObjectId(tid);
+            const { startDate, endDate, range } = req.query;
+
+            const matchCriteria = { tenantId };
+            
+            // Handle specific ranges (week, month, year)
+            if (range) {
+                const now = new Date();
+                let start = new Date();
+                if (range === 'week') start.setDate(now.getDate() - 7);
+                else if (range === 'month') start.setMonth(now.getMonth() - 1);
+                else if (range === 'year') start.setFullYear(now.getFullYear() - 1);
+                
+                matchCriteria.date = { $gte: start, $lte: now };
+            } else if (startDate || endDate) {
+                matchCriteria.date = {};
+                if (startDate) matchCriteria.date.$gte = new Date(startDate);
+                if (endDate) matchCriteria.date.$lte = new Date(endDate);
+            }
+
             // 1. Calculate Effective Time per Course/Subject
             const classTimeMetrics = await ClassLog.aggregate([
-                { $match: { tenantId } },
+                { $match: matchCriteria },
                 {
                     $group: {
                         _id: {
@@ -689,60 +776,41 @@ class AnalyticsController {
                         as: 'subject'
                     }
                 },
-                { $unwind: '$course' },
-                { $unwind: '$subject' },
+                { $unwind: { path: '$course', preserveNullAndEmptyArrays: true } },
+                { $unwind: { path: '$subject', preserveNullAndEmptyArrays: true } },
                 {
                     $project: {
-                        courseName: '$course.name',
-                        subjectName: '$subject.name',
+                        courseName: { $ifNull: ['$course.name', 'Desconocido'] },
+                        subjectName: { $ifNull: ['$subject.name', 'Desconocido'] },
                         date: '$_id.date',
                         bloqueHorario: '$_id.bloqueHorario',
                         totalDuration: 1,
-                        plannedDuration: {
-                            $multiply: [
-                                { $subtract: ['$plannedEndTime', '$plannedStartTime'] },
-                                { $divide: [1, 60000] }
-                            ]
-                        },
                         totalDelay: 1,
                         totalInterruption: 1,
-                        classCount: 1,
-                        fulfillment: {
-                            $cond: [
-                                { $gt: [{ $subtract: ['$plannedEndTime', '$plannedStartTime'] }, 0] },
-                                {
-                                    $multiply: [
-                                        {
-                                            $divide: [
-                                                '$totalDuration',
-                                                { $divide: [{ $subtract: ['$plannedEndTime', '$plannedStartTime'] }, 60000] }
-                                            ]
-                                        },
-                                        100
-                                    ]
-                                },
-                                100
-                            ]
-                        }
+                        classCount: 1
                     }
                 }
             ]);
 
-            // 2. Schedule Coverage %
+            // 2. Global Coverage %
             const totalScheduled = await Schedule.countDocuments({ tenantId });
             const totalRealized = await ClassLog.countDocuments({ tenantId, isSigned: true });
 
+            // Note: Coverage usually measured against expected monthly classes. 
+            // Simplified: (Realized)/(Scheduled * 4 weeks) for estimation
             const globalCoverage = totalScheduled > 0
                 ? parseFloat(((totalRealized / (totalScheduled * 4)) * 100).toFixed(2))
                 : 100;
 
-            // 3. Time lost by teacher
-            const teacherLostTime = await ClassLog.aggregate([
-                { $match: { tenantId } },
+            // 3. Teacher Efficiency Ranking
+            const teacherEfficiency = await ClassLog.aggregate([
+                { $match: { ...matchCriteria, isSigned: true } },
                 {
                     $group: {
                         _id: '$teacherId',
-                        totalLost: { $sum: { $add: ['$delayMinutes', '$interruptionMinutes'] } }
+                        signedClasses: { $sum: 1 },
+                        totalEffectiveMinutes: { $sum: '$effectiveDuration' },
+                        totalLostMinutes: { $sum: { $add: ['$delayMinutes', '$interruptionMinutes'] } }
                     }
                 },
                 {
@@ -757,19 +825,35 @@ class AnalyticsController {
                 {
                     $project: {
                         teacherName: '$teacher.name',
-                        totalLost: 1
+                        signedClasses: 1,
+                        totalEffectiveMinutes: 1,
+                        totalLostMinutes: 1,
+                        efficiency: {
+                            $cond: [
+                                { $gt: [{ $add: ['$totalEffectiveMinutes', '$totalLostMinutes'] }, 0] },
+                                {
+                                    $multiply: [
+                                        { $divide: ['$totalEffectiveMinutes', { $add: ['$totalEffectiveMinutes', '$totalLostMinutes'] }] },
+                                        100
+                                    ]
+                                },
+                                100
+                            ]
+                        }
                     }
-                }
+                },
+                { $sort: { signedClasses: -1 } }
             ]);
 
             return res.status(200).json({
                 globalCoverage,
                 classTimeMetrics,
-                teacherLostTime,
-                alerts: classTimeMetrics.filter(m => m.classCount < 5).map(m => ({
-                    type: 'low_coverage',
-                    message: `El curso ${m.courseName} en ${m.subjectName} tiene muy poca actividad registrada.`
-                }))
+                teacherEfficiency,
+                stats: {
+                    totalRealized,
+                    totalLostGlobal: teacherEfficiency.reduce((acc, curr) => acc + curr.totalLostMinutes, 0),
+                    totalEffectiveGlobal: teacherEfficiency.reduce((acc, curr) => acc + curr.totalEffectiveMinutes, 0)
+                }
             });
         } catch (error) {
             console.error('Class Book Metrics Error:', error);

@@ -25,8 +25,11 @@ router.get('/performance-trends', analyticsController.getPerformanceTrends);
 // Get dashboard main stats
 router.get('/dashboard-stats', analyticsController.getDashboardStats);
 
-// Get debtor ranking
+// Get ranking of debtors
 router.get('/debtors', analyticsController.getDebtorRanking);
+
+// Get medical license ranking
+router.get('/licenses-ranking', analyticsController.getMedicalLicenseRanking);
 
 // Get high-level authority stats
 router.get('/authority-stats', analyticsController.getAuthorityStats);
