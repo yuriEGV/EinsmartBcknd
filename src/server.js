@@ -101,14 +101,21 @@ app.use((err, req, res, next) => {
 });
 
 const __filename = fileURLToPath(import.meta.url);
-if (process.argv[1] === __filename) {
-  const PORT = process.env.PORT || 5000;
-  connectDB().then(async () => {
-    // Run initial seeding
-    await seedInitialAdmin();
-    
-    app.listen(PORT, () => console.log(`Server at http://localhost:${PORT}`));
+const PORT = process.env.PORT || 5000;
+console.log(`Starting server on port ${PORT}...`);
+
+connectDB().then(async () => {
+  console.log('✅ Database connected. Running seeding...');
+  // Run initial seeding
+  await seedInitialAdmin();
+  
+  app.listen(PORT, () => {
+    console.log(`🚀 Einsmart Backend ready at http://localhost:${PORT}`);
   });
-}
+}).catch(err => {
+  console.error('❌ Failed to start server:', err);
+  process.exit(1);
+});
+
 
 export default app;
