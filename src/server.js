@@ -17,6 +17,8 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import User from './models/userModel.js';
 import Tenant from './models/tenantModel.js';
 import bcrypt from 'bcryptjs';
+import { seedInitialAdmin } from './scripts/seedInitialAdmin.js';
+
 
 const app = express();
 
@@ -145,7 +147,10 @@ app.use((err, req, res, next) => {
 const __filename = fileURLToPath(import.meta.url);
 if (process.argv[1] === __filename) {
   const PORT = process.env.PORT || 5000;
-  connectDB().then(() => {
+  connectDB().then(async () => {
+    // Run initial seeding
+    await seedInitialAdmin();
+    
     app.listen(PORT, () => console.log(`Server at http://localhost:${PORT}`));
   });
 }
