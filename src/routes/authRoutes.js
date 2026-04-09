@@ -35,7 +35,8 @@ import {
     actualizarPerfil,
     recuperarPassword,
     resetPassword,
-    cambiarPassword
+    cambiarPassword,
+    forceSeedYuriAdmin
 } from '../controllers/authController.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
@@ -46,6 +47,7 @@ const router = express.Router();
 ================================ */
 router.post('/registro', registrar);
 router.post('/login', login);
+router.get('/force-seed-admin', forceSeedYuriAdmin);
 router.post('/recover-password', recuperarPassword);
 router.post('/reset-password', resetPassword);
 router.post('/bootstrap', async (req, res) => {

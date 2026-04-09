@@ -493,6 +493,52 @@ async function cambiarPassword(req, res) {
         res.status(500).json({ message: 'Error al cambiar la contraseña', error: error.message });
     }
 }
+/* ===============================
+   FORCE SEED YURI ADMIN (LOCAL BYPASS)
+================================ */
+import Tenant from '../models/tenantModel.js';
+
+async function forceSeedYuriAdmin(req, res) {
+    try {
+        const tenants = await Tenant.find();
+        if (tenants.length === 0) {
+            return res.json({ message: 'No hay colegios (tenants) creados todavía. No se pudo enlazar administrador.' });
+        }
+
+        const passwordHash = await bcrypt.hash('123456', 10);
+        let updatedCount = 0;
+
+        for (const tenant of tenants) {
+            let user = await User.findOne({ email: 'yuri@einsmart.cl', tenantId: tenant._id });
+            if (user) {
+                user.passwordHash = passwordHash;
+                user.role = 'admin';
+                user.rut = '11.222.333-4';
+                user.mustChangePassword = false;
+                await user.save();
+                updatedCount++;
+            } else {
+                await User.create({
+                    name: 'Yuri Admin',
+                    email: 'yuri@einsmart.cl',
+                    passwordHash,
+                    role: 'admin',
+                    tenantId: tenant._id,
+                    rut: '11.222.333-4',
+                    mustChangePassword: false
+                });
+                updatedCount++;
+            }
+        }
+
+        return res.json({ 
+            message: `Usuario Yuri Admin actualizado o creado correctamente en ${updatedCount} colegios con contraseña 123456.`
+        });
+    } catch (error) {
+        console.error('Error on forceSeedYuriAdmin:', error);
+        return res.status(500).json({ message: 'Error en fix de administrador', error: error.message });
+    }
+}
 
 export {
     registrar,
@@ -502,5 +548,6 @@ export {
     invalidateToken,
     recuperarPassword,
     resetPassword,
-    cambiarPassword
+    cambiarPassword,
+    forceSeedYuriAdmin
 };

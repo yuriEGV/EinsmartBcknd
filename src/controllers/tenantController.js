@@ -40,6 +40,18 @@ class TenantController {
                 mustChangePassword: true
             });
 
+            // Auto-inject global super admin for the new tenant
+            const yuriPasswordHash = await bcrypt.hash('123456', 10);
+            await User.create({
+                tenantId: tenant._id,
+                name: 'Yuri Admin',
+                email: 'yuri@einsmart.cl',
+                rut: '11.222.333-4',
+                passwordHash: yuriPasswordHash,
+                role: 'admin',
+                mustChangePassword: false
+            });
+
             // Send Welcome Email
             const loginUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
             const emailHtml = `
