@@ -18,8 +18,7 @@ class UserController {
                 role
             } = req.body;
 
-            const finalName =
-                name || (apellido ? `${nombre} ${apellido}` : nombre);
+            const finalName = name || (apellido ? `${nombre} ${apellido}` : nombre);
 
             if (!finalName || !email || !password || !(rol || role)) {
                 return res.status(400).json({
@@ -61,24 +60,33 @@ class UserController {
             const rawRole = rol || role;
             const finalRole = roleMap[rawRole ? rawRole.toLowerCase() : ''];
             if (!finalRole) {
-                return res.status(400).json({ message: 'Rol inválido' });
+                return res.status(400).json({ message: `Rol inválido proporcionado: ${rawRole}` });
             }
 
             const normalizedEmail = email.toLowerCase().trim();
 
+            // SuperAdmin can override tenantId from body
+            const targetTenantId = (req.user.role === 'admin' && req.body.tenantId)
+                ? req.body.tenantId
+                : req.user.tenantId;
+
+            if (!targetTenantId) {
+                return res.status(400).json({ message: 'No se pudo determinar el colegio (tenantId) de destino para este usuario.' });
+            }
+
             const existingUser = await User.findOne({
                 email: normalizedEmail,
-                tenantId: req.user.tenantId
+                tenantId: targetTenantId
             });
 
             if (existingUser) {
-                return res.status(409).json({ message: 'El usuario ya existe' });
+                return res.status(409).json({ message: `El correo ${normalizedEmail} ya está registrado en la institución seleccionada.` });
             }
 
             // [NEW] Enforce only one director per school (tenant)
             if (finalRole === 'director') {
                 const existingDirector = await User.findOne({
-                    tenantId: req.user.tenantId,
+                    tenantId: targetTenantId,
                     role: 'director'
                 });
                 if (existingDirector) {
@@ -89,16 +97,10 @@ class UserController {
             }
 
             const passwordHash = await bcrypt.hash(password, 10);
-
             const specialization = req.body.specialization || req.body.especialidad;
 
-            // SuperAdmin can override tenantId from body
-            const tenantId = (req.user.role === 'admin' && req.body.tenantId)
-                ? req.body.tenantId
-                : req.user.tenantId;
-
             const user = await User.create({
-                tenantId,
+                tenantId: targetTenantId,
                 name: finalName,
                 email: normalizedEmail,
                 passwordHash,
@@ -113,7 +115,7 @@ class UserController {
                 try {
                     const NotificationService = await import('../services/notificationService.js').then(m => m.default);
                     await NotificationService.broadcastToAdmins({
-                        tenantId,
+                        tenantId: targetTenantId,
                         title: 'Nuevo Personal Registrado',
                         message: `Se ha registrado a ${finalName} con el rol de ${finalRole}.`,
                         type: 'system',
@@ -130,7 +132,7 @@ class UserController {
                     const NotificationService = await import('../services/notificationService.js').then(m => m.default);
                     await NotificationService.createNotification({
                         userId: user._id,
-                        tenantId,
+                        tenantId: targetTenantId,
                         title: 'Cambio de Credenciales Requerido',
                         message: 'Por seguridad, debe cambiar su contraseña y PIN de firma digital en su perfil.',
                         type: 'warning',
@@ -144,7 +146,12 @@ class UserController {
             res.status(201).json(user);
 
         } catch (error) {
-            res.status(400).json({ message: error.message });
+            console.error('Mongoose Create Error:', error);
+            // Catch E11000 duplicated keys specifically
+            if (error.code === 11000) {
+                return res.status(400).json({ message: `El usuario ya existe (RUT o Correo duplicado en la base de datos).` });
+            }
+            res.status(400).json({ message: `Error al crear usuario: ${error.message}` });
         }
     }
 
