@@ -115,6 +115,17 @@ console.log(`Starting server on port ${PORT}...`);
 
 connectDB().then(async () => {
   console.log('✅ Database connected. Running seeding...');
+  
+  // Drop problematic compound index if it exists so it can be rebuilt with partialFilterExpression
+  try {
+      await mongoose.connection.collection('users').dropIndex('rut_1_tenantId_1');
+      console.log('✅ Base de datos limpiada del índice de rut duplicado antiguo.');
+  } catch (err) {
+      if (err.code !== 27) { // 27 = IndexNotFound
+          console.error('Info: No se pudo eliminar el índice rut_1_tenantId_1 (posiblemente ya no exista).');
+      }
+  }
+
   // Run initial seeding
   await seedInitialAdmin();
 

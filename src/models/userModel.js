@@ -26,6 +26,11 @@ const userSchema = new mongoose.Schema({
 
 // Índices únicos por Tenant para permitir el mismo email/RUT en diferentes colegio/colegios
 userSchema.index({ email: 1, tenantId: 1 }, { unique: true });
-userSchema.index({ rut: 1, tenantId: 1 }, { unique: true, sparse: true });
-
+userSchema.index(
+    { rut: 1, tenantId: 1 }, 
+    { 
+        unique: true, 
+        partialFilterExpression: { rut: { $exists: true, $type: 'string', $ne: '' } } 
+    }
+);
 export default mongoose.model('User', userSchema);
