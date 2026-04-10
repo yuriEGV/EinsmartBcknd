@@ -15,7 +15,10 @@ class UserController {
                 email,
                 password,
                 rol,
-                role
+                role,
+                rut,
+                phone,
+                address
             } = req.body;
 
             const finalName = name || (apellido ? `${nombre} ${apellido}` : nombre);
@@ -105,6 +108,9 @@ class UserController {
                 email: normalizedEmail,
                 passwordHash,
                 role: finalRole,
+                rut,
+                phone,
+                address,
                 specialization,
                 mustChangePassword: finalRole === 'teacher',
                 mustChangePin: finalRole === 'teacher'
@@ -239,6 +245,18 @@ class UserController {
 
             if (req.body.specialization || req.body.especialidad) {
                 updateData.specialization = req.body.specialization || req.body.especialidad;
+            }
+
+            if (req.body.rut !== undefined) {
+                updateData.rut = req.body.rut;
+            }
+
+            if (req.body.phone !== undefined) {
+                updateData.phone = req.body.phone;
+            }
+
+            if (req.body.address !== undefined) {
+                updateData.address = req.body.address;
             }
 
             if (req.body.role || req.body.rol) {

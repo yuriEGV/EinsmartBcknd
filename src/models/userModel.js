@@ -13,7 +13,14 @@ const userSchema = new mongoose.Schema({
     rut: {
         type: String,
         trim: true,
-        // match: [/^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/, 'Formato de RUT inválido (ej: 12.345.678-9)'] // Deshabilitado temporalmente para depuración
+    },
+    phone: {
+        type: String,
+        trim: true,
+    },
+    address: {
+        type: String,
+        trim: true,
     },
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ['admin', 'sostenedor', 'director', 'utp', 'teacher', 'student', 'apoderado', 'psicologo', 'orientador', 'asistente_aula', 'manipulador_alimento', 'bibliotecario', 'secretario', 'paradocente', 'inspector_general', 'trabajador_social', 'psicopedagogo', 'auxiliar', 'vigilante', 'administrativo'], required: true },
