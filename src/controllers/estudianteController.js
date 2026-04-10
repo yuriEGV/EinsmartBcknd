@@ -1,6 +1,7 @@
 import Estudiante from '../models/estudianteModel.js';
 import connectDB from '../config/db.js';
 import mongoose from 'mongoose';
+import { validarRUT, formatearRUT } from '../utils/rutValidator.js';
 
 const createEstudiante = async (req, res) => {
   try {
@@ -10,6 +11,13 @@ const createEstudiante = async (req, res) => {
     const { guardian, ...estudianteData } = req.body;
 
     // [NUEVO] Prevent duplicates by RUT or Email
+    if (estudianteData.rut) {
+      if (!validarRUT(estudianteData.rut)) {
+        return res.status(400).json({ message: 'El RUT del estudiante no es válido matemáticamente.' });
+      }
+      estudianteData.rut = formatearRUT(estudianteData.rut);
+    }
+
     if (estudianteData.rut || estudianteData.email) {
       const existing = await Estudiante.findOne({
         tenantId,
@@ -329,6 +337,13 @@ const updateEstudiante = async (req, res) => {
     console.log('UPDATE ESTUDIANTE - User TenantId:', req.user.tenantId);
 
     const { _id, guardian, tenantId, ...updateData } = req.body;
+
+    if (updateData.rut) {
+      if (!validarRUT(updateData.rut)) {
+        return res.status(400).json({ message: 'El RUT del estudiante no es válido.' });
+      }
+      updateData.rut = formatearRUT(updateData.rut);
+    }
 
     // 1. Update Student
     const estudiante = await Estudiante.findOneAndUpdate(

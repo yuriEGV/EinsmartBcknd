@@ -1,15 +1,24 @@
 import Apoderado from '../models/apoderadoModel.js';
+import { validarRUT, formatearRUT } from '../utils/rutValidator.js';
 
 class ApoderadoController {
     // Crear un nuevo apoderado
     static async createApoderado(req, res) {
         try {
-            const { estudianteId, nombre, apellidos, direccion, telefono, correo, tipo, parentesco } = req.body;
+            const { estudianteId, nombre, apellidos, direccion, telefono, correo, tipo, parentesco, rut } = req.body;
 
             if (!estudianteId || !nombre || !apellidos) {
                 return res.status(400).json({
                     message: 'Estudiante, nombre y apellidos son obligatorios'
                 });
+            }
+
+            let finalRut = rut;
+            if (finalRut) {
+                if (!validarRUT(finalRut)) {
+                    return res.status(400).json({ message: 'El RUT del apoderado no es válido.' });
+                }
+                finalRut = formatearRUT(finalRut);
             }
 
             const apoderado = new Apoderado({
@@ -21,6 +30,7 @@ class ApoderadoController {
                 correo: correo || '',
                 tipo: tipo || 'principal',
                 parentesco: parentesco || '',
+                rut: finalRut,
                 tenantId: req.user.tenantId
             });
 
@@ -95,9 +105,17 @@ class ApoderadoController {
     // Actualizar apoderado
     static async updateApoderado(req, res) {
         try {
+            const updateData = req.body;
+            if (updateData.rut) {
+                if (!validarRUT(updateData.rut)) {
+                    return res.status(400).json({ message: 'El RUT del apoderado no es válido.' });
+                }
+                updateData.rut = formatearRUT(updateData.rut);
+            }
+
             const apoderado = await Apoderado.findOneAndUpdate(
                 { _id: req.params.id, tenantId: req.user.tenantId },
-                req.body,
+                updateData,
                 { new: true, runValidators: true }
             ).populate('estudianteId', 'nombre apellido grado');
 

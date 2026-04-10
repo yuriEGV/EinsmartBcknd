@@ -1,12 +1,14 @@
 import Alternancia from '../models/alternanciaModel.js';
 import Enrollment from '../models/enrollmentModel.js';
 import Career from '../models/careerModel.js';
+import Empresa from '../models/empresaModel.js';
 
 export const getAlternancias = async (req, res) => {
     try {
         const { tenantId } = req.user;
         const alternancias = await Alternancia.find({ tenantId })
             .populate('estudianteId', 'firstName lastName rut')
+            .populate('empresa', 'razonSocial rut emailContacto')
             .populate('careerId', 'name')
             .populate('profesorSupervisor', 'name')
             .sort({ fechaInicio: -1 });
@@ -22,6 +24,7 @@ export const getAlternanciaById = async (req, res) => {
         const { id } = req.params;
         const alternancia = await Alternancia.findOne({ _id: id, tenantId })
             .populate('estudianteId', 'firstName lastName rut')
+            .populate('empresa', 'razonSocial rut tutor emailContacto')
             .populate('careerId', 'name')
             .populate('profesorSupervisor', 'name');
         if (!alternancia) return res.status(404).json({ message: 'Alternancia no encontrada' });
@@ -36,6 +39,7 @@ export const getAlternanciasByEstudiante = async (req, res) => {
         const { tenantId } = req.user;
         const { estudianteId } = req.params;
         const alternancias = await Alternancia.find({ tenantId, estudianteId })
+            .populate('empresa', 'razonSocial')
             .populate('careerId', 'name')
             .populate('profesorSupervisor', 'name')
             .sort({ fechaInicio: -1 });
@@ -50,36 +54,13 @@ export const createAlternancia = async (req, res) => {
         const { tenantId } = req.user;
         const data = req.body;
 
-        if (!data.careerId) {
-            return res.status(400).json({ message: 'La Carrera es obligatoria para registrar una alternancia.' });
+        if (!data.empresa) {
+            return res.status(400).json({ message: 'La Selección de la Empresa es obligatoria.' });
         }
-
-        const activeEnrollment = await Enrollment.findOne({
-            estudianteId: data.estudianteId,
-            tenantId,
-            status: { $in: ['activo', 'activa', 'confirmada'] }
-        }).populate('courseId');
-
-        if (!activeEnrollment || !activeEnrollment.courseId) {
-            return res.status(400).json({ message: 'El estudiante no tiene una matrícula activa en ningún curso.' });
-        }
-
-        const studentCourse = activeEnrollment.courseId;
-
-        if (studentCourse.careerId?.toString() !== data.careerId.toString()) {
-            return res.status(400).json({ message: 'El estudiante no corresponde a la carrera seleccionada.' });
-        }
-
-        if (data.profesorSupervisor) {
-            const career = await Career.findOne({ _id: data.careerId, tenantId });
-            if (!career) return res.status(404).json({ message: 'La carrera no existe.' });
-
-            const isTeacherInCareer = career.teachers.some(tId => tId.toString() === data.profesorSupervisor.toString());
-            const isTeacherOfCourse = studentCourse.teacherId?.toString() === data.profesorSupervisor.toString();
-
-            if (!isTeacherInCareer && !isTeacherOfCourse) {
-                return res.status(400).json({ message: 'El profesor supervisor no corresponde a la carrera ni es profesor del curso del alumno.' });
-            }
+        
+        if (['Pasantía', 'Práctica Profesional'].includes(data.tipo) && !data.seguroEscolar) {
+            // Optional strict check, or handle in frontend. Let's strictly enforce if required:
+            // return res.status(400).json({ message: 'El Seguro Escolar es obligatorio para Pasantías y Prácticas.' });
         }
 
         const newAlternancia = new Alternancia({
@@ -103,46 +84,10 @@ export const updateAlternancia = async (req, res) => {
         const currentAlt = await Alternancia.findOne({ _id: id, tenantId });
         if (!currentAlt) return res.status(404).json({ message: 'Alternancia no encontrada' });
 
-        const estudianteIdToCheck = updates.estudianteId || currentAlt.estudianteId;
-        const careerIdToCheck = updates.careerId || currentAlt.careerId;
-        const supervisorToCheck = updates.profesorSupervisor !== undefined ? updates.profesorSupervisor : currentAlt.profesorSupervisor;
-
-        if (!careerIdToCheck) {
-            return res.status(400).json({ message: 'La Carrera es obligatoria.' });
-        }
-
-        const activeEnrollment = await Enrollment.findOne({
-            estudianteId: estudianteIdToCheck,
-            tenantId,
-            status: { $in: ['activo', 'activa', 'confirmada'] }
-        }).populate('courseId');
-
-        if (!activeEnrollment || !activeEnrollment.courseId) {
-            return res.status(400).json({ message: 'El estudiante seleccionado no tiene una matrícula activa en ningún curso.' });
-        }
-
-        const studentCourse = activeEnrollment.courseId;
-
-        if (studentCourse.careerId?.toString() !== careerIdToCheck.toString()) {
-            return res.status(400).json({ message: 'El estudiante no corresponde a la carrera seleccionada.' });
-        }
-
-        if (supervisorToCheck) {
-            const career = await Career.findOne({ _id: careerIdToCheck, tenantId });
-            if (!career) return res.status(404).json({ message: 'La carrera no fue encontrada.' });
-
-            const isTeacherInCareer = career.teachers?.some(tId => tId.toString() === supervisorToCheck.toString());
-            const isTeacherOfCourse = studentCourse.teacherId?.toString() === supervisorToCheck.toString();
-
-            if (!isTeacherInCareer && !isTeacherOfCourse) {
-                return res.status(400).json({ message: 'El profesor supervisor no corresponde a la carrera seleccionada ni es profesor jefe del curso.' });
-            }
-        }
-
         const alternancia = await Alternancia.findByIdAndUpdate(
             id,
             updates,
-            { new: true }
+            { new: true, runValidators: true }
         );
 
         res.status(200).json(alternancia);

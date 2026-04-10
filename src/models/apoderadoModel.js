@@ -23,8 +23,7 @@ const apoderadoSchema = new mongoose.Schema({
     },
     rut: {
         type: String,
-        trim: true,
-        match: [/^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/, 'Formato de RUT inválido (ej: 12.345.678-9)']
+        trim: true
     },
     direccion: {
         type: String,

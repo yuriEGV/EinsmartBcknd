@@ -41,6 +41,7 @@ import atrasoRoutes from './atrasoRoutes.js';
 import alternanciaRoutes from './alternanciaRoutes.js';
 import logRoutes from './logRoutes.js';
 import medicalLicenseRoutes from './medicalLicenseRoutes.js';
+import empresaRoutes from './empresaRoutes.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -92,6 +93,7 @@ router.use('/planning', planningRoutes);
 router.use('/rubrics', rubricRoutes);
 router.use('/atrasos', atrasoRoutes);
 router.use('/alternancias', alternanciaRoutes);
+router.use('/empresas', empresaRoutes);
 
 // Administrative
 router.use('/users', userRoutes);

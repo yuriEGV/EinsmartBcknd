@@ -1,5 +1,6 @@
 import User from '../models/userModel.js';
 import bcrypt from 'bcryptjs';
+import { validarRUT, formatearRUT } from '../utils/rutValidator.js';
 
 class UserController {
 
@@ -20,6 +21,14 @@ class UserController {
                 phone,
                 address
             } = req.body;
+
+            let finalRut = rut;
+            if (finalRut) {
+                if (!validarRUT(finalRut)) {
+                    return res.status(400).json({ message: 'El formato del RUT ingresado no es válido.' });
+                }
+                finalRut = formatearRUT(finalRut);
+            }
 
             const finalName = name || (apellido ? `${nombre} ${apellido}` : nombre);
 
@@ -108,7 +117,7 @@ class UserController {
                 email: normalizedEmail,
                 passwordHash,
                 role: finalRole,
-                rut,
+                rut: finalRut,
                 phone,
                 address,
                 specialization,
@@ -248,7 +257,10 @@ class UserController {
             }
 
             if (req.body.rut !== undefined) {
-                updateData.rut = req.body.rut;
+                if (req.body.rut && !validarRUT(req.body.rut)) {
+                    return res.status(400).json({ message: 'El formato del RUT ingresado no es válido.' });
+                }
+                updateData.rut = req.body.rut ? formatearRUT(req.body.rut) : '';
             }
 
             if (req.body.phone !== undefined) {
