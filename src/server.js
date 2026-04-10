@@ -78,8 +78,8 @@ app.get('/health', async (req, res) => {
     await connectDB();
     const userCount = await User.countDocuments();
     const tenantCount = await Tenant.countDocuments();
-    res.status(200).json({ 
-      status: 'OK', 
+    res.status(200).json({
+      status: 'OK',
       db: mongoose.connection.readyState,
       users: userCount,
       tenants: tenantCount,
@@ -117,8 +117,8 @@ connectDB().then(async () => {
   console.log('✅ Database connected. Running seeding...');
   // Run initial seeding
   await seedInitialAdmin();
-  
-  app.listen(PORT, () => {
+
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Einsmart Backend ready at http://localhost:${PORT}`);
   });
 }).catch(err => {
