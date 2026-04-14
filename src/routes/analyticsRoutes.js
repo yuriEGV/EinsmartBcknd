@@ -37,4 +37,8 @@ router.get('/authority-stats', analyticsController.getAuthorityStats);
 // Get Digital Class Book metrics (Effective Time)
 router.get('/class-book', analyticsController.getClassBookMetrics);
 
+// [MASTER] System Health & Platform Trends
+router.get('/system-health', analyticsController.getSystemHealth);
+router.get('/global-trends', analyticsController.getGlobalTrends);
+
 export default router;

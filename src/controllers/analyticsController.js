@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import os from 'os';
 import connectDB from '../config/db.js';
 import Grade from '../models/gradeModel.js';
 import Anotacion from '../models/anotacionModel.js';
@@ -859,6 +860,80 @@ class AnalyticsController {
             });
         } catch (error) {
             console.error('Class Book Metrics Error:', error);
+            return res.status(500).json({ message: error.message });
+        }
+    }
+    // [MASTER ONLY] Get Node/System Health
+    static async getSystemHealth(req, res) {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({ message: 'Acceso restringido a Overlord' });
+            }
+
+            const uptime = os.uptime();
+            const totalMem = os.totalmem();
+            const freeMem = os.freemem();
+            const cpuLoad = os.loadavg(); // [1m, 5m, 15m]
+
+            const dbStatus = mongoose.connection.readyState === 1 ? 'Conectado' : 'Desconectado';
+            
+            // Count tenants and students globally
+            const [tenantCount, studentCount] = await Promise.all([
+                mongoose.model('Tenant').countDocuments({}),
+                mongoose.model('Estudiante').countDocuments({})
+            ]);
+
+            return res.status(200).json({
+                system: {
+                    platform: os.platform(),
+                    cpuCount: os.cpus().length,
+                    cpuLoad: cpuLoad[0], // 1 min load
+                    memoryUsage: ((totalMem - freeMem) / totalMem * 100).toFixed(2),
+                    totalMemGB: (totalMem / (1024 ** 3)).toFixed(2),
+                    uptime: Math.floor(uptime / 3600), // hours
+                    dbStatus
+                },
+                node: {
+                    tenantCount,
+                    studentCount
+                },
+                timestamp: new Date()
+            });
+        } catch (error) {
+            return res.status(500).json({ message: error.message });
+        }
+    }
+
+    // [MASTER ONLY] Get Global Platform Trends
+    static async getGlobalTrends(req, res) {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({ message: 'Acceso restringido' });
+            }
+
+            // Group Student creation by month across all tenants
+            const trends = await mongoose.model('Estudiante').aggregate([
+                {
+                    $group: {
+                        _id: {
+                            year: { $year: "$createdAt" },
+                            month: { $month: "$createdAt" }
+                        },
+                        count: { $sum: 1 }
+                    }
+                },
+                { $sort: { "_id.year": 1, "_id.month": 1 } },
+                { $limit: 12 }
+            ]);
+
+            const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+            const formatted = trends.map(t => ({
+                name: `${monthNames[t._id.month - 1]} ${t._id.year}`,
+                value: t.count
+            }));
+
+            return res.status(200).json(formatted);
+        } catch (error) {
             return res.status(500).json({ message: error.message });
         }
     }
