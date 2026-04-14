@@ -30,10 +30,13 @@ class ScheduleController {
 
     static async list(req, res) {
         try {
-            const { courseId, teacherId, dayOfWeek } = req.query;
+            const { courseId, teacherId, dayOfWeek, date } = req.query;
             const query = { tenantId: req.user.tenantId };
+            
+            // 1. Identify context
+            let activeCourseId = courseId;
+            let activeTeacherId = teacherId;
 
-            // Security: Students and Guardians can only see their own course schedule
             if (req.user.role === 'student' || req.user.role === 'apoderado') {
                 let studentId;
                 if (req.user.role === 'student') {
@@ -52,22 +55,53 @@ class ScheduleController {
                 });
 
                 if (!enrollment) return res.status(404).json({ message: 'Matrícula no encontrada' });
-                query.courseId = enrollment.courseId;
-            } else {
-                if (courseId) query.courseId = courseId;
+                activeCourseId = enrollment.courseId;
+                query.courseId = activeCourseId;
+            } else if (req.user.role === 'teacher') {
+                // Teachers can see their own schedule by default
+                activeTeacherId = req.user.userId;
             }
 
-            if (teacherId) query.teacherId = teacherId;
+            if (activeCourseId) query.courseId = activeCourseId;
+            if (activeTeacherId) query.teacherId = activeTeacherId;
             if (dayOfWeek !== undefined) query.dayOfWeek = dayOfWeek;
 
             const schedules = await Schedule.find(query)
                 .populate('courseId', 'name level letter')
                 .populate('subjectId', 'name')
                 .populate('teacherId', 'name')
-                .sort({ dayOfWeek: 1, startTime: 1 });
+                .sort({ dayOfWeek: 1, blockId: 1, startTime: 1 });
 
-            res.json(schedules);
+            // 2. Integration with Calendar Events (Exams/Tests)
+            // If we are looking for a specific week or day, we inject events
+            let events = [];
+            if (date) {
+                const Event = mongoose.model('Event');
+                const targetDate = new Date(date);
+                const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+                const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+
+                // Find events for this course or global
+                const eventQuery = {
+                    tenantId: req.user.tenantId,
+                    date: { $gte: startOfDay, $lte: endOfDay },
+                    $or: [
+                        { target: 'global' },
+                        { target: 'curso', targetId: activeCourseId }
+                    ]
+                };
+                
+                events = await Event.find(eventQuery);
+            }
+
+            res.json({
+                schedules,
+                events,
+                role: req.user.role
+            });
+
         } catch (error) {
+            console.error('Schedule List Error:', error);
             res.status(500).json({ message: error.message });
         }
     }

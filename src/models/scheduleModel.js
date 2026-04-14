@@ -27,6 +27,12 @@ const scheduleSchema = new mongoose.Schema({
         min: 0,
         max: 6
     },
+    blockId: {
+        type: Number, // 1 to 8
+        required: true,
+        min: 1,
+        max: 8
+    },
     startTime: {
         type: String, // format "HH:mm"
         required: true

@@ -52,7 +52,7 @@ class ClassLogController {
                     startTime: new Date(),
                     topic: 'Clase en curso...',
                     activities: '',
-                    bloqueHorario,
+                    bloqueHorario: schedule ? `${schedule.blockId}º Bloque` : bloqueHorario,
                     scheduleId: schedule ? schedule._id : undefined,
                     status: 'en_curso'
                 });
