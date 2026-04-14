@@ -324,6 +324,41 @@ class GradeController {
             res.status(500).json({ message: error.message });
         }
     }
+
+    // Bulk Create or Update Grades
+    static async bulkUpsertGrades(req, res) {
+        try {
+            const { grades } = req.body; // Array of { estudianteId, evaluationId, score }
+            const tenantId = req.user.tenantId;
+
+            if (!Array.isArray(grades)) {
+                return res.status(400).json({ message: 'Se requiere un array de calificaciones' });
+            }
+
+            const results = await Promise.all(grades.map(async (g) => {
+                if (g.score === undefined || g.score === null || g.score === '') return null;
+
+                return Grade.findOneAndUpdate(
+                    { 
+                        estudianteId: g.estudianteId, 
+                        evaluationId: g.evaluationId, 
+                        tenantId 
+                    },
+                    { 
+                        score: parseFloat(g.score), 
+                        status: 'graded' 
+                    },
+                    { upsert: true, new: true }
+                );
+            }));
+
+            const filteredResults = results.filter(r => r !== null);
+            res.status(200).json(filteredResults);
+        } catch (error) {
+            console.error('bulkUpsertGrades Error:', error);
+            res.status(400).json({ message: error.message });
+        }
+    }
 }
 
 export default GradeController;

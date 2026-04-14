@@ -6,6 +6,9 @@ const router = express.Router();
 // Create a new grade
 router.post('/', gradeController.createGrade);
 
+// Bulk grades
+router.post('/bulk', gradeController.bulkUpsertGrades);
+
 // Get all grades
 router.get('/', gradeController.getGrades);
 
