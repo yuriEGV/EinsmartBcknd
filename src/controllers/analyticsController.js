@@ -416,14 +416,16 @@ class AnalyticsController {
                 }
 
             } else if (req.user.role === 'admin') {
-                // [NEW] Global Admin stats for platform view
-                const [students, tenants] = await Promise.all([
+                // [NEW] Global Admin stats for platform view (Einsmart Master)
+                const [students, tenants, courses] = await Promise.all([
                     mongoose.model('Estudiante').countDocuments({}),
-                    mongoose.model('Tenant').countDocuments({})
+                    mongoose.model('Tenant').countDocuments({}),
+                    mongoose.model('Course').countDocuments({})
                 ]);
                 return res.status(200).json({
                     studentCount: students,
                     tenantCount: tenants,
+                    courseCount: courses,
                     isPlatformView: true
                 });
             } else {
