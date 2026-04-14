@@ -197,6 +197,7 @@ function sanitizeUser(user) {
         role: user.role,
         profileId: user.profileId,
         tenantId: user.tenantId,
+        isMaster: user.email === 'yuri@einsmart.cl' || user.role === 'superadmin',
         mustChangePassword: user.mustChangePassword,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
