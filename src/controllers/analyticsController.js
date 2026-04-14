@@ -911,7 +911,6 @@ class AnalyticsController {
                 return res.status(403).json({ message: 'Acceso restringido' });
             }
 
-            // Group Student creation by month across all tenants
             const trends = await mongoose.model('Estudiante').aggregate([
                 {
                     $group: {
@@ -934,6 +933,64 @@ class AnalyticsController {
 
             return res.status(200).json(formatted);
         } catch (error) {
+            return res.status(500).json({ message: error.message });
+        }
+    }
+
+    // [MASTER ONLY] Get Global Academic Performance across all institutions
+    static async getGlobalAcademicPerformance(req, res) {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({ message: 'Acceso restringido' });
+            }
+
+            const Tenant = mongoose.model('Tenant');
+            const Estudiante = mongoose.model('Estudiante');
+            const Grade = mongoose.model('Grade');
+            const Attendance = mongoose.model('Attendance');
+            const Course = mongoose.model('Course');
+
+            const tenants = await Tenant.find();
+            
+            const results = await Promise.all(tenants.map(async (tenant) => {
+                const tenantId = tenant._id;
+
+                const [studentCount, courseCount] = await Promise.all([
+                    Estudiante.countDocuments({ tenantId }),
+                    Course.countDocuments({ tenantId })
+                ]);
+
+                const gradeStats = await Grade.aggregate([
+                    { $match: { tenantId } },
+                    { $group: { _id: null, avg: { $avg: "$score" } } }
+                ]);
+                const averageGrade = gradeStats.length > 0 ? parseFloat(gradeStats[0].avg.toFixed(2)) : 0;
+
+                const attendanceStats = await Attendance.aggregate([
+                    { $match: { tenantId } },
+                    { $group: { _id: "$estado", count: { $sum: 1 } } }
+                ]);
+                const totalAttendance = attendanceStats.reduce((sum, s) => sum + s.count, 0);
+                const presentCount = attendanceStats.find(a => a._id === 'presente')?.count || 0;
+                const attendanceRate = totalAttendance > 0 ? parseFloat(((presentCount / totalAttendance) * 100).toFixed(2)) : 100;
+
+                return {
+                    id: tenant._id,
+                    name: tenant.name,
+                    domain: tenant.domain,
+                    stats: {
+                        studentCount,
+                        courseCount,
+                        averageGrade,
+                        attendanceRate,
+                        riskProfile: averageGrade < 4.5 || attendanceRate < 90 ? 'Atención Requerida' : 'Salud Educativa Óptima'
+                    }
+                };
+            }));
+
+            return res.status(200).json(results);
+        } catch (error) {
+            console.error('Global Academic Performance Error:', error);
             return res.status(500).json({ message: error.message });
         }
     }

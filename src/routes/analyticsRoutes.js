@@ -40,5 +40,6 @@ router.get('/class-book', analyticsController.getClassBookMetrics);
 // [MASTER] System Health & Platform Trends
 router.get('/system-health', analyticsController.getSystemHealth);
 router.get('/global-trends', analyticsController.getGlobalTrends);
+router.get('/global-academic', analyticsController.getGlobalAcademicPerformance);
 
 export default router;
