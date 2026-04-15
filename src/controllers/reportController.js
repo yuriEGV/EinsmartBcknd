@@ -38,42 +38,60 @@ class ReportController {
             if (req.user.role === 'student' && req.user.profileId !== studentId) {
                 return res.status(403).json({ message: 'Acceso denegado' });
             }
-
             if (req.user.role === 'apoderado' && req.user.profileId) {
-                const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
-                const vinculation = await Apoderado.findById(req.user.profileId);
-                if (!vinculation || vinculation.estudianteId.toString() !== studentId) {
+                const Apo = await import('../models/apoderadoModel.js').then(m => m.default);
+                const v = await Apo.findById(req.user.profileId);
+                if (!v || v.estudianteId.toString() !== studentId) {
                     return res.status(403).json({ message: 'Acceso denegado' });
                 }
             } else if ((req.user.role === 'student' || req.user.role === 'apoderado') && !req.user.profileId) {
                 return res.status(403).json({ message: 'Acceso denegado' });
             }
 
-            const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
-            const Grade = await import('../models/gradeModel.js').then(m => m.default);
-            const Attendance = await import('../models/attendanceModel.js').then(m => m.default);
-            const Anotacion = await import('../models/anotacionModel.js').then(m => m.default);
-            const MedicalLicense = await import('../models/medicalLicenseModel.js').then(m => m.default);
-            const Atraso = await import('../models/atrasoModel.js').then(m => m.default);
+            // Lazy-load all required models
+            const [Estudiante, Grade, Attendance, Anotacion, MedicalLicense, Atraso, Apoderado, ClassLog, Tenant, Enrollment] = await Promise.all([
+                import('../models/estudianteModel.js').then(m => m.default),
+                import('../models/gradeModel.js').then(m => m.default),
+                import('../models/attendanceModel.js').then(m => m.default),
+                import('../models/anotacionModel.js').then(m => m.default),
+                import('../models/medicalLicenseModel.js').then(m => m.default),
+                import('../models/atrasoModel.js').then(m => m.default),
+                import('../models/apoderadoModel.js').then(m => m.default),
+                import('../models/classLogModel.js').then(m => m.default),
+                import('../models/tenantModel.js').then(m => m.default),
+                import('../models/enrollmentModel.js').then(m => m.default),
+            ]);
 
-            const [student, grades, attendance, annotations, licenses, atrasos] = await Promise.all([
-                Estudiante.findById(studentId).select('nombres apellidos rut grado'),
-                Grade.find({ estudianteId: studentId, tenantId }).populate({
-                    path: 'evaluationId',
-                    populate: { path: 'subjectId', select: 'name' }
-                }),
+            const [student, grades, attendance, annotations, licenses, atrasos, tenant] = await Promise.all([
+                Estudiante.findById(studentId),
+                Grade.find({ estudianteId: studentId, tenantId })
+                    .populate({ path: 'evaluationId', populate: { path: 'subjectId', select: 'name' } })
+                    .sort({ createdAt: 1 }),
                 Attendance.find({ estudianteId: studentId, tenantId }).sort({ fecha: -1 }),
                 Anotacion.find({ estudianteId: studentId, tenantId }).populate('creadoPor', 'name').sort({ createdAt: -1 }),
-                // [BUG 1 FIX] Incluir licencias médicas del alumno en la ficha
-                MedicalLicense.find({ userId: studentId, tenantId, userType: 'Estudiante' })
-                    .sort({ fechaInicio: -1 }),
-                // Incluir atrasos del alumno
-                Atraso.find({ estudianteId: studentId, tenantId })
-                    .populate('registradoPor', 'name')
-                    .sort({ fecha: -1 })
+                MedicalLicense.find({ userId: studentId, tenantId, userType: 'Estudiante' }).sort({ fechaInicio: -1 }),
+                Atraso.find({ estudianteId: studentId, tenantId }).populate('registradoPor', 'name').sort({ fecha: -1 }),
+                Tenant.findById(tenantId),
             ]);
 
             if (!student) return res.status(404).json({ message: 'Estudiante no encontrado' });
+
+            // Guardian & enrollment
+            const [guardian, enrollment] = await Promise.all([
+                Apoderado.findOne({ estudianteId: studentId, tenantId }),
+                Enrollment.findOne({ estudianteId: studentId, tenantId, status: { $in: ['confirmada', 'activo', 'activa'] } })
+                    .populate('courseId', 'name'),
+            ]);
+
+            // Class logs for this student's course
+            let classLogs = [];
+            if (enrollment?.courseId?._id) {
+                classLogs = await ClassLog.find({ courseId: enrollment.courseId._id, tenantId, isSigned: true })
+                    .populate('teacherId', 'name')
+                    .populate('subjectId', 'name')
+                    .sort({ date: -1 })
+                    .limit(50);
+            }
 
             // Minutos legales por bloque (normativa MINEDUC Chile)
             const MINUTOS_LEGALES_BLOQUE = {
@@ -81,29 +99,98 @@ class ReportController {
                 'Bloque 4': 10, 'Bloque 5': 10
             };
 
+            // Group grades by subject with per-subject averages
+            const subjectMap = {};
+            grades.forEach(g => {
+                const subjectName = g.evaluationId?.subjectId?.name || g.evaluationId?.subject || 'General';
+                if (!subjectMap[subjectName]) subjectMap[subjectName] = { grades: [], total: 0, count: 0 };
+                subjectMap[subjectName].grades.push({
+                    title: g.evaluationId?.title || 'Evaluación',
+                    score: g.score,
+                    maxScore: g.evaluationId?.maxScore || 7,
+                    date: g.evaluationId?.date || g.createdAt,
+                    status: g.status,
+                });
+                subjectMap[subjectName].total += g.score;
+                subjectMap[subjectName].count += 1;
+            });
+            const gradesBySubject = Object.entries(subjectMap).map(([subject, data]) => ({
+                subject,
+                grades: data.grades,
+                average: data.count > 0 ? parseFloat((data.total / data.count).toFixed(1)) : null,
+                totalEvaluations: data.count,
+            }));
+
+            // Overall average
+            const allScores = grades.map(g => g.score);
+            const overallAverage = allScores.length > 0
+                ? parseFloat((allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(1))
+                : null;
+
+            // Attendance stats
+            const totalPresent = attendance.filter(a => a.estado === 'presente').length;
+            const totalAbsent = attendance.filter(a => a.estado === 'ausente').length;
+            const totalTardinessAtt = attendance.filter(a => a.estado === 'atraso').length;
+            const attendancePercent = attendance.length > 0
+                ? parseFloat(((totalPresent / attendance.length) * 100).toFixed(1)) : 100;
+
             res.status(200).json({
-                student,
+                school: {
+                    name: tenant?.name || 'Colegio',
+                    address: tenant?.address || '',
+                    phone: tenant?.phone || '',
+                    contactEmail: tenant?.contactEmail || '',
+                    logoUrl: tenant?.theme?.logoUrl || null,
+                    academicYear: tenant?.academicYear || new Date().getFullYear().toString(),
+                },
+                student: {
+                    _id: student._id,
+                    nombres: student.nombres,
+                    apellidos: student.apellidos,
+                    rut: student.rut,
+                    email: student.email,
+                    fechaNacimiento: student.fechaNacimiento,
+                    grado: enrollment?.courseId?.name || student.grado,
+                    direccion: student.direccion || student.address || '',
+                    telefono: student.telefono || student.phone || '',
+                    salud: typeof student.salud === 'object' ? (student.salud?.seguro || '') : (student.salud || ''),
+                    nacionalidad: student.nacionalidad || 'Chilena',
+                    fotoUrl: student.fotoUrl || student.photoUrl || null,
+                },
+                guardian: guardian ? {
+                    nombre: guardian.nombre,
+                    apellidos: guardian.apellidos,
+                    rut: guardian.rut,
+                    telefono: guardian.telefono,
+                    email: guardian.email,
+                    parentesco: guardian.parentesco,
+                } : null,
+                gradesBySubject,
+                overallAverage,
+                // Flat grades list (legacy support)
                 grades: grades.map(g => ({
                     title: g.evaluationId?.title || 'Evaluación',
                     subjectName: g.evaluationId?.subjectId?.name || 'Varios',
                     score: g.score,
                     maxScore: g.evaluationId?.maxScore,
-                    date: g.evaluationId?.date || g.createdAt
+                    date: g.evaluationId?.date || g.createdAt,
+                    status: g.status,
                 })),
                 attendance: {
                     total: attendance.length,
-                    present: attendance.filter(a => a.estado === 'presente').length,
-                    absent: attendance.filter(a => a.estado === 'ausente').length,
-                    history: attendance.slice(0, 10) // Last 10 days
+                    present: totalPresent,
+                    absent: totalAbsent,
+                    tardinessAtt: totalTardinessAtt,
+                    percent: attendancePercent,
+                    history: attendance.slice(0, 15),
                 },
                 annotations: annotations.map(a => ({
                     tipo: a.tipo,
                     titulo: a.titulo,
                     descripcion: a.descripcion,
                     fecha: a.fechaOcurrencia || a.createdAt,
-                    autor: a.creadoPor?.name
+                    autor: a.creadoPor?.name,
                 })),
-                // [BUG 1 FIX] Licencias médicas del alumno
                 licenses: licenses.map(lic => ({
                     _id: lic._id,
                     tipo: lic.tipo,
@@ -112,7 +199,7 @@ class ReportController {
                     diasReposo: lic.diasReposo,
                     estado: lic.estado,
                     observaciones: lic.observaciones,
-                    esElectronica: lic.esElectronica
+                    esElectronica: lic.esElectronica,
                 })),
                 atrasos: atrasos.map(a => ({
                     _id: a._id,
@@ -122,8 +209,18 @@ class ReportController {
                     minutosLegales: MINUTOS_LEGALES_BLOQUE[a.bloque] || a.minutosAtraso,
                     estado: a.estado,
                     motivo: a.motivo,
-                    registradoPor: a.registradoPor?.name
-                }))
+                    registradoPor: a.registradoPor?.name,
+                })),
+                classLogs: classLogs.map(log => ({
+                    date: log.date,
+                    topic: log.topic,
+                    activities: log.activities,
+                    bloqueHorario: log.bloqueHorario,
+                    teacher: log.teacherId?.name,
+                    subject: log.subjectId?.name,
+                    isSigned: log.isSigned,
+                    effectiveDuration: log.effectiveDuration || log.duration || 0,
+                })),
             });
         } catch (error) {
             console.error('Student summary error:', error);

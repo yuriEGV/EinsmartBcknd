@@ -335,8 +335,27 @@ class GradeController {
                 return res.status(400).json({ message: 'Se requiere un array de calificaciones' });
             }
 
+            if (grades.length === 0) {
+                return res.status(200).json([]);
+            }
+
+            console.log(`bulkUpsertGrades: processing ${grades.length} grades for tenant ${tenantId}`);
+
             const results = await Promise.all(grades.map(async (g) => {
+                // Skip entries without a score value
                 if (g.score === undefined || g.score === null || g.score === '') return null;
+
+                // Skip invalid entries
+                if (!g.estudianteId || !g.evaluationId) {
+                    console.warn('bulkUpsertGrades: skipping entry with missing IDs', g);
+                    return null;
+                }
+
+                const parsedScore = parseFloat(g.score);
+                if (isNaN(parsedScore)) {
+                    console.warn('bulkUpsertGrades: skipping entry with invalid score:', g.score);
+                    return null;
+                }
 
                 return Grade.findOneAndUpdate(
                     { 
@@ -345,14 +364,18 @@ class GradeController {
                         tenantId 
                     },
                     { 
-                        score: parseFloat(g.score), 
-                        status: 'graded' 
+                        $set: {
+                            score: parsedScore,
+                            status: g.status || 'graded',
+                            tenantId
+                        }
                     },
-                    { upsert: true, new: true }
+                    { upsert: true, new: true, setDefaultsOnInsert: true }
                 );
             }));
 
             const filteredResults = results.filter(r => r !== null);
+            console.log(`bulkUpsertGrades: saved ${filteredResults.length} grades successfully`);
             res.status(200).json(filteredResults);
         } catch (error) {
             console.error('bulkUpsertGrades Error:', error);
