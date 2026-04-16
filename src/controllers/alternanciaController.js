@@ -11,6 +11,7 @@ export const getAlternancias = async (req, res) => {
             .populate('empresa', 'razonSocial rut emailContacto')
             .populate('careerId', 'name')
             .populate('profesorSupervisor', 'name')
+            .populate('modulosDual.subjectId', 'name')
             .sort({ fechaInicio: -1 });
         res.status(200).json(alternancias);
     } catch (error) {
@@ -26,7 +27,8 @@ export const getAlternanciaById = async (req, res) => {
             .populate('estudianteId', 'firstName lastName rut')
             .populate('empresa', 'razonSocial rut tutor emailContacto')
             .populate('careerId', 'name')
-            .populate('profesorSupervisor', 'name');
+            .populate('profesorSupervisor', 'name')
+            .populate('modulosDual.subjectId', 'name');
         if (!alternancia) return res.status(404).json({ message: 'Alternancia no encontrada' });
         res.status(200).json(alternancia);
     } catch (error) {

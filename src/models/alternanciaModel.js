@@ -31,6 +31,28 @@ const alternanciaSchema = new mongoose.Schema({
         actividades: [{ type: String }],
         totalHoras: { type: Number, default: 0 }
     },
+    // Nuevos campos Alternancia Pro
+    maestroGuia: {
+        nombre: { type: String, trim: true },
+        cargo: { type: String, trim: true },
+        email: { type: String, trim: true },
+        telefono: { type: String, trim: true }
+    },
+    modulosDual: [{
+        subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
+        horasLiceo: { type: Number, default: 0 },
+        horasEmpresa: { type: Number, default: 0 },
+        actividades: { type: String }
+    }],
+    evaluacionesPeriodicas: [{
+        fecha: { type: Date, default: Date.now },
+        desempeñoTecnico: { type: Number, min: 1, max: 7 }, // Escala chilena 1-7
+        habilidadesLaborales: { type: Number, min: 1, max: 7 },
+        asistencia: { type: Number, min: 1, max: 7 },
+        comentarios: { type: String },
+        tutorFirma: { type: Boolean, default: false }
+    }],
+    convenioUrl: { type: String }, // Link a documento formal (Opcional)
     bitacora: [registroBitacoraSchema],
     profesorSupervisor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     observaciones: { type: String, default: '' }
