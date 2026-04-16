@@ -20,7 +20,12 @@ if ! command -v docker &> /dev/null; then
 fi
 echo "✅ Docker: $(docker --version)"
 
-# 2. Clonar el frontend como carpeta hermana (si no existe)
+# 2. Actualizar Repositorios
+echo "📥 Actualizando Backend (EinsmartBcknd)..."
+if [ -d .git ]; then
+    git pull || echo "⚠️  No se pudo actualizar el backend automáticamente (posibles cambios locales)."
+fi
+
 FRONTEND_DIR="../Einsmartfrntnd"
 if [ ! -d "$FRONTEND_DIR" ]; then
     echo "📥 Clonando frontend..."
@@ -28,7 +33,7 @@ if [ ! -d "$FRONTEND_DIR" ]; then
     echo "✅ Frontend clonado en $FRONTEND_DIR"
 else
     echo "✅ Frontend ya existe — actualizando..."
-    git -C "$FRONTEND_DIR" pull
+    git -C "$FRONTEND_DIR" pull || echo "⚠️  No se pudo actualizar el frontend automáticamente."
 fi
 
 # 3. Crear .env.local si no existe

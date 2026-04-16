@@ -17,6 +17,10 @@ if %errorlevel% neq 0 (
 )
 echo OK: Docker encontrado.
 
+REM Actualizar Repositorios
+echo Actualizando Backend (EinsmartBcknd)...
+git pull || echo AVISO: No se pudo actualizar el backend automaticamente.
+
 REM Clonar frontend si no existe
 if not exist "..\Einsmartfrntnd" (
     echo Clonando frontend...
@@ -24,7 +28,7 @@ if not exist "..\Einsmartfrntnd" (
     echo OK: Frontend clonado.
 ) else (
     echo OK: Frontend ya existe. Actualizando...
-    git -C ..\Einsmartfrntnd pull
+    git -C ..\Einsmartfrntnd pull || echo AVISO: No se pudo actualizar el frontend automaticamente.
 )
 
 REM Crear .env.local si no existe
