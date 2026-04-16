@@ -3,6 +3,7 @@ import Enrollment from '../models/enrollmentModel.js';
 import Apoderado from '../models/apoderadoModel.js';
 import Estudiante from '../models/estudianteModel.js';
 import Course from '../models/courseModel.js';
+import NotificationService from '../services/notificationService.js';
 
 class EventController {
     static async createEvent(req, res) {
@@ -19,19 +20,14 @@ class EventController {
 
             // [NUEVO] Integración de Notificaciones de Calendario
             try {
-                const NotificationService = await import('../services/notificationService.js').then(m => m.default);
-                // Si el evento es global, envía a todos los admins/docentes (o a toda la comunidad si hubiera un helper).
-                // Vamos a usar una alerta general al equipo directivo y docentes para que estén al tanto, 
-                // ya que no hay un "broadcastToAll" implementado por defecto.
-                if (req.body.target === 'global' || !req.body.target) {
-                    await NotificationService.broadcastToAdmins({
-                        tenantId: req.user.tenantId,
-                        title: `Nuevo Evento: ${event.title}`,
-                        message: `Se ha agendado un nuevo evento institucional para el ${new Date(event.date).toLocaleDateString()}: ${event.description}`,
-                        type: 'system',
-                        link: '/events'
-                    });
-                }
+                // Alerta general al equipo directivo (Director, UTP, Inspectores)
+                await NotificationService.notifyPlatformChange({
+                    tenantId: req.user.tenantId,
+                    title: `Nuevo Evento: ${event.title}`,
+                    message: `Se ha agendado: ${event.description || 'Sin descripción'} para el ${new Date(event.date).toLocaleDateString()}.`,
+                    type: 'system',
+                    link: '/events'
+                });
             } catch (notifErr) {
                 console.error("Error sending event notification:", notifErr);
             }
@@ -221,6 +217,15 @@ class EventController {
                 tenantId: req.user.tenantId
             });
             if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
+
+            // [NUEVO] Notificar eliminación
+            await NotificationService.notifyPlatformChange({
+                tenantId: req.user.tenantId,
+                title: 'Evento Eliminado',
+                message: `Se ha eliminado el evento: ${event.title}.`,
+                type: 'system'
+            });
+
             res.status(204).send();
         } catch (error) {
             res.status(500).json({ message: error.message });

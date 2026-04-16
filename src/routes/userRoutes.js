@@ -51,25 +51,16 @@ router.post('/bootstrap', async (req, res) => {
 ================================ */
 
 // Crear usuario (admin o sostenedor)
-router.post(
-    '/',
-    authMiddleware,
-    authorizeRoles('admin', 'sostenedor', 'director'),
-    UserController.createUser
-);
+router.post('/', authMiddleware, authorizeRoles('admin', 'sostenedor', 'director', 'utp', 'inspector_general'), UserController.createUser);
 
 // Obtener usuarios del tenant actual
-router.get(
-    '/',
-    authMiddleware,
-    UserController.getUsers
-);
+router.get('/', authMiddleware, authorizeRoles('admin', 'sostenedor', 'director', 'utp', 'inspector_general'), UserController.getUsers);
 
 // Bulk Delete (admin, sostenedor, director)
 router.post(
     '/bulk-delete',
     authMiddleware,
-    authorizeRoles('admin', 'sostenedor', 'director'),
+    authorizeRoles('admin', 'sostenedor', 'director', 'utp', 'inspector_general'),
     UserController.bulkDeleteUsers
 );
 
@@ -91,7 +82,7 @@ router.put(
 router.put(
     '/:id/reset-password-admin',
     authMiddleware,
-    authorizeRoles('admin', 'sostenedor', 'director'),
+    authorizeRoles('admin', 'sostenedor', 'director', 'utp', 'inspector_general'),
     UserController.resetPasswordAdmin
 );
 
@@ -103,19 +94,9 @@ router.get(
 );
 
 // Actualizar usuario
-router.put(
-    '/:id',
-    authMiddleware,
-    authorizeRoles('admin', 'sostenedor', 'director'),
-    UserController.updateUser
-);
+router.put('/:id', authMiddleware, authorizeRoles('admin', 'sostenedor', 'director', 'utp', 'inspector_general'), UserController.updateUser);
 
 // Eliminar usuario
-router.delete(
-    '/:id',
-    authMiddleware,
-    authorizeRoles('admin', 'sostenedor', 'director'),
-    UserController.deleteUser
-);
+router.delete('/:id', authMiddleware, authorizeRoles('admin', 'sostenedor', 'director', 'utp', 'inspector_general'), UserController.deleteUser);
 
 export default router;

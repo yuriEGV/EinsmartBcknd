@@ -390,7 +390,7 @@ class NotificationService {
         try {
             const admins = await User.find({
                 tenantId,
-                role: { $in: ['admin', 'sostenedor', 'director', 'utp'] }
+                role: { $in: ['admin', 'sostenedor', 'director', 'utp', 'inspector_general'] }
             });
 
             const notifications = admins.map(admin => ({
@@ -746,6 +746,24 @@ class NotificationService {
             }
         } catch (error) {
             console.error('❌ Error in checkAndNotifyAtRisk:', error);
+        }
+    }
+
+    /**
+     * Notify administrative team about a platform change
+     */
+    static async notifyPlatformChange({ tenantId, title, message, type = 'system', link = '' }) {
+        try {
+            await NotificationService.broadcastToAdmins({
+                tenantId,
+                title,
+                message,
+                type,
+                link
+            });
+            console.log(`📢 Platform change broadcasted: ${title}`);
+        } catch (error) {
+            console.error('❌ Error notifying platform change:', error);
         }
     }
 }

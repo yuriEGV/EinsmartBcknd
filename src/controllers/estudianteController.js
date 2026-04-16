@@ -2,6 +2,7 @@ import Estudiante from '../models/estudianteModel.js';
 import connectDB from '../config/db.js';
 import mongoose from 'mongoose';
 import { validarRUT, formatearRUT } from '../utils/rutValidator.js';
+import NotificationService from '../services/notificationService.js';
 
 const createEstudiante = async (req, res) => {
   try {
@@ -47,6 +48,15 @@ const createEstudiante = async (req, res) => {
         tenantId
       });
     }
+
+    // [NUEVO] Notificar cambio en plataforma
+    await NotificationService.notifyPlatformChange({
+      tenantId,
+      title: 'Nuevo Estudiante Registrado',
+      message: `Se ha matriculado a ${estudianteData.nombres} ${estudianteData.apellidos}.`,
+      type: 'student',
+      link: `/students/${estudiante._id}`
+    });
 
     res.status(201).json(estudiante);
   } catch (error) {
@@ -368,6 +378,16 @@ const updateEstudiante = async (req, res) => {
     }
 
     console.log('UPDATE ESTUDIANTE - Success:', estudiante._id);
+
+    // [NUEVO] Notificar cambio en plataforma
+    await NotificationService.notifyPlatformChange({
+      tenantId: req.user.tenantId,
+      title: 'Ficha de Estudiante Actualizada',
+      message: `Se han modificado los datos de ${estudiante.nombres} ${estudiante.apellidos}.`,
+      type: 'student',
+      link: `/students/${estudiante._id}`
+    });
+
     res.status(200).json(estudiante);
   } catch (error) {
     console.error('UPDATE ESTUDIANTE - Error:', error.message);
@@ -431,6 +451,14 @@ const deleteEstudiante = async (req, res) => {
 
     // Finally delete student
     await Estudiante.findByIdAndDelete(id);
+
+    // [NUEVO] Notificar cambio en plataforma
+    await NotificationService.notifyPlatformChange({
+      tenantId,
+      title: 'Estudiante Eliminado',
+      message: `Se ha eliminado la ficha del estudiante: ${estudiante.nombres} ${estudiante.apellidos}.`,
+      type: 'student'
+    });
 
     res.status(200).json({ message: 'Estudiante y datos relacionados eliminados correctamente' });
   } catch (error) {

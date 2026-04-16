@@ -5,7 +5,15 @@ const registroBitacoraSchema = new mongoose.Schema({
     horasCronologicas: { type: Number, required: true },
     actividadRealizada: { type: String, required: true },
     observaciones: { type: String, default: '' },
-    firmadoTutor: { type: Boolean, default: false }
+    firmadoTutor: { type: Boolean, default: false },
+    firmaEstudiante: { type: String, default: '' }, // New: Base64/Link Signature
+    firmaTutorContenido: { type: String, default: '' }, // New: Base64/Link Signature
+    gpsLocation: {
+        lat: { type: Number },
+        lng: { type: Number },
+        accuracy: { type: Number },
+        timestamp: { type: Date }
+    }
 });
 
 const alternanciaSchema = new mongoose.Schema({

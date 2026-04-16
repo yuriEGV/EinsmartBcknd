@@ -25,7 +25,7 @@ const eventSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['evento', 'reunion', 'otro'],
+        enum: ['evento', 'reunion', 'examen_dual', 'otro'],
         default: 'evento'
     },
     target: {

@@ -40,6 +40,10 @@ const scheduleSchema = new mongoose.Schema({
     endTime: {
         type: String, // format "HH:mm"
         required: true
+    },
+    isDual: {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true });
 

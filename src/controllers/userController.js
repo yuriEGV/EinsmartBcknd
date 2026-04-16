@@ -1,6 +1,7 @@
 import User from '../models/userModel.js';
 import bcrypt from 'bcryptjs';
 import { validarRUT, formatearRUT } from '../utils/rutValidator.js';
+import NotificationService from '../services/notificationService.js';
 
 class UserController {
 
@@ -128,7 +129,6 @@ class UserController {
             // [NUEVO] Notificar a Directores/Sostenedores sobre el nuevo personal
             if (['teacher', 'psicologo', 'orientador', 'secretario', 'asistente_aula'].includes(finalRole)) {
                 try {
-                    const NotificationService = await import('../services/notificationService.js').then(m => m.default);
                     await NotificationService.broadcastToAdmins({
                         tenantId: targetTenantId,
                         title: 'Nuevo Personal Registrado',
@@ -144,8 +144,7 @@ class UserController {
             // Notify new teacher to change PIN and password
             if (finalRole === 'teacher') {
                 try {
-                    const NotificationService = await import('../services/notificationService.js').then(m => m.default);
-                    await NotificationService.createNotification({
+                    await NotificationService.createInternalNotification({
                         userId: user._id,
                         tenantId: targetTenantId,
                         title: 'Cambio de Credenciales Requerido',
@@ -327,6 +326,20 @@ class UserController {
                 return res.status(404).json({ message: 'Usuario no encontrado' });
             }
 
+            // [NUEVO] Notificar actualización de perfil
+            try {
+                await NotificationService.createInternalNotification({
+                    userId: user._id,
+                    tenantId: user.tenantId,
+                    title: 'Perfil Actualizado',
+                    message: 'Su información de perfil ha sido actualizada por un administrador.',
+                    type: 'info',
+                    link: '/profile'
+                });
+            } catch (notifyErr) {
+                console.error('Error notifying user update:', notifyErr);
+            }
+
             res.status(200).json(user);
 
         } catch (error) {
@@ -349,6 +362,14 @@ class UserController {
             if (!user) {
                 return res.status(404).json({ message: 'Usuario no encontrado' });
             }
+
+            // [NUEVO] Notificar cambio en plataforma
+            await NotificationService.notifyPlatformChange({
+                tenantId: user.tenantId,
+                title: 'Usuario Eliminado',
+                message: `Se ha eliminado la cuenta de ${user.name} (${user.role}).`,
+                type: 'system'
+            });
 
             res.status(204).send();
         } catch (error) {
@@ -488,6 +509,16 @@ class UserController {
             }
 
             const result = await User.deleteMany(query);
+
+            // [NUEVO] Notificar cambio en plataforma (Bulk)
+            if (result.deletedCount > 0) {
+                await NotificationService.notifyPlatformChange({
+                    tenantId: req.user.tenantId,
+                    title: 'Eliminación Masiva de Usuarios',
+                    message: `Se han eliminado ${result.deletedCount} usuarios del sistema.`,
+                    type: 'system'
+                });
+            }
 
             res.status(200).json({
                 message: `${result.deletedCount} usuarios eliminados correctamente`,

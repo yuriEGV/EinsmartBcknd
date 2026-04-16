@@ -8,9 +8,9 @@ router.use(authMiddleware);
 
 router.post('/requests', adminDayController.createRequest);
 router.get('/my-requests', adminDayController.getMyRequests);
-router.get('/all', authorizeRoles('admin', 'sostenedor', 'director'), adminDayController.getAllRequests);
+router.get('/all', authorizeRoles('admin', 'sostenedor', 'director', 'utp', 'inspector_general'), adminDayController.getAllRequests);
 router.get('/stats', adminDayController.getStats);
-router.get('/ranking', authorizeRoles('admin', 'sostenedor', 'director'), adminDayController.getRanking);
-router.put('/:id/status', authorizeRoles('admin', 'sostenedor', 'director'), adminDayController.updateStatus);
+router.get('/ranking', authorizeRoles('admin', 'sostenedor', 'director', 'utp', 'inspector_general'), adminDayController.getRanking);
+router.put('/:id/status', authorizeRoles('admin', 'sostenedor', 'director', 'utp', 'inspector_general'), adminDayController.updateStatus);
 
 export default router;

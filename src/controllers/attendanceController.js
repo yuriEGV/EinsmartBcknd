@@ -1,5 +1,6 @@
 import Attendance from '../models/attendanceModel.js';
 import mongoose from 'mongoose';
+import NotificationService from '../services/notificationService.js';
 
 class AttendanceController {
 
@@ -217,6 +218,18 @@ class AttendanceController {
             } catch (latenessErr) {
                 console.error('Error in Lateness Auto-Integration:', latenessErr);
             }
+
+            // [NUEVO] Notificar cambio en plataforma (Resumen de Asistencia)
+            const Course = await import('../models/courseModel.js').then(m => m.default);
+            const course = await Course.findById(courseId);
+            
+            await NotificationService.notifyPlatformChange({
+                tenantId: req.user.tenantId,
+                title: 'Asistencia Registrada',
+                message: `Se ha registrado la asistencia para el curso ${course?.name || 'S/I'} del día ${new Date(fecha).toLocaleDateString()}.`,
+                type: 'attendance',
+                link: '/attendance'
+            });
 
             res.status(200).json({ message: 'Asistencia guardada correctamente' });
 
