@@ -61,6 +61,15 @@ const alternanciaSchema = new mongoose.Schema({
         tutorFirma: { type: Boolean, default: false }
     }],
     convenioUrl: { type: String }, // Link a documento formal (Opcional)
+    
+    // Novedad: Dispositivo Celular Autorizado para Rastreo GPS
+    dispositivoRastreo: {
+        numeroChip: { type: String, default: '' },
+        imei: { type: String, default: '' },
+        modeloEquipo: { type: String, default: '' },
+        activo: { type: Boolean, default: true }
+    },
+    
     bitacora: [registroBitacoraSchema],
     profesorSupervisor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     observaciones: { type: String, default: '' }

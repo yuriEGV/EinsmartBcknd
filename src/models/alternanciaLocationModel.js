@@ -8,6 +8,7 @@ const alternanciaLocationSchema = new mongoose.Schema({
     lat: { type: Number, required: true },
     lng: { type: Number, required: true },
     accuracy: { type: Number },
+    numeroChip: { type: String, default: '' },
     timestamp: { type: Date, default: Date.now }
 });
 

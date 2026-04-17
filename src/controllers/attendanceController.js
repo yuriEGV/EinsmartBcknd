@@ -166,7 +166,28 @@ class AttendanceController {
             // [NUEVO] Lateness Auto-Integration
             try {
                 const Atraso = await import('../models/atrasoModel.js').then(m => m.default);
+                const ClassLog = await import('../models/classLogModel.js').then(m => m.default);
                 const bloque = req.body.bloqueHorario || 'Bloque 1';
+                
+                // Intento de encontrar qué tan tarde es, basado en el inicio real o planificado del leccionario
+                let dynamicMinutosAtraso = 15; // default fail-safe
+                try {
+                     const currentLog = await ClassLog.findOne({
+                         tenantId: req.user.tenantId,
+                         courseId,
+                         bloqueHorario: bloque,
+                         date: { $gte: normalizedFecha, $lt: new Date(normalizedFecha.getTime() + 86400000) }
+                     });
+                     if (currentLog) {
+                         const startReference = currentLog.plannedStartTime || currentLog.startTime;
+                         if (startReference) {
+                             dynamicMinutosAtraso = Math.max(1, Math.floor((Date.now() - startReference.getTime()) / 60000));
+                         }
+                     }
+                } catch(e) {
+                     console.error('Error calculando retrasos desde ClassLog:', e);
+                }
+
                 const latenessOps = [];
 
                 for (const student of students) {
@@ -188,7 +209,7 @@ class AttendanceController {
                                 },
                                 update: {
                                     $setOnInsert: {
-                                        minutosAtraso: 10,
+                                        minutosAtraso: dynamicMinutosAtraso,
                                         estado: 'injustificado',
                                         registradoPor: req.user.userId,
                                         motivo: 'Registrado automáticamente desde libro de clases.'
