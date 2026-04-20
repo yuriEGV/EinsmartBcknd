@@ -50,6 +50,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
     networks:
       - einsmart_net
     healthcheck:

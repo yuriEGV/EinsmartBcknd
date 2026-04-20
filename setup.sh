@@ -56,6 +56,9 @@ fi
 
 # 4. Levantar contenedores
 echo ""
+echo "📂 Asegurando directorios de persistencia..."
+mkdir -p uploads && chmod 775 uploads
+
 echo "🚀 Levantando Einsmart..."
 docker compose up -d --build
 

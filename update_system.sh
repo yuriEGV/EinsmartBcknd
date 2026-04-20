@@ -52,6 +52,7 @@ if [ "$UPDATED" = true ]; then
     echo ""
     echo "🚀 Aplicando cambios y reconstruyendo contenedores..."
     cd "$(dirname "$0")"
+    mkdir -p uploads && chmod 775 uploads
     docker compose up -d --build
     echo "✅ Sistema actualizado con éxito."
 else

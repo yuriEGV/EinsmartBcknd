@@ -43,6 +43,7 @@ echo OK: .env.local encontrado.
 
 REM Levantar contenedores
 echo.
+if not exist uploads mkdir uploads
 echo Levantando Einsmart...
 docker compose up -d --build
 
