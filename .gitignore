@@ -4,3 +4,7 @@ node_modules
 .env.production
 .vercel
 npm-debug.log
+uploads
+*.doc
+*.docx
+*.xls

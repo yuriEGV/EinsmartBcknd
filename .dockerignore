@@ -10,3 +10,4 @@ dist
 # Scripts de admin/debug (no necesarios en producción)
 *.js
 !src/**
+uploads
