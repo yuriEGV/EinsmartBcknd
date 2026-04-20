@@ -3,6 +3,7 @@ import connectDB from '../config/db.js';
 import mongoose from 'mongoose';
 import { validarRUT, formatearRUT } from '../utils/rutValidator.js';
 import NotificationService from '../services/notificationService.js';
+import { saveBase64Image } from '../utils/fileStorage.js';
 
 const createEstudiante = async (req, res) => {
   try {
@@ -10,6 +11,14 @@ const createEstudiante = async (req, res) => {
     const tenantId = req.user.tenantId;
 
     const { guardian, ...estudianteData } = req.body;
+
+    // [NUEVO] Convert base64 to local file if fotoUrl exists
+    if (estudianteData.fotoUrl) {
+      estudianteData.fotoUrl = saveBase64Image(estudianteData.fotoUrl, 'students', estudianteData.rut || `new_${Date.now()}`);
+    }
+    if (estudianteData.photoUrl) {
+      estudianteData.photoUrl = saveBase64Image(estudianteData.photoUrl, 'students', estudianteData.rut || `new_${Date.now()}`);
+    }
 
     // [NUEVO] Prevent duplicates by RUT or Email
     if (estudianteData.rut) {
@@ -347,6 +356,14 @@ const updateEstudiante = async (req, res) => {
     console.log('UPDATE ESTUDIANTE - User TenantId:', req.user.tenantId);
 
     const { _id, guardian, tenantId, ...updateData } = req.body;
+
+    // [NUEVO] Convert base64 to local file if fotoUrl exists
+    if (updateData.fotoUrl) {
+      updateData.fotoUrl = saveBase64Image(updateData.fotoUrl, 'students', updateData.rut || req.params.id);
+    }
+    if (updateData.photoUrl) {
+      updateData.photoUrl = saveBase64Image(updateData.photoUrl, 'students', updateData.rut || req.params.id);
+    }
 
     if (updateData.rut) {
       if (!validarRUT(updateData.rut)) {

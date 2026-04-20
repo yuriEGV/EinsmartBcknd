@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import morgan from 'morgan';
 import connectDB from './config/db.js';
 import { fileURLToPath } from 'url';
+import path from 'path';
 
 // Import routes and middleware
 import apiRoutes from './routes/index.js';
@@ -71,6 +72,10 @@ app.use(cors({
 app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(morgan('dev'));
+
+// Local File Uploads Static Serving Map
+const cwd = process.cwd();
+app.use('/uploads', express.static(path.join(cwd, 'uploads')));
 
 // Single Health check & Root
 app.get('/health', async (req, res) => {
