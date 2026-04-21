@@ -413,6 +413,100 @@ class ReportController {
             res.json(performance);
         } catch (error) {
             console.error('Teacher time report error:', error);
+        }
+    }
+
+    static async getCoursePerformance(req, res) {
+        try {
+            const { courseId } = req.params;
+            const { subjectId } = req.query;
+            const tenantId = req.user.tenantId;
+
+            const [Grade, Evaluation, Enrollment, Estudiante] = await Promise.all([
+                import('../models/gradeModel.js').then(m => m.default),
+                import('../models/evaluationModel.js').then(m => m.default),
+                import('../models/enrollmentModel.js').then(m => m.default),
+                import('../models/estudianteModel.js').then(m => m.default),
+            ]);
+
+            // 1. Fetch Students in Course
+            const enrollments = await Enrollment.find({ 
+                courseId, 
+                tenantId, 
+                status: { $in: ['confirmada', 'activo', 'activa'] } 
+            }).populate('estudianteId', 'nombres apellidos');
+            
+            const studentIds = enrollments.map(e => e.estudianteId._id);
+            if (studentIds.length === 0) return res.json({ stats: null, studentAverages: [] });
+
+            // 2. Fetch Evaluations
+            const evalQuery = { courseId, tenantId };
+            if (subjectId) evalQuery.subjectId = subjectId;
+            const evaluations = await Evaluation.find(evalQuery).select('_id title weight subjectId');
+            const evalIds = evaluations.map(e => e._id);
+
+            // 3. Fetch Grades
+            const grades = await Grade.find({
+                tenantId,
+                estudianteId: { $in: studentIds },
+                evaluationId: { $in: evalIds }
+            });
+
+            // 4. Group by Student to calculate per-student subject average
+            const studentStats = {};
+            studentIds.forEach(id => {
+                studentStats[id.toString()] = { total: 0, count: 0, grades: [] };
+            });
+
+            grades.forEach(g => {
+                const sId = g.estudianteId.toString();
+                if (studentStats[sId]) {
+                    studentStats[sId].total += g.score;
+                    studentStats[sId].count += 1;
+                    studentStats[sId].grades.push(g.score);
+                }
+            });
+
+            const studentAverages = enrollments.map(e => {
+                const stats = studentStats[e.estudianteId._id.toString()];
+                return {
+                    estudianteId: e.estudianteId._id,
+                    name: `${e.estudianteId.apellidos}, ${e.estudianteId.nombres}`,
+                    average: stats.count > 0 ? parseFloat((stats.total / stats.count).toFixed(1)) : null,
+                    count: stats.count
+                };
+            });
+
+            // 5. Global Stats
+            const allScores = grades.map(g => g.score);
+            const courseAverage = allScores.length > 0 
+                ? parseFloat((allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(1)) 
+                : null;
+            
+            const passingCount = allScores.filter(s => s >= 4.0).length;
+            const approvalRate = allScores.length > 0 ? Math.round((passingCount / allScores.length) * 100) : 0;
+
+            // Distribution
+            const distribution = {
+                excellent: allScores.filter(s => s >= 6.0).length,
+                good: allScores.filter(s => s >= 5.0 && s < 6.0).length,
+                sufficient: allScores.filter(s => s >= 4.0 && s < 5.0).length,
+                insufficient: allScores.filter(s => s < 4.0).length
+            };
+
+            res.json({
+                stats: {
+                    courseAverage,
+                    approvalRate,
+                    totalEvaluations: evalIds.length,
+                    totalGrades: allScores.length,
+                    distribution
+                },
+                studentAverages
+            });
+
+        } catch (error) {
+            console.error('getCoursePerformance error:', error);
             res.status(500).json({ message: error.message });
         }
     }

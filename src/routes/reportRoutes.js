@@ -51,6 +51,12 @@ router.get('/performance', checkAuth, ReportController.getWeeklyClassPerformance
 router.get('/teacher-time', checkAuth, ReportController.getTeacherTimeReport);
 
 /**
+ * RENDIMIENTO POR CURSO (PARA LIBRO DE CLASES / ESTADÍSTICAS)
+ * GET /api/reports/course-performance/:courseId?subjectId=...
+ */
+router.get('/course-performance/:courseId', checkAuth, ReportController.getCoursePerformance);
+
+/**
  * OBTENER REPORTE POR ID
  * GET /api/reports/:id
  * NOTE: This MUST be last, after all named routes above.
