@@ -8,7 +8,7 @@ class EvaluationController {
     // Create a new evaluation
     static async createEvaluation(req, res) {
         try {
-            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director', 'utp'];
+            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director', 'utp', 'secretario', 'paradocente'];
             if (!staffRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para crear evaluaciones.' });
             }
@@ -259,7 +259,7 @@ class EvaluationController {
     // Update an evaluation by ID (Secure)
     static async updateEvaluation(req, res) {
         try {
-            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director', 'utp'];
+            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director', 'utp', 'secretario', 'paradocente'];
             if (!staffRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para modificar evaluaciones.' });
             }
@@ -292,7 +292,7 @@ class EvaluationController {
     // Delete an evaluation by ID (Secure)
     static async deleteEvaluation(req, res) {
         try {
-            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director', 'utp'];
+            const staffRoles = ['admin', 'sostenedor', 'teacher', 'director', 'utp', 'secretario', 'paradocente'];
             if (!staffRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para eliminar evaluaciones.' });
             }
