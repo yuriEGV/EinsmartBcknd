@@ -8,3 +8,5 @@ uploads
 *.doc
 *.docx
 *.xls
+ssl/
+scripts/init_admin_days.js
