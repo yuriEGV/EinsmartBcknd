@@ -20,11 +20,12 @@ if ! command -v docker &> /dev/null; then
 fi
 echo "✅ Docker: $(docker --version)"
 
-# 2. Actualizar Repositorios
+# 2. Actualizar Repositorios (Limpieza Profunda)
 echo "📥 Actualizando Backend (EinsmartBcknd)..."
 if [ -d .git ]; then
-    git stash push --message "Auto-stash before setup" || true
-    git pull || echo "⚠️  No se pudo actualizar el backend automáticamente."
+    git fetch origin main
+    git reset --hard origin/main
+    echo "✅ Backend reseteado a la última versión de GitHub."
 fi
 
 FRONTEND_DIR="../Einsmartfrntnd"
@@ -33,9 +34,10 @@ if [ ! -d "$FRONTEND_DIR" ]; then
     git clone https://github.com/yuriEGV/Einsmartfrntnd.git "$FRONTEND_DIR"
     echo "✅ Frontend clonado en $FRONTEND_DIR"
 else
-    echo "✅ Frontend ya existe — actualizando..."
-    git -C "$FRONTEND_DIR" stash push --message "Auto-stash before setup" || true
-    git -C "$FRONTEND_DIR" pull || echo "⚠️  No se pudo actualizar el frontend automáticamente."
+    echo "✅ Frontend ya existe — actualizando con limpieza..."
+    git -C "$FRONTEND_DIR" fetch origin main
+    git -C "$FRONTEND_DIR" reset --hard origin/main
+    echo "✅ Frontend reseteado a la última versión de GitHub."
 fi
 
 # 3. Crear .env.local si no existe
@@ -61,9 +63,10 @@ echo ""
 echo "📂 Asegurando directorios de persistencia..."
 mkdir -p uploads && chmod 775 uploads
 
-echo "🚀 Levantando Einsmart (con reconstrucción forzada)..."
+echo "🚀 Reconstruyendo Einsmart desde cero (SIN CACHÉ)..."
 docker compose down
-docker compose up -d --build --force-recreate
+docker compose build --no-cache
+docker compose up -d
 
 echo ""
 echo "⏳ Esperando que el sistema arranque..."
