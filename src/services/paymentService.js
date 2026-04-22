@@ -86,9 +86,22 @@ if (process.env.MERCADOPAGO_ACCESS_TOKEN) {
 }
 
 const createPaymentFromTariff = async ({ tenantId, estudianteId, tariffId, provider, metadata = {} }) => {
-  // Validar tarifa
-  const tarifa = await Tariff.findOne({ _id: tariffId, tenantId });
-  if (!tarifa) throw new Error('Tarifa no encontrada');
+  // Validar tarifa o manual
+  let concepto = metadata?.concepto;
+  let amount = metadata?.amount;
+  let currency = metadata?.currency || 'CLP';
+
+  if (tariffId) {
+    const tarifa = await Tariff.findOne({ _id: tariffId, tenantId });
+    if (!tarifa) throw new Error('Tarifa no encontrada');
+    concepto = tarifa.name;
+    amount = tarifa.amount;
+    currency = tarifa.currency || 'CLP';
+  }
+
+  if (!concepto || !amount) {
+    throw new Error('Debe proporcionar una tarifa o un concepto y monto manual.');
+  }
 
   // Validar estudiante
   const estudiante = await Estudiante.findById(estudianteId);
@@ -99,10 +112,10 @@ const createPaymentFromTariff = async ({ tenantId, estudianteId, tariffId, provi
     const preference = {
       items: [
         {
-          title: tarifa.name,
+          title: concepto,
           quantity: 1,
-          currency_id: tarifa.currency || 'CLP',
-          unit_price: tarifa.amount,
+          currency_id: currency,
+          unit_price: amount,
         },
       ],
       payer: {
@@ -127,10 +140,10 @@ const createPaymentFromTariff = async ({ tenantId, estudianteId, tariffId, provi
     const pago = await Payment.create({
       tenantId,
       estudianteId,
-      tariffId,
-      concepto: tarifa.name, // Fixed: Added missing concepto
-      amount: tarifa.amount,
-      currency: tarifa.currency || "CLP",
+      tariffId: tariffId || null,
+      concepto,
+      amount,
+      currency,
       provider,
       providerPaymentId: preferenceId,
       status: "pending",
@@ -165,10 +178,10 @@ const createPaymentFromTariff = async ({ tenantId, estudianteId, tariffId, provi
   const payment = await Payment.create({
     tenantId,
     estudianteId,
-    tariffId,
-    concepto: tarifa.name, // Fixed: Added missing concepto
-    amount: tarifa.amount,
-    currency: tarifa.currency || 'CLP',
+    tariffId: tariffId || null,
+    concepto,
+    amount,
+    currency,
     provider: null,
     metadata,
   });

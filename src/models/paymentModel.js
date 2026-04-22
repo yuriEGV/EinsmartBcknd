@@ -21,7 +21,7 @@ const paymentSchema = new mongoose.Schema({
   tariffId: {
     type: mongoose.Types.ObjectId,
     ref: 'Tariff',
-    required: true
+    required: false
   },
 
   concepto: {

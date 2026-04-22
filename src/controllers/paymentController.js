@@ -17,9 +17,9 @@ class PaymentController {
       const { estudianteId, apoderadoId, tariffId, provider, metadata } = req.body;
       const tenantId = req.user.tenantId;
 
-      if (!estudianteId || !tariffId) {
+      if (!estudianteId || (!tariffId && (!metadata?.concepto || !metadata?.amount))) {
         return res.status(400).json({
-          message: 'estudianteId y tariffId son obligatorios'
+          message: 'estudianteId es obligatorio y debe proporcionar una tarifa o un concepto y monto manual.'
         });
       }
 
