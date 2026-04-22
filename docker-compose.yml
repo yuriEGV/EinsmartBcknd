@@ -71,10 +71,13 @@ services:
     container_name: einsmart_frontend
     restart: always
     ports:
-      - "0.0.0.0:80:80"            # Accesible desde toda la LAN
+      - "0.0.0.0:80:80"            # Accesible desde toda la LAN (HTTP)
+      - "0.0.0.0:443:443"          # Accesible desde toda la LAN (HTTPS)
     depends_on:
       backend:
         condition: service_healthy
+    volumes:
+      - ./ssl:/etc/nginx/ssl:ro
     networks:
       - einsmart_net
 
