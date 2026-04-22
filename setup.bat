@@ -19,6 +19,7 @@ echo OK: Docker encontrado.
 
 REM Actualizar Repositorios
 echo Actualizando Backend (EinsmartBcknd)...
+git stash push -m "Auto-stash before setup" > nul 2>&1
 git pull || echo AVISO: No se pudo actualizar el backend automaticamente.
 
 REM Clonar frontend si no existe
@@ -28,6 +29,7 @@ if not exist "..\Einsmartfrntnd" (
     echo OK: Frontend clonado.
 ) else (
     echo OK: Frontend ya existe. Actualizando...
+    git -C ..\Einsmartfrntnd stash push -m "Auto-stash before setup" > nul 2>&1
     git -C ..\Einsmartfrntnd pull || echo AVISO: No se pudo actualizar el frontend automaticamente.
 )
 
@@ -44,8 +46,9 @@ echo OK: .env.local encontrado.
 REM Levantar contenedores
 echo.
 if not exist uploads mkdir uploads
-echo Levantando Einsmart...
-docker compose up -d --build
+echo Levantando Einsmart (con reconstruccion forzada)...
+docker compose down
+docker compose up -d --build --force-recreate
 
 echo.
 echo Esperando que el sistema arranque (30 seg)...

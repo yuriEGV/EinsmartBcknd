@@ -23,7 +23,8 @@ echo "✅ Docker: $(docker --version)"
 # 2. Actualizar Repositorios
 echo "📥 Actualizando Backend (EinsmartBcknd)..."
 if [ -d .git ]; then
-    git pull || echo "⚠️  No se pudo actualizar el backend automáticamente (posibles cambios locales)."
+    git stash push --message "Auto-stash before setup" || true
+    git pull || echo "⚠️  No se pudo actualizar el backend automáticamente."
 fi
 
 FRONTEND_DIR="../Einsmartfrntnd"
@@ -33,6 +34,7 @@ if [ ! -d "$FRONTEND_DIR" ]; then
     echo "✅ Frontend clonado en $FRONTEND_DIR"
 else
     echo "✅ Frontend ya existe — actualizando..."
+    git -C "$FRONTEND_DIR" stash push --message "Auto-stash before setup" || true
     git -C "$FRONTEND_DIR" pull || echo "⚠️  No se pudo actualizar el frontend automáticamente."
 fi
 
@@ -59,8 +61,9 @@ echo ""
 echo "📂 Asegurando directorios de persistencia..."
 mkdir -p uploads && chmod 775 uploads
 
-echo "🚀 Levantando Einsmart..."
-docker compose up -d --build
+echo "🚀 Levantando Einsmart (con reconstrucción forzada)..."
+docker compose down
+docker compose up -d --build --force-recreate
 
 echo ""
 echo "⏳ Esperando que el sistema arranque..."
