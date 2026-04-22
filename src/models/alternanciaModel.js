@@ -62,7 +62,8 @@ const alternanciaSchema = new mongoose.Schema({
     }],
     convenioUrl: { type: String }, // Link a documento formal (Opcional)
     
-    // Novedad: Dispositivo Celular Autorizado para Rastreo GPS
+    // Dispositivo Celular del PROFESOR SUPERVISOR (NO del estudiante)
+    // Por razones de privacidad y legal (menores de edad), solo se rastrea al profesor que visita la empresa.
     dispositivoRastreo: {
         numeroChip: { type: String, default: '' },
         imei: { type: String, default: '' },
