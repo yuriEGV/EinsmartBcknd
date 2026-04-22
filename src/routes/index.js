@@ -42,6 +42,7 @@ import alternanciaRoutes from './alternanciaRoutes.js';
 import logRoutes from './logRoutes.js';
 import medicalLicenseRoutes from './medicalLicenseRoutes.js';
 import empresaRoutes from './empresaRoutes.js';
+import updateRoutes from './updateRoutes.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -123,5 +124,6 @@ router.use('/schedules', scheduleRoutes);
 router.use('/citaciones', citacionRoutes);
 router.use('/payroll', payrollRoutes);
 router.use('/logs', logRoutes);
+router.use('/updates', updateRoutes);
 
 export default router;
