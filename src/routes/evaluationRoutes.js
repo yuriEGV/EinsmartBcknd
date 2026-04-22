@@ -5,7 +5,7 @@ import authMiddleware, { authorizeRoles } from '../middleware/authMiddleware.js'
 const router = express.Router();
 
 // Create a new evaluation
-router.post('/', authMiddleware, authorizeRoles('admin', 'sostenedor', 'director', 'teacher', 'utp'), evaluationController.createEvaluation);
+router.post('/', authMiddleware, authorizeRoles('admin', 'sostenedor', 'director', 'teacher', 'utp', 'secretary', 'secretaria', 'secretario'), evaluationController.createEvaluation);
 
 // Submit for review
 router.post('/:id/submit', authMiddleware, authorizeRoles('teacher'), evaluationController.submitEvaluation);
@@ -29,7 +29,7 @@ router.get('/:id', authMiddleware, evaluationController.getEvaluationById);
 router.get('/:id/print', authMiddleware, evaluationController.printEvaluation);
 
 // Update an evaluation by ID
-router.put('/:id', authMiddleware, authorizeRoles('admin', 'sostenedor', 'director', 'teacher', 'utp'), evaluationController.updateEvaluation);
+router.put('/:id', authMiddleware, authorizeRoles('admin', 'sostenedor', 'director', 'teacher', 'utp', 'secretary', 'secretaria', 'secretario'), evaluationController.updateEvaluation);
 
 // Delete an evaluation by ID
 router.delete('/:id', authMiddleware, authorizeRoles('admin', 'sostenedor', 'director', 'utp'), evaluationController.deleteEvaluation);
