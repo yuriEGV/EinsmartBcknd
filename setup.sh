@@ -63,10 +63,9 @@ echo ""
 echo "📂 Asegurando directorios de persistencia..."
 mkdir -p uploads && chmod 775 uploads
 
-echo "🚀 Reconstruyendo Einsmart desde cero (SIN CACHÉ)..."
+echo "🚀 Iniciando Einsmart (Compilando cambios)..."
 docker compose down
-docker compose build --no-cache
-docker compose up -d
+docker compose up -d --build
 
 echo ""
 echo "⏳ Esperando que el sistema arranque..."
