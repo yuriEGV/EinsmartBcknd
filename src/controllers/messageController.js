@@ -12,9 +12,9 @@ class MessageController {
                 return res.status(400).json({ message: 'Receptor y contenido son obligatorios' });
             }
 
-            // [SECURITY] Only staff (admin, teacher, sostenedor, director) can send messages
-            const allowedRoles = ['admin', 'teacher', 'sostenedor', 'director'];
-            if (!allowedRoles.includes(req.user.role)) {
+            // [SECURITY] Only staff can send messages (exclude students/guardians)
+            const staffExcludedRoles = ['student', 'apoderado'];
+            if (staffExcludedRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para enviar mensajes.' });
             }
 
@@ -59,15 +59,15 @@ class MessageController {
     static async getContacts(req, res) {
         try {
             // Only staff can search for other staff
-            const allowedRoles = ['admin', 'teacher', 'sostenedor', 'director'];
-            if (!allowedRoles.includes(req.user.role)) {
+            const staffExcludedRoles = ['student', 'apoderado'];
+            if (staffExcludedRoles.includes(req.user.role)) {
                 return res.json([]); // Return empty for students/guardians
             }
-
+            
             const users = await User.find({
                 tenantId: req.user.tenantId,
                 _id: { $ne: req.user.userId },
-                role: { $in: allowedRoles }
+                role: { $nin: staffExcludedRoles }
             }).select('name role email');
 
             res.json(users);
