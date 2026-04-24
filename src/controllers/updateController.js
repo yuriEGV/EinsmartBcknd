@@ -43,7 +43,7 @@ class UpdateController {
             // the connection might drop. We send a response first or stream.
             // For simplicity in this environment, we'll try to run it.
             
-            const scriptPath = path.join(process.cwd(), 'setup.sh');
+            const scriptPath = path.join(process.cwd(), 'update_system.sh');
             
             // We'll use exec and not await it fully if we want to avoid timeout, 
             // but the user wants to see it. 

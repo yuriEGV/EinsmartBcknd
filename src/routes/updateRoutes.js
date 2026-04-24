@@ -6,17 +6,15 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-// Check for updates (Staff roles)
+// Check for updates
 router.get(
     '/check',
-    authorizeRoles('admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'secretary', 'secretaria'),
     UpdateController.checkUpdates
 );
 
-// Run update script (Only top admins)
+// Run update script
 router.post(
     '/run',
-    authorizeRoles('admin', 'sostenedor', 'director'),
     UpdateController.runUpdate
 );
 
