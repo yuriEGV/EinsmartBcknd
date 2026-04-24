@@ -37,7 +37,7 @@ export default class SubjectController {
                 query.courseId = req.query.courseId;
             }
 
-            const fullAccessRoles = ['admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'psicologo', 'orientador', 'bibliotecario'];
+            const fullAccessRoles = ['admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'psicologo', 'orientador', 'bibliotecario', 'secretario', 'secretary', 'secretaria', 'paradocente'];
 
             if (fullAccessRoles.includes(req.user.role)) {
                 if (req.user.role === 'admin' && req.query.tenantId) {

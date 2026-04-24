@@ -116,7 +116,7 @@ class AdminDayController {
                 await Event.create({
                     tenantId: req.user.tenantId,
                     title: `Permiso Administrativo: ${user?.name || 'Funcionario'}`,
-                    description: `Ausencia programada por día administrativo.`,
+                    description: `Ausencia programada por día administrativo del funcionario ${user?.name || ''}.`,
                     date: request.date,
                     type: 'otro',
                     target: 'global',

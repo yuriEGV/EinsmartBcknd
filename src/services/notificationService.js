@@ -390,7 +390,7 @@ class NotificationService {
         try {
             const admins = await User.find({
                 tenantId,
-                role: { $in: ['admin', 'sostenedor', 'director', 'utp', 'inspector_general'] }
+                role: { $in: ['admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'secretary', 'secretaria'] }
             });
 
             const notifications = admins.map(admin => ({

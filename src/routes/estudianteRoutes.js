@@ -5,7 +5,7 @@ import { authorizeRoles } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-const STAFF_ROLES = ['admin', 'sostenedor', 'director', 'teacher', 'utp'];
+const STAFF_ROLES = ['admin', 'sostenedor', 'director', 'teacher', 'utp', 'secretary', 'secretaria', 'secretario'];
 
 // Create a new estudiante
 router.post('/', authorizeRoles(...STAFF_ROLES), estudianteController.createEstudiante);

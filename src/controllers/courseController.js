@@ -104,7 +104,7 @@ export default class CourseController {
             let query = { tenantId: req.user.tenantId };
 
             // [ROLES WITH FULL ACCESS TO TENANT]
-            const fullAccessRoles = ['admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'psicologo', 'orientador', 'bibliotecario', 'secretario', 'paradocente'];
+            const fullAccessRoles = ['admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'psicologo', 'orientador', 'bibliotecario', 'secretario', 'secretary', 'secretaria', 'paradocente'];
 
             if (req.user.role === 'student' && req.user.profileId) {
                 const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);

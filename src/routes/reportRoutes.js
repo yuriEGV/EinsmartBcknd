@@ -4,7 +4,7 @@ import ReportController from '../controllers/reportController.js';
 
 const router = express.Router();
 
-const authorizedRoles = ['admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'secretary', 'secretaria'];
+const authorizedRoles = ['admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'secretary', 'secretaria', 'secretario'];
 
 const checkAuth = (req, res, next) => {
     if (authorizedRoles.includes(req.user.role)) {
