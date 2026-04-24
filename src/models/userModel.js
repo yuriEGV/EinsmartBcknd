@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema({
         trim: true,
     },
     passwordHash: { type: String, required: true },
-    role: { type: String, enum: ['admin', 'sostenedor', 'director', 'utp', 'teacher', 'student', 'apoderado', 'psicologo', 'orientador', 'asistente_aula', 'manipulador_alimento', 'bibliotecario', 'secretario', 'paradocente', 'inspector_general', 'trabajador_social', 'psicopedagogo', 'auxiliar', 'vigilante', 'administrativo'], required: true },
+    role: { type: String, enum: ['admin', 'sostenedor', 'director', 'utp', 'teacher', 'student', 'apoderado', 'psicologo', 'orientador', 'asistente_aula', 'manipulador_alimento', 'bibliotecario', 'secretario', 'paradocente', 'inspector_general', 'trabajador_social', 'psicopedagogo', 'auxiliar', 'vigilante', 'administrativo', 'tutor_empresa'], required: true },
     profileId: { type: mongoose.Types.ObjectId, default: null }, // Link to Estudiante or Apoderado
     specialization: { type: String, trim: true }, // Especialidad del profesor (ej: Matemáticas)
     mustChangePassword: { type: Boolean, default: false },

@@ -8,12 +8,20 @@ import mongoose from 'mongoose';
 
 export const getAlternancias = async (req, res) => {
     try {
-        const { tenantId } = req.user;
-        const alternancias = await Alternancia.find({ tenantId })
-            .populate('estudianteId', 'firstName lastName rut')
+        const { tenantId, userId, role } = req.user;
+        let query = { tenantId };
+
+        // If user is a company tutor, only show their assigned students
+        if (role === 'tutor_empresa') {
+            query.tutorId = userId;
+        }
+
+        const alternancias = await Alternancia.find(query)
+            .populate('estudianteId', 'nombres apellidos rut photoUrl')
             .populate('empresa', 'razonSocial rut emailContacto')
-            .populate('careerId', 'name')
+            .populate('careerId', 'name headTeacher profesorJefe')
             .populate('profesorSupervisor', 'name')
+            .populate('tutorId', 'name email')
             .populate('modulosDual.subjectId', 'name')
             .sort({ fechaInicio: -1 });
         res.status(200).json(alternancias);
@@ -27,10 +35,11 @@ export const getAlternanciaById = async (req, res) => {
         const { tenantId } = req.user;
         const { id } = req.params;
         const alternancia = await Alternancia.findOne({ _id: id, tenantId })
-            .populate('estudianteId', 'firstName lastName rut')
+            .populate('estudianteId', 'nombres apellidos rut photoUrl')
             .populate('empresa', 'razonSocial rut tutor emailContacto')
-            .populate('careerId', 'name')
+            .populate('careerId', 'name headTeacher profesorJefe')
             .populate('profesorSupervisor', 'name')
+            .populate('tutorId', 'name email')
             .populate('modulosDual.subjectId', 'name');
         if (!alternancia) return res.status(404).json({ message: 'Alternancia no encontrada' });
         res.status(200).json(alternancia);
@@ -44,9 +53,11 @@ export const getAlternanciasByEstudiante = async (req, res) => {
         const { tenantId } = req.user;
         const { estudianteId } = req.params;
         const alternancias = await Alternancia.find({ tenantId, estudianteId })
+            .populate('estudianteId', 'nombres apellidos rut photoUrl')
             .populate('empresa', 'razonSocial')
-            .populate('careerId', 'name')
+            .populate('careerId', 'name headTeacher profesorJefe')
             .populate('profesorSupervisor', 'name')
+            .populate('tutorId', 'name email')
             .sort({ fechaInicio: -1 });
         res.status(200).json(alternancias);
     } catch (error) {
@@ -218,7 +229,7 @@ export const getActiveLocations = async (req, res) => {
                 model: 'Alternancia', 
                 select: 'estudianteId empresa', 
                 populate: [
-                    { path: 'estudianteId', model: 'User', select: 'name firstName lastName rut' }, 
+                    { path: 'estudianteId', model: 'User', select: 'name nombres apellidos rut' }, 
                     { path: 'empresa', model: 'Empresa', select: 'razonSocial' }
                 ] 
             },

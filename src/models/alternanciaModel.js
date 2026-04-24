@@ -73,6 +73,7 @@ const alternanciaSchema = new mongoose.Schema({
     
     bitacora: [registroBitacoraSchema],
     profesorSupervisor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    tutorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     observaciones: { type: String, default: '' }
 }, { timestamps: true });
 
