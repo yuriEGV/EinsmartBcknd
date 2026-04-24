@@ -67,7 +67,9 @@ class UserController {
                 psicopedagogo: 'psicopedagogo',
                 auxiliar: 'auxiliar',
                 vigilante: 'vigilante',
-                administrativo: 'administrativo'
+                administrativo: 'administrativo',
+                tutor_empresa: 'tutor_empresa',
+                tutor: 'tutor_empresa'
             };
 
             const rawRole = rol || role;
@@ -299,7 +301,9 @@ class UserController {
                     psicopedagogo: 'psicopedagogo',
                     auxiliar: 'auxiliar',
                     vigilante: 'vigilante',
-                    administrativo: 'administrativo'
+                    administrativo: 'administrativo',
+                    tutor_empresa: 'tutor_empresa',
+                    tutor: 'tutor_empresa'
                 };
 
                 const rawRole = req.body.role || req.body.rol;

@@ -1,6 +1,7 @@
 import { exec } from 'child_process';
 import path from 'path';
 import { promisify } from 'util';
+import fs from 'fs';
 
 const execAsync = promisify(exec);
 
@@ -10,6 +11,15 @@ class UpdateController {
      */
     static async checkUpdates(req, res) {
         try {
+            const gitDir = path.join(process.cwd(), '.git');
+            if (!fs.existsSync(gitDir)) {
+                return res.json({
+                    hasUpdate: false,
+                    message: 'No se detectó un repositorio Git. Las actualizaciones automáticas están desactivadas.',
+                    lastChecked: new Date().toISOString()
+                });
+            }
+
             // 1. Fetch from remote
             await execAsync('git fetch origin main');
             
@@ -27,9 +37,12 @@ class UpdateController {
             });
         } catch (error) {
             console.error('Error checking updates:', error);
-            res.status(500).json({ 
-                message: 'Error al verificar actualizaciones', 
-                error: error.message 
+            // Return a valid JSON even on error to avoid console spamming with 500
+            res.status(200).json({ 
+                hasUpdate: false,
+                message: 'Error al verificar actualizaciones en el servidor Git.',
+                error: error.message,
+                lastChecked: new Date().toISOString()
             });
         }
     }
