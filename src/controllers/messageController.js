@@ -1,5 +1,6 @@
 import Message from '../models/messageModel.js';
 import User from '../models/userModel.js';
+import Alternancia from '../models/alternanciaModel.js';
 
 class MessageController {
     static async sendMessage(req, res) {
@@ -62,6 +63,20 @@ class MessageController {
             const staffExcludedRoles = ['student', 'apoderado'];
             if (staffExcludedRoles.includes(req.user.role)) {
                 return res.json([]); // Return empty for students/guardians
+            }
+
+            if (req.user.role === 'tutor_empresa') {
+                // Tutors only see head teachers of their assigned alternancias
+                const myAlternancias = await Alternancia.find({ tutorId: req.user.userId }).populate('careerId');
+                const headTeacherIds = myAlternancias
+                    .map(a => a.careerId?.headTeacher)
+                    .filter(id => id);
+                
+                const users = await User.find({
+                    _id: { $in: headTeacherIds }
+                }).select('name role email');
+
+                return res.json(users);
             }
             
             const users = await User.find({

@@ -32,16 +32,19 @@ export const getAlternancias = async (req, res) => {
 
 export const getAlternanciaById = async (req, res) => {
     try {
-        const { tenantId } = req.user;
-        const { id } = req.params;
-        const alternancia = await Alternancia.findOne({ _id: id, tenantId })
+        let query = { _id: id, tenantId };
+        if (req.user.role === 'tutor_empresa') {
+            query.tutorId = req.user.userId;
+        }
+
+        const alternancia = await Alternancia.findOne(query)
             .populate('estudianteId', 'nombres apellidos rut photoUrl')
             .populate('empresa', 'razonSocial rut tutor emailContacto')
             .populate('careerId', 'name headTeacher profesorJefe')
             .populate('profesorSupervisor', 'name')
             .populate('tutorId', 'name email')
             .populate('modulosDual.subjectId', 'name');
-        if (!alternancia) return res.status(404).json({ message: 'Alternancia no encontrada' });
+        if (!alternancia) return res.status(404).json({ message: 'Alternancia no encontrada o no tiene permisos para verla' });
         res.status(200).json(alternancia);
     } catch (error) {
         res.status(500).json({ message: 'Error al obtener alternancia', error: error.message });
@@ -50,9 +53,15 @@ export const getAlternanciaById = async (req, res) => {
 
 export const getAlternanciasByEstudiante = async (req, res) => {
     try {
-        const { tenantId } = req.user;
+        const { tenantId, role, userId } = req.user;
         const { estudianteId } = req.params;
-        const alternancias = await Alternancia.find({ tenantId, estudianteId })
+        
+        let query = { tenantId, estudianteId };
+        if (role === 'tutor_empresa') {
+            query.tutorId = userId;
+        }
+
+        const alternancias = await Alternancia.find(query)
             .populate('estudianteId', 'nombres apellidos rut photoUrl')
             .populate('empresa', 'razonSocial')
             .populate('careerId', 'name headTeacher profesorJefe')
