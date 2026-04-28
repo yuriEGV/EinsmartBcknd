@@ -301,10 +301,13 @@ class ReportController {
         try {
             const tenantId = req.user.tenantId;
             const ClassLog = await import('../models/classLogModel.js').then(m => m.default);
+            const Atraso = await import('../models/atrasoModel.js').then(m => m.default);
             const { startDate, endDate } = req.query;
 
+            const tenantOid = typeof tenantId === 'string' ? new mongoose.Types.ObjectId(tenantId) : tenantId;
+
             const match = {
-                tenantId: typeof tenantId === 'string' ? new mongoose.Types.ObjectId(tenantId) : tenantId,
+                tenantId: tenantOid,
                 isSigned: true
             };
 
@@ -314,6 +317,7 @@ class ReportController {
                 if (endDate) match.signedAt.$lte = new Date(endDate);
             }
 
+            // 1. Summary aggregation (existing logic)
             const performance = await ClassLog.aggregate([
                 { $match: match },
                 {
@@ -340,26 +344,10 @@ class ReportController {
                         as: 'subject'
                     }
                 },
-                {
-                    $unwind: {
-                        path: '$teacher',
-                        preserveNullAndEmptyArrays: true
-                    }
-                },
-                {
-                    $unwind: {
-                        path: '$course',
-                        preserveNullAndEmptyArrays: true
-                    }
-                },
-                // Filtrar registros sin profesor o curso válido (datos huérfanos)
+                { $unwind: { path: '$teacher', preserveNullAndEmptyArrays: true } },
+                { $unwind: { path: '$course', preserveNullAndEmptyArrays: true } },
                 { $match: { 'teacher._id': { $exists: true }, 'course._id': { $exists: true } } },
-                {
-                    $unwind: {
-                        path: '$subject',
-                        preserveNullAndEmptyArrays: true
-                    }
-                },
+                { $unwind: { path: '$subject', preserveNullAndEmptyArrays: true } },
                 {
                     $group: {
                         _id: {
@@ -368,7 +356,6 @@ class ReportController {
                             courseName: '$course.name',
                             subjectName: { $ifNull: ['$subject.name', 'Sin asignatura'] }
                         },
-                        // Sumar minutos efectivos (effectiveDuration tiene prioridad sobre duration)
                         totalMinutos: {
                             $sum: {
                                 $cond: [
@@ -394,7 +381,6 @@ class ReportController {
                                 courseName: '$_id.courseName',
                                 subjectName: '$_id.subjectName',
                                 minutos: '$totalMinutos',
-                                // [BUG 5 FIX] Calcular horas efectivas por curso
                                 horasEfectivas: { $divide: ['$totalMinutos', 60] },
                                 clases: '$totalClases'
                             }
@@ -403,16 +389,98 @@ class ReportController {
                 },
                 {
                     $addFields: {
-                        // [BUG 5 FIX] Horas efectivas totales del profesor
                         horasEfectivasTotal: { $divide: ['$totalMinutosAllCourses', 60] }
                     }
                 },
                 { $sort: { 'totalMinutosAllCourses': -1 } }
             ]);
 
-            res.json(performance);
+            // 2. Fetch individual class sessions with details
+            const detailedLogs = await ClassLog.find(match)
+                .populate('teacherId', 'name')
+                .populate('courseId', 'name letter')
+                .populate('subjectId', 'name')
+                .sort({ date: -1 })
+                .lean();
+
+            // 3. Build student-to-course mapping via enrollments
+            const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
+            const enrollments = await Enrollment.find({
+                tenantId: tenantOid,
+                status: { $in: ['confirmada', 'activo', 'activa'] }
+            }).select('estudianteId courseId').lean();
+
+            const studentToCourse = {};
+            for (const e of enrollments) {
+                studentToCourse[e.estudianteId.toString()] = e.courseId.toString();
+            }
+
+            // 4. Fetch tardiness data for the period
+            const atrasoMatch = { tenantId: tenantOid };
+            if (startDate || endDate) {
+                atrasoMatch.fecha = {};
+                if (startDate) atrasoMatch.fecha.$gte = new Date(startDate);
+                if (endDate) atrasoMatch.fecha.$lte = new Date(endDate);
+            }
+            const atrasos = await Atraso.find(atrasoMatch)
+                .populate('estudianteId', 'nombres apellidos')
+                .lean();
+
+            // 5. Group sessions by teacher and enrich with tardiness
+            const teacherIds = performance.map(p => p._id.teacherId.toString());
+            const sessionsByTeacher = {};
+            teacherIds.forEach(id => { sessionsByTeacher[id] = []; });
+
+            for (const log of detailedLogs) {
+                const tid = log.teacherId?._id?.toString();
+                if (!tid || !sessionsByTeacher[tid]) continue;
+
+                // Find tardiness for this session's course on the same date
+                const logDateStr = new Date(log.date).toISOString().split('T')[0];
+                const logCourseId = log.courseId?._id?.toString();
+
+                const sessionAtrasos = atrasos.filter(a => {
+                    const aDate = new Date(a.fecha).toISOString().split('T')[0];
+                    if (aDate !== logDateStr) return false;
+                    // Match student's enrolled course to this class log's course
+                    const studentCourse = studentToCourse[a.estudianteId?._id?.toString()];
+                    return studentCourse === logCourseId;
+                });
+
+                const effectiveMin = log.effectiveDuration > 0 ? log.effectiveDuration : (log.duration || 0);
+
+                sessionsByTeacher[tid].push({
+                    _id: log._id,
+                    date: log.date,
+                    topic: log.topic,
+                    activities: log.activities,
+                    objectives: log.objectives || [],
+                    courseName: log.courseId?.name || 'N/A',
+                    courseLetter: log.courseId?.letter || '',
+                    subjectName: log.subjectId?.name || 'Sin asignatura',
+                    bloqueHorario: log.bloqueHorario || '',
+                    effectiveDuration: effectiveMin,
+                    status: log.status || 'realizada',
+                    signedAt: log.signedAt,
+                    atrasos: sessionAtrasos.map(a => ({
+                        studentName: `${a.estudianteId?.apellidos || ''}, ${a.estudianteId?.nombres || ''}`,
+                        minutosAtraso: a.minutosAtraso,
+                        bloque: a.bloque
+                    })),
+                    atrasosCount: sessionAtrasos.length
+                });
+            }
+
+            // 5. Merge sessions into performance data
+            const enriched = performance.map(p => ({
+                ...p,
+                sessions: sessionsByTeacher[p._id.teacherId.toString()] || []
+            }));
+
+            res.json(enriched);
         } catch (error) {
             console.error('Teacher time report error:', error);
+            res.status(500).json({ message: error.message });
         }
     }
 
