@@ -26,7 +26,7 @@ class UserController {
             let finalRut = rut;
             if (finalRut) {
                 if (!validarRUT(finalRut)) {
-                    return res.status(400).json({ message: 'El formato del RUT ingresado no es válido.' });
+                    return res.status(400).json({ message: 'El RUT ingresado no es válido. Ingrese con formato 12.345.678-9 o 123456789 (incluya el dígito verificador).' });
                 }
                 finalRut = formatearRUT(finalRut);
             }
@@ -259,7 +259,7 @@ class UserController {
 
             if (req.body.rut !== undefined) {
                 if (req.body.rut && !validarRUT(req.body.rut)) {
-                    return res.status(400).json({ message: 'El formato del RUT ingresado no es válido.' });
+                    return res.status(400).json({ message: 'El RUT ingresado no es válido. Ingrese con formato 12.345.678-9 o 123456789 (incluya el dígito verificador).' });
                 }
                 updateData.rut = req.body.rut ? formatearRUT(req.body.rut) : '';
             }
