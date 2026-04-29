@@ -66,14 +66,17 @@ class MessageController {
             }
 
             if (req.user.role === 'tutor_empresa') {
-                // Tutors only see head teachers of their assigned alternancias
+                // Tutors see head teachers of their assigned careers AND UTP/Director
                 const myAlternancias = await Alternancia.find({ tutorId: req.user.userId }).populate('careerId');
                 const headTeacherIds = myAlternancias
                     .map(a => a.careerId?.headTeacher)
                     .filter(id => id);
                 
                 const users = await User.find({
-                    _id: { $in: headTeacherIds }
+                    $or: [
+                        { _id: { $in: headTeacherIds } },
+                        { role: { $in: ['utp', 'director'] }, tenantId: req.user.tenantId }
+                    ]
                 }).select('name role email');
 
                 return res.json(users);
