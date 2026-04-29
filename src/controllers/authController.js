@@ -184,7 +184,8 @@ function buildPayload(user) {
         userId: user._id,
         tenantId: user.tenantId,
         role: user.role,
-        profileId: user.profileId
+        profileId: user.profileId,
+        email: user.email
     };
 }
 

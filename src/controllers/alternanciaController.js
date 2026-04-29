@@ -11,10 +11,15 @@ export const getAlternancias = async (req, res) => {
         const { tenantId, userId, role } = req.user;
         let query = { tenantId };
 
-        // If user is a company tutor, only show their assigned students
+        // If user is a company tutor, show their assigned students (by ID or by email in maestroGuia)
         if (role === 'tutor_empresa') {
-            query.tutorId = userId;
+            query.$or = [
+                { tutorId: userId },
+                { "maestroGuia.email": req.user.email }
+            ];
         }
+
+        console.log(`[DEBUG] getAlternancias - User: ${userId}, Role: ${role}, Query:`, JSON.stringify(query));
 
         const alternancias = await Alternancia.find(query)
             .populate('estudianteId', 'nombres apellidos rut photoUrl')
@@ -32,9 +37,19 @@ export const getAlternancias = async (req, res) => {
 
 export const getAlternanciaById = async (req, res) => {
     try {
+        const { tenantId, userId, role } = req.user;
+        const { id } = req.params;
         let query = { _id: id, tenantId };
-        if (req.user.role === 'tutor_empresa') {
-            query.tutorId = req.user.userId;
+
+        if (role === 'tutor_empresa') {
+            query = {
+                _id: id,
+                tenantId,
+                $or: [
+                    { tutorId: userId },
+                    { "maestroGuia.email": req.user.email }
+                ]
+            };
         }
 
         const alternancia = await Alternancia.findOne(query)
@@ -58,7 +73,10 @@ export const getAlternanciasByEstudiante = async (req, res) => {
         
         let query = { tenantId, estudianteId };
         if (role === 'tutor_empresa') {
-            query.tutorId = userId;
+            query.$or = [
+                { tutorId: userId },
+                { "maestroGuia.email": req.user.email }
+            ];
         }
 
         const alternancias = await Alternancia.find(query)
@@ -108,6 +126,8 @@ export const updateAlternancia = async (req, res) => {
 
         const currentAlt = await Alternancia.findOne({ _id: id, tenantId });
         if (!currentAlt) return res.status(404).json({ message: 'Alternancia no encontrada' });
+
+        console.log(`[DEBUG] updateAlternancia - ID: ${id}, Updates:`, JSON.stringify(updates));
 
         const alternancia = await Alternancia.findByIdAndUpdate(
             id,
