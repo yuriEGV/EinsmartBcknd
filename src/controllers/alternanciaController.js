@@ -173,11 +173,22 @@ export const signBitacoraEntry = async (req, res) => {
         const bitacora = alternancia.bitacora.id(bitacoraId);
         if (!bitacora) return res.status(404).json({ message: 'Entrada de bitácora no encontrada' });
 
+        const isTutorEmpresa = role === 'tutor_empresa' && alternancia.tutorId?.toString() === userId.toString();
+        const isSupervisor = (role === 'teacher' || role === 'admin' || role === 'utp' || role === 'director') && alternancia.profesorSupervisor?.toString() === userId.toString();
+
         if (role === 'student' || role === 'alumno') {
             bitacora.firmaEstudiante = 'FIRMADO_PIN';
+        } else if (isTutorEmpresa) {
+            bitacora.firmadoTutorEmpresa = true;
+            bitacora.firmaTutorEmpresaContenido = 'FIRMADO_PIN';
+            bitacora.firmadoTutor = true; // Sync for legacy
+        } else if (isSupervisor) {
+            bitacora.firmadoSupervisor = true;
+            bitacora.firmaSupervisorContenido = 'FIRMADO_PIN';
         } else {
-            bitacora.firmadoTutor = true;
-            bitacora.firmaTutorContenido = 'FIRMADO_PIN';
+            // If admin is signing but not the supervisor, we could allow it or restrict it. 
+            // The user requested "ambos profesores", so we should be specific.
+            return res.status(403).json({ message: 'Usted no es el tutor o supervisor asignado a esta alternancia' });
         }
 
         await alternancia.save();

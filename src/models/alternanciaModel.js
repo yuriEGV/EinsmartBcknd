@@ -5,9 +5,12 @@ const registroBitacoraSchema = new mongoose.Schema({
     horasCronologicas: { type: Number, required: true },
     actividadRealizada: { type: String, required: true },
     observaciones: { type: String, default: '' },
-    firmadoTutor: { type: Boolean, default: false },
-    firmaEstudiante: { type: String, default: '' }, // New: Base64/Link Signature
-    firmaTutorContenido: { type: String, default: '' }, // New: Base64/Link Signature
+    firmadoTutorEmpresa: { type: Boolean, default: false },
+    firmadoSupervisor: { type: Boolean, default: false },
+    firmaEstudiante: { type: String, default: '' }, 
+    firmaTutorEmpresaContenido: { type: String, default: '' }, 
+    firmaSupervisorContenido: { type: String, default: '' }, 
+    firmadoTutor: { type: Boolean, default: false }, // Keep for backward compatibility if needed
     gpsLocation: {
         lat: { type: Number },
         lng: { type: Number },
