@@ -11,7 +11,12 @@ export const getAlternancias = async (req, res) => {
         const { tenantId, userId, role } = req.user;
         let query = { tenantId };
 
-        // If user is a company tutor, show their assigned students (by ID or by email in maestroGuia)
+        // Data Isolation: Teachers only see their assigned supervisions
+        if (role === 'teacher') {
+            query.profesorSupervisor = userId;
+        }
+
+        // Data Isolation: Company Tutors only see their assigned students
         if (role === 'tutor_empresa') {
             query.$or = [
                 { tutorId: userId },
@@ -40,6 +45,10 @@ export const getAlternanciaById = async (req, res) => {
         const { tenantId, userId, role } = req.user;
         const { id } = req.params;
         let query = { _id: id, tenantId };
+
+        if (role === 'teacher') {
+            query.profesorSupervisor = userId;
+        }
 
         if (role === 'tutor_empresa') {
             query = {
@@ -72,6 +81,10 @@ export const getAlternanciasByEstudiante = async (req, res) => {
         const { estudianteId } = req.params;
         
         let query = { tenantId, estudianteId };
+        if (role === 'teacher') {
+            query.profesorSupervisor = userId;
+        }
+
         if (role === 'tutor_empresa') {
             query.$or = [
                 { tutorId: userId },
