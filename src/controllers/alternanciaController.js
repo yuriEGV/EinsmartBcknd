@@ -206,7 +206,10 @@ export const signBitacoraEntry = async (req, res) => {
         const bitacora = alternancia.bitacora.id(bitacoraId);
         if (!bitacora) return res.status(404).json({ message: 'Entrada de bitácora no encontrada' });
 
-        const isTutorEmpresa = role === 'tutor_empresa' && alternancia.tutorId?.toString() === userId.toString();
+        const isTutorEmpresa = role === 'tutor_empresa' && (
+            alternancia.tutorId?.toString() === userId.toString() ||
+            alternancia.maestroGuia?.email === req.user.email
+        );
         const isSupervisor = (role === 'teacher' || role === 'admin' || role === 'utp' || role === 'director') && alternancia.profesorSupervisor?.toString() === userId.toString();
 
         if (role === 'student' || role === 'alumno') {
