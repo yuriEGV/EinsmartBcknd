@@ -52,11 +52,12 @@ class CitacionController {
 
     static async list(req, res) {
         try {
-            const { courseId } = req.query;
+            const { courseId, cursoId } = req.query;
             const query = { tenantId: req.user.tenantId };
 
-            if (courseId) {
-                query.courseId = courseId;
+            const finalCourseId = courseId || cursoId;
+            if (finalCourseId) {
+                query.courseId = finalCourseId;
             }
 
             // Privacy Logic: Stricter for teachers
