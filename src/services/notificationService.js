@@ -285,6 +285,41 @@ class NotificationService {
 
 
     /**
+     * Notify teacher when an apoderado responds to a citation
+     */
+    static async notifyCitationResponse(citationId, tenantId) {
+        try {
+            const Citacion = (await import('../models/citacionModel.js')).default;
+            const citation = await Citacion.findById(citationId)
+                .populate('estudianteId', 'nombres apellidos')
+                .populate('profesorId', '_id')
+                .populate('apoderadoId', 'nombre apellidos');
+
+            if (!citation) return;
+
+            const teacherId = citation.profesorId?._id;
+            if (!teacherId) return;
+
+            const title = `Respuesta a Citación: ${citation.estudianteId?.nombres}`;
+            const message = `El apoderado ${citation.apoderadoId?.nombre} ha respondido a la citación para el día ${new Date(citation.fecha).toLocaleDateString()}. Estado: ${citation.estado}.`;
+
+            await NotificationService.createInternalNotification({
+                tenantId,
+                userId: teacherId,
+                title,
+                message,
+                type: 'system',
+                link: '/class-book'
+            });
+
+            console.log(`✅ Teacher notified of citation response: ${title}`);
+        } catch (error) {
+            console.error('❌ Error in notifyCitationResponse:', error);
+        }
+    }
+
+
+    /**
      * Send notification to guardians when a debt block occurs (debt > 3 months)
      */
     static async notifyDebtor(guardianId, studentName, debtAmount, details) {

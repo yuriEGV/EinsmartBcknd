@@ -92,6 +92,20 @@ const citacionSchema = new mongoose.Schema({
         type: String,
         enum: ['citacion', 'peticion'],
         default: 'citacion'
+    },
+    firmaProfesor: {
+        type: String,
+        default: ''
+    },
+    firmaApoderado: {
+        type: String,
+        default: ''
+    },
+    fechaFirmaProfesor: {
+        type: Date
+    },
+    fechaFirmaApoderado: {
+        type: Date
     }
 }, {
     timestamps: true

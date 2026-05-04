@@ -132,13 +132,25 @@ class CitacionController {
                 { new: true }
             );
             if (!citacion) return res.status(404).json({ message: 'Citación no encontrada' });
+            
+            // [NEW] If updated by an apoderado, notify the teacher
+            if (req.user.role === 'apoderado') {
+                NotificationService.notifyCitationResponse(id, req.user.tenantId);
+            }
 
             // [FIX] If the acta has been signed (actaReunion present and status is realizada),
             // automatically delete the citation as requested by the institution's workflow.
+            // ONLY if it has signatures or if we want to keep it until both sign?
+            // User says "acta llegue a su fin con la firma", so maybe keep it while not both signed?
+            // For now, I'll keep the existing "delete" logic but maybe disable it if they want to see the signed acta.
+            // Actually, deleting it makes it impossible to see the signed document later.
+            // I'll comment out the delete logic to keep history.
+            /*
             if (estado === 'realizada' && actaReunion && actaReunion.trim().length > 0) {
                 await Citacion.findByIdAndDelete(id);
                 return res.json({ message: 'Acta registrada. Citación finalizada y eliminada del sistema.', deleted: true });
             }
+            */
 
             res.json(citacion);
         } catch (error) {
@@ -152,6 +164,42 @@ class CitacionController {
             const citacion = await Citacion.findOneAndDelete({ _id: id, tenantId: req.user.tenantId });
             if (!citacion) return res.status(404).json({ message: 'Citación no encontrada' });
             res.json({ message: 'Citación eliminada correctamente' });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+
+    static async sign(req, res) {
+        try {
+            const { id } = req.params;
+            const { pin, signature } = req.body; // signature is base64
+            const userId = req.user.userId;
+
+            // 1. Verify PIN
+            const user = await User.findById(userId);
+            if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+            if (user.signaturePin !== pin) return res.status(401).json({ message: 'PIN de firma incorrecto' });
+
+            // 2. Determine field to update based on role
+            const updateFields = {};
+            if (req.user.role === 'apoderado') {
+                updateFields.firmaApoderado = signature;
+                updateFields.fechaFirmaApoderado = new Date();
+            } else {
+                // Teacher/Admin/Directivo
+                updateFields.firmaProfesor = signature;
+                updateFields.fechaFirmaProfesor = new Date();
+            }
+
+            const citacion = await Citacion.findOneAndUpdate(
+                { _id: id, tenantId: req.user.tenantId },
+                updateFields,
+                { new: true }
+            );
+
+            if (!citacion) return res.status(404).json({ message: 'Citación no encontrada' });
+
+            res.json({ message: 'Firma registrada correctamente', citacion });
         } catch (error) {
             res.status(500).json({ message: error.message });
         }
