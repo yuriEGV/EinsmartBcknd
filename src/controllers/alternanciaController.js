@@ -16,6 +16,24 @@ export const getAlternancias = async (req, res) => {
             query.profesorSupervisor = userId;
         }
 
+        // Data Isolation: Students only see their own alternancias
+        if (role === 'student' || role === 'alumno') {
+            query.estudianteId = userId;
+        }
+
+        // Data Isolation: Guardians only see their children's alternancias
+        if (role === 'apoderado') {
+            const apoderados = await mongoose.model('Apoderado').find({ 
+                $or: [
+                    { _id: req.user.profileId },
+                    { correo: req.user.email }
+                ],
+                tenantId 
+            });
+            const studentIds = apoderados.map(a => a.estudianteId);
+            query.estudianteId = { $in: studentIds };
+        }
+
         // Data Isolation: Company Tutors only see their assigned students
         if (role === 'tutor_empresa') {
             query.$or = [
@@ -48,6 +66,22 @@ export const getAlternanciaById = async (req, res) => {
 
         if (role === 'teacher') {
             query.profesorSupervisor = userId;
+        }
+
+        if (role === 'student' || role === 'alumno') {
+            query.estudianteId = userId;
+        }
+
+        if (role === 'apoderado') {
+            const apoderados = await mongoose.model('Apoderado').find({ 
+                $or: [
+                    { _id: req.user.profileId },
+                    { correo: req.user.email }
+                ],
+                tenantId 
+            });
+            const studentIds = apoderados.map(a => a.estudianteId);
+            query.estudianteId = { $in: studentIds };
         }
 
         if (role === 'tutor_empresa') {

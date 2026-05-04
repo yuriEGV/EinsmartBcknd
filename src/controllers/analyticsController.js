@@ -416,6 +416,36 @@ class AnalyticsController {
                     studentCount = enrollments.length;
                 }
 
+            } else if (req.user.role === 'student' || req.user.role === 'alumno') {
+                studentCount = 1;
+                const Enrollment = mongoose.model('Enrollment');
+                const enrollment = await Enrollment.findOne({
+                    estudianteId: req.user.userId,
+                    tenantId,
+                    status: { $in: ['confirmada', 'activo', 'activa'] }
+                });
+                courseCount = enrollment ? 1 : 0;
+            } else if (req.user.role === 'apoderado') {
+                const Apoderado = mongoose.model('Apoderado');
+                const Enrollment = mongoose.model('Enrollment');
+                
+                const apoderados = await Apoderado.find({ 
+                    $or: [
+                        { _id: req.user.profileId },
+                        { correo: req.user.email }
+                    ],
+                    tenantId 
+                });
+                const studentIds = apoderados.map(a => a.estudianteId);
+                studentCount = studentIds.length;
+
+                const enrollments = await Enrollment.find({
+                    estudianteId: { $in: studentIds },
+                    tenantId,
+                    status: { $in: ['confirmada', 'activo', 'activa'] }
+                }).distinct('courseId');
+                courseCount = enrollments.length;
+
             } else if (req.user.role === 'admin') {
                 // [NEW] Global Admin stats for platform view (Einsmart Master)
                 const [students, tenants, courses] = await Promise.all([

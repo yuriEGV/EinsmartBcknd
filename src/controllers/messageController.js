@@ -66,15 +66,29 @@ class MessageController {
             }
 
             if (req.user.role === 'tutor_empresa') {
-                // Tutors see head teachers of their assigned careers AND UTP/Director
-                const myAlternancias = await Alternancia.find({ tutorId: req.user.userId }).populate('careerId');
-                const headTeacherIds = myAlternancias
-                    .map(a => a.careerId?.headTeacher)
-                    .filter(id => id);
+                // Tutors see Career teachers, Supervisors, UTP and Director
+                const myAlternancias = await Alternancia.find({ 
+                    $or: [
+                        { tutorId: req.user.userId },
+                        { "maestroGuia.email": req.user.email }
+                    ]
+                }).populate('careerId');
+                
+                const careerTeacherIds = [];
+                const supervisorIds = [];
+
+                myAlternancias.forEach(alt => {
+                    if (alt.careerId) {
+                        if (alt.careerId.headTeacher) careerTeacherIds.push(alt.careerId.headTeacher);
+                        if (alt.careerId.profesorJefe) careerTeacherIds.push(alt.careerId.profesorJefe);
+                        if (alt.careerId.teachers) careerTeacherIds.push(...alt.careerId.teachers);
+                    }
+                    if (alt.profesorSupervisor) supervisorIds.push(alt.profesorSupervisor);
+                });
                 
                 const users = await User.find({
                     $or: [
-                        { _id: { $in: headTeacherIds } },
+                        { _id: { $in: [...new Set([...careerTeacherIds, ...supervisorIds].map(id => id.toString()))] } },
                         { role: { $in: ['utp', 'director'] }, tenantId: req.user.tenantId }
                     ]
                 }).select('name role email');

@@ -65,6 +65,10 @@ const citacionSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    comentariosApoderado: {
+        type: String,
+        default: ''
+    },
     actaReunion: {
         type: String,
         default: ''

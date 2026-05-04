@@ -84,9 +84,18 @@ class CitacionController {
                 }
             } else if (['director', 'inspector_general', 'utp', 'admin', 'sostenedor'].includes(req.user.role)) {
                 // Keep query as is (tenant only)
-            } else if (req.user.role === 'apoderado' || req.user.role === 'student') {
-                // If they are parents/students, they should only see their own
-                // This might need more logic depending on how they are linked
+            } else if (req.user.role === 'apoderado') {
+                const apoderados = await mongoose.model('Apoderado').find({ 
+                    $or: [
+                        { _id: req.user.profileId },
+                        { correo: req.user.email }
+                    ],
+                    tenantId: req.user.tenantId 
+                });
+                const studentIds = apoderados.map(a => a.estudianteId);
+                query.estudianteId = { $in: studentIds };
+            } else if (req.user.role === 'student' || req.user.role === 'alumno') {
+                query.estudianteId = new mongoose.Types.ObjectId(req.user.userId);
             }
 
             const citaciones = await Citacion.find(query)
@@ -104,10 +113,22 @@ class CitacionController {
     static async updateStatus(req, res) {
         try {
             const { id } = req.params;
-            const { estado, actaReunion, acuerdo, resultado, asistioApoderado } = req.body;
+            const { estado, actaReunion, acuerdo, resultado, asistioApoderado, comentariosApoderado, modalidad, fecha, hora } = req.body;
+            
+            // Security check: Only allow certain fields based on role
+            const updateFields = {};
+            if (req.user.role === 'apoderado') {
+                if (estado) updateFields.estado = estado;
+                if (comentariosApoderado) updateFields.comentariosApoderado = comentariosApoderado;
+                if (modalidad) updateFields.modalidad = modalidad;
+            } else {
+                // Admin/Teacher can update everything
+                Object.assign(updateFields, { estado, actaReunion, acuerdo, resultado, asistioApoderado, comentariosApoderado, modalidad, fecha, hora });
+            }
+
             const citacion = await Citacion.findOneAndUpdate(
                 { _id: id, tenantId: req.user.tenantId },
-                { estado, actaReunion, acuerdo, resultado, asistioApoderado },
+                updateFields,
                 { new: true }
             );
             if (!citacion) return res.status(404).json({ message: 'Citación no encontrada' });
