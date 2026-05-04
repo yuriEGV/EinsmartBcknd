@@ -312,7 +312,16 @@ class NotificationService {
                 link: '/class-book'
             });
 
-            console.log(`✅ Teacher notified of citation response: ${title}`);
+            // Also broadcast to Admins (Director, UTP)
+            await NotificationService.broadcastToAdmins({
+                tenantId,
+                title,
+                message,
+                type: 'system',
+                link: '/class-book'
+            });
+
+            console.log(`✅ Teacher and Admins notified of citation response: ${title}`);
         } catch (error) {
             console.error('❌ Error in notifyCitationResponse:', error);
         }

@@ -18,7 +18,7 @@ const classBookLogSchema = new mongoose.Schema({
     },
     action: {
         type: String,
-        enum: ['view', 'edit', 'sign'],
+        enum: ['view', 'edit', 'sign', 'grade', 'attendance', 'citation', 'annotation', 'acta'],
         default: 'view'
     },
     details: {
