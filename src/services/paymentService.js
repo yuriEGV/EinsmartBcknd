@@ -91,7 +91,7 @@ const createPaymentFromTariff = async ({ tenantId, estudianteId, tariffId, provi
   let amount = metadata?.amount;
   let currency = metadata?.currency || 'CLP';
 
-  if (tariffId) {
+  if (tariffId && mongoose.Types.ObjectId.isValid(tariffId)) {
     const tarifa = await Tariff.findOne({ _id: tariffId, tenantId });
     if (!tarifa) throw new Error('Tarifa no encontrada');
     concepto = tarifa.name;

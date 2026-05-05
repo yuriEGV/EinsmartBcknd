@@ -5,6 +5,7 @@ import User from '../models/userModel.js';
 import Enrollment from '../models/enrollmentModel.js';
 import Tenant from '../models/tenantModel.js';
 import { sendMail } from './emailService.js';
+import mongoose from 'mongoose';
 
 class NotificationService {
     /**
@@ -432,6 +433,11 @@ class NotificationService {
      */
     static async broadcastToAdmins({ tenantId, title, message, type = 'system', link = '' }) {
         try {
+            if (!tenantId || !mongoose.Types.ObjectId.isValid(tenantId)) {
+                console.warn('⚠️ Invalid tenantId for broadcast:', tenantId);
+                return;
+            }
+
             const admins = await User.find({
                 tenantId,
                 role: { $in: ['admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'secretary', 'secretaria'] }

@@ -142,7 +142,14 @@ export default authMiddleware;
 ===================================================== */
 export const authorizeRoles = (...roles) => {
     return (req, res, next) => {
-        if (!req.user || !roles.includes(req.user.role)) {
+        if (!req.user || !req.user.role) {
+            return res.status(403).json({ message: 'No tienes permisos' });
+        }
+        
+        const userRole = req.user.role.toLowerCase();
+        const allowedRoles = roles.map(r => r.toLowerCase());
+
+        if (!allowedRoles.includes(userRole)) {
             return res.status(403).json({ message: 'No tienes permisos' });
         }
         next();
