@@ -31,7 +31,7 @@ const alternanciaSchema = new mongoose.Schema({
     },
     estado: { 
         type: String, 
-        enum: ['Borrador', 'Activa', 'Finalizada', 'Cancelada', 'Pendiente'], 
+        enum: ['Borrador', 'Activa', 'Finalizada', 'Cancelada', 'Pendiente', 'Pausada'], 
         default: 'Borrador' 
     },
     fechaInicio: { type: Date, required: true },

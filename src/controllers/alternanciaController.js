@@ -52,8 +52,28 @@ export const getAlternancias = async (req, res) => {
             .populate('tutorId', 'name email')
             .populate('modulosDual.subjectId', 'name')
             .sort({ fechaInicio: -1 });
-        res.status(200).json(alternancias);
+
+        // [PRO FEATURE] Detect active medical licenses for each student
+        const MedicalLicense = mongoose.model('MedicalLicense');
+        const enrichedAlternancias = await Promise.all(alternancias.map(async (alt) => {
+            const doc = alt.toObject();
+            const activeLicense = await MedicalLicense.findOne({
+                userId: alt.estudianteId?._id,
+                tenantId,
+                fechaInicio: { $lte: new Date() },
+                fechaFin: { $gte: new Date() },
+                estado: 'Aprobado'
+            });
+            return {
+                ...doc,
+                hasActiveLicense: !!activeLicense,
+                licenseDetails: activeLicense || null
+            };
+        }));
+
+        res.status(200).json(enrichedAlternancias);
     } catch (error) {
+        console.error('Error in getAlternancias:', error);
         res.status(500).json({ message: 'Error al obtener alternancias', error: error.message });
     }
 };
@@ -244,21 +264,22 @@ export const signBitacoraEntry = async (req, res) => {
             alternancia.tutorId?.toString() === userId.toString() ||
             alternancia.maestroGuia?.email === req.user.email
         );
-        const isSupervisor = (role === 'teacher' || role === 'admin' || role === 'utp' || role === 'director') && alternancia.profesorSupervisor?.toString() === userId.toString();
+        
+        // Admins, Directors, and UTP can sign even if they aren't the designated supervisor
+        const isAdminPower = role === 'admin' || role === 'director' || role === 'utp' || role === 'inspector_general';
+        const isSupervisor = (role === 'teacher' || isAdminPower) && alternancia.profesorSupervisor?.toString() === userId.toString();
 
         if (role === 'student' || role === 'alumno') {
             bitacora.firmaEstudiante = 'FIRMADO_PIN';
         } else if (isTutorEmpresa) {
             bitacora.firmadoTutorEmpresa = true;
             bitacora.firmaTutorEmpresaContenido = 'FIRMADO_PIN';
-            bitacora.firmadoTutor = true; // Sync for legacy
-        } else if (isSupervisor) {
+            bitacora.firmadoTutor = true; 
+        } else if (isSupervisor || isAdminPower) {
             bitacora.firmadoSupervisor = true;
             bitacora.firmaSupervisorContenido = 'FIRMADO_PIN';
         } else {
-            // If admin is signing but not the supervisor, we could allow it or restrict it. 
-            // The user requested "ambos profesores", so we should be specific.
-            return res.status(403).json({ message: 'Usted no es el tutor o supervisor asignado a esta alternancia' });
+            return res.status(403).json({ message: 'Usted no tiene permisos para firmar esta bitácora' });
         }
 
         await alternancia.save();
