@@ -2,6 +2,7 @@ import MedicalLicense from '../models/medicalLicenseModel.js';
 import Attendance from '../models/attendanceModel.js';
 import User from '../models/userModel.js';
 import mongoose from 'mongoose';
+import NotificationService from '../services/notificationService.js';
 
 class MedicalLicenseController {
     // Create a new medical license
