@@ -55,7 +55,7 @@ class NotificationService {
                     title: 'Nueva Calificación',
                     message: `Has recibido una nota de ${grade} en ${subject} (${evaluationTitle}).`,
                     type: 'grade',
-                    link: '/grades'
+                    link: '/class-book?tab=notas'
                 });
             }
 
@@ -95,7 +95,7 @@ class NotificationService {
                         title: 'Nota Registrada',
                         message: `${student.nombres} ha recibido una nota de ${grade} en ${subject}.`,
                         type: 'grade',
-                        link: '/grades'
+                        link: '/class-book?tab=notas'
                     });
                 }
             }
@@ -153,7 +153,7 @@ class NotificationService {
                     title: `Anotación ${typeLabel}`,
                     message: `Se ha registrado una anotación ${typeLabel}: "${title}".`,
                     type: 'annotation',
-                    link: '/annotations'
+                    link: '/class-book?tab=anotaciones'
                 });
             }
 
@@ -193,7 +193,7 @@ class NotificationService {
                         title: `Anotación Registrada (${student.nombres})`,
                         message: `Se ha registrado una anotación ${typeLabel} para ${student.nombres}: "${title}".`,
                         type: 'annotation',
-                        link: '/annotations'
+                        link: '/class-book?tab=anotaciones'
                     });
                 }
             }
@@ -277,7 +277,7 @@ class NotificationService {
                 title: 'Nueva Citación Agendada',
                 message: `Se ha agendado una citación para el alumno ${student.nombres} ${student.apellidos} el día ${formattedDate} a las ${hour}.`,
                 type: 'system',
-                link: '/class-book'
+                link: '/class-book?tab=citaciones'
             });
         } catch (error) {
             console.error('❌ Error in notifyNewCitation:', error);
@@ -310,7 +310,7 @@ class NotificationService {
                 title,
                 message,
                 type: 'system',
-                link: '/class-book'
+                link: '/class-book?tab=citaciones'
             });
 
             // Also broadcast to Admins (Director, UTP)
@@ -319,7 +319,7 @@ class NotificationService {
                 title,
                 message,
                 type: 'system',
-                link: '/class-book'
+                link: '/class-book?tab=citaciones'
             });
 
             console.log(`✅ Teacher and Admins notified of citation response: ${title}`);
@@ -494,7 +494,7 @@ class NotificationService {
                 title: 'Nueva Evaluación Programada',
                 message: `Se ha programado una nueva evaluación: "${assessmentTitle}" para el día ${new Date(date).toLocaleDateString()}. Revisa tu calendario.`,
                 type: 'system',
-                link: '/evaluations'
+                link: '/class-book?tab=notas'
             }));
 
             await UserNotification.insertMany(notifications);
@@ -749,7 +749,7 @@ class NotificationService {
                     title: alertTitle,
                     message: alertMsg,
                     type: 'alert',
-                    link: `/ ficha / ${studentId}`
+                    link: `/class-book?tab=ficha&studentId=${studentId}`
                 });
 
                 // B. Email to Director (and Sostenedor)
