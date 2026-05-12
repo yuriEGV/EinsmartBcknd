@@ -41,7 +41,9 @@ class CitacionController {
                 citacion.fecha,
                 citacion.hora,
                 citacion.observaciones || citacion.motivo,
-                req.user.tenantId
+                req.user.tenantId,
+                citacion._id,
+                citacion.courseId
             );
 
             res.status(201).json(citacion);

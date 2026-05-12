@@ -205,7 +205,7 @@ class NotificationService {
     /**
      * Send notification to guardians when a citation is created
      */
-    static async notifyNewCitation(studentId, subject, date, hour, motivo, tenantId) {
+    static async notifyNewCitation(studentId, subject, date, hour, motivo, tenantId, citationId, courseId) {
         try {
             const student = await Estudiante.findById(studentId);
             const guardians = await Apoderado.find({ estudianteId: studentId, tenantId });
@@ -267,7 +267,7 @@ class NotificationService {
                         title: 'Nueva Citación Agendada',
                         message: `Se ha agendado una citación para el alumno ${student.nombres} el día ${formattedDate} a las ${hour}.`,
                         type: 'system',
-                        link: '/dashboard'
+                        link: `/class-book?tab=citaciones&courseId=${courseId}&studentId=${studentId}&citationId=${citationId}`
                     });
                 }
             }
@@ -277,7 +277,7 @@ class NotificationService {
                 title: 'Nueva Citación Agendada',
                 message: `Se ha agendado una citación para el alumno ${student.nombres} ${student.apellidos} el día ${formattedDate} a las ${hour}.`,
                 type: 'system',
-                link: '/class-book?tab=citaciones'
+                link: `/class-book?tab=citaciones&courseId=${courseId}&studentId=${studentId}&citationId=${citationId}`
             });
         } catch (error) {
             console.error('❌ Error in notifyNewCitation:', error);
@@ -310,7 +310,7 @@ class NotificationService {
                 title,
                 message,
                 type: 'system',
-                link: '/class-book?tab=citaciones'
+                link: `/class-book?tab=citaciones&courseId=${citation.courseId}&studentId=${citation.estudianteId?._id}&citationId=${citation._id}`
             });
 
             // Also broadcast to Admins (Director, UTP)
@@ -319,7 +319,7 @@ class NotificationService {
                 title,
                 message,
                 type: 'system',
-                link: '/class-book?tab=citaciones'
+                link: `/class-book?tab=citaciones&courseId=${citation.courseId}&studentId=${citation.estudianteId?._id}&citationId=${citation._id}`
             });
 
             console.log(`✅ Teacher and Admins notified of citation response: ${title}`);
@@ -720,6 +720,8 @@ class NotificationService {
             const Grade = (await import('../models/gradeModel.js')).default;
             const Anotacion = (await import('../models/anotacionModel.js')).default;
             const student = await Estudiante.findById(studentId);
+            const enrollment = await Enrollment.findOne({ estudianteId: studentId, tenantId, status: { $in: ['confirmada', 'activo', 'activa'] } });
+            const courseId = enrollment?.courseId;
             if (!student) return;
 
             // 1. Calculate Average
@@ -749,7 +751,7 @@ class NotificationService {
                     title: alertTitle,
                     message: alertMsg,
                     type: 'alert',
-                    link: `/class-book?tab=ficha&studentId=${studentId}`
+                    link: `/class-book?tab=ficha&studentId=${studentId}${courseId ? `&courseId=${courseId}` : ''}`
                 });
 
                 // B. Email to Director (and Sostenedor)
