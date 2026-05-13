@@ -32,48 +32,17 @@ class EvaluationController {
                 return res.status(400).json({ message: 'El ID de la asignatura no es válido.' });
             }
 
-            // [CONFLICT DETECTION] Check for concurrent evaluations in same course
-            const conflictQuery = {
-                courseId,
-                date: {
-                    $gte: new Date(new Date(date).setHours(new Date(date).getHours() - 1)), // 1 hour buffer
-                    $lte: new Date(new Date(date).setHours(new Date(date).getHours() + 1))
-                },
-                tenantId: req.user.tenantId
-            };
-            const existingEval = await Evaluation.findOne(conflictQuery);
-            if (existingEval) {
-                return res.status(409).json({
-                    message: `Ya existe una evaluación ("${existingEval.title}") programada en este bloque horario para este curso.`
-                });
-            }
-
-            // [STRICT SCHEDULE ENFORCEMENT - RELAXED]
-            const evalDate = new Date(req.body.date);
-            const dayOfWeek = evalDate.getDay();
-            const evalTimeStr = evalDate.toTimeString().slice(0, 5); // "HH:mm"
-
-            const schedules = await Schedule.find({
-                tenantId: req.user.tenantId,
+            // [UPSERT] If an evaluation with same title+course+subject already exists, return it directly
+            // This allows the grade matrix to safely call POST without 409 on reload
+            const existing = await Evaluation.findOne({
                 courseId,
                 subjectId,
-                dayOfWeek
-            });
+                title: title.trim(),
+                tenantId: req.user.tenantId
+            }).populate('courseId', 'name code');
 
-            // If no schedules found, we just log a warning but allow creation
-            if (schedules.length === 0) {
-                console.warn(`[Evaluation] No classes found for date ${date} but allowing creation.`);
-            } else {
-                const isWithinSchedule = schedules.some(s => {
-                    return evalTimeStr >= s.startTime && evalTimeStr <= s.endTime;
-                });
-
-                if (!isWithinSchedule && !['admin', 'director', 'utp'].includes(req.user.role)) {
-                    // Provide a warning message but maybe still allow? 
-                    // Let's allow it but warn in the console. 
-                    // The user said "Test generation is broken", likely due to this block.
-                    console.warn(`[Evaluation] Out of schedule: ${evalTimeStr}`);
-                }
+            if (existing) {
+                return res.status(200).json(existing);
             }
 
             const evaluationData = { ...req.body };
