@@ -82,7 +82,13 @@ class ReportController {
             }
 
             // Grade filtering by evaluation period
-            const evalQuery = { tenantId, academicYear: currentYear };
+            const evalQuery = { 
+                tenantId, 
+                $or: [
+                    { academicYear: currentYear },
+                    { academicYear: { $exists: false } }
+                ]
+            };
             if (period && period !== 'anual') evalQuery.period = period;
             const validEvals = await Evaluation.find(evalQuery).select('_id');
             const evalIds = validEvals.map(e => e._id);
@@ -91,7 +97,10 @@ class ReportController {
                 Grade.find({ 
                     estudianteId: studentId, 
                     tenantId, 
-                    academicYear: currentYear,
+                    $or: [
+                        { academicYear: currentYear },
+                        { academicYear: { $exists: false } }
+                    ],
                     evaluationId: { $in: evalIds }
                 })
                 .populate({ path: 'evaluationId', populate: { path: 'subjectId', select: 'name' } })
@@ -100,14 +109,20 @@ class ReportController {
                 Attendance.find({ 
                     estudianteId: studentId, 
                     tenantId, 
-                    academicYear: currentYear,
+                    $or: [
+                        { academicYear: currentYear },
+                        { academicYear: { $exists: false } }
+                    ],
                     ...(Object.keys(dateFilter).length ? { fecha: dateFilter } : {})
                 }).sort({ fecha: -1 }),
                 
                 Anotacion.find({ 
                     estudianteId: studentId, 
                     tenantId, 
-                    academicYear: currentYear,
+                    $or: [
+                        { academicYear: currentYear },
+                        { academicYear: { $exists: false } }
+                    ],
                     ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {})
                 }).populate('creadoPor', 'name').sort({ createdAt: -1 }),
                 
@@ -115,14 +130,20 @@ class ReportController {
                     userId: studentId, 
                     tenantId, 
                     userType: 'Estudiante', 
-                    academicYear: currentYear,
+                    $or: [
+                        { academicYear: currentYear },
+                        { academicYear: { $exists: false } }
+                    ],
                     ...(Object.keys(dateFilter).length ? { fechaInicio: dateFilter } : {})
                 }).sort({ fechaInicio: -1 }),
                 
                 Atraso.find({ 
                     estudianteId: studentId, 
                     tenantId, 
-                    academicYear: currentYear,
+                    $or: [
+                        { academicYear: currentYear },
+                        { academicYear: { $exists: false } }
+                    ],
                     ...(Object.keys(dateFilter).length ? { fecha: dateFilter } : {})
                 }).populate('registradoPor', 'name').sort({ fecha: -1 }),
             ]);

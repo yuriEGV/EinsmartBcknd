@@ -24,9 +24,13 @@ export const getAtrasos = async (req, res) => {
     try {
         const { tenantId } = req.user;
         const { courseId } = req.query;
+        const currentYear = req.user.academicYear || new Date().getFullYear();
         let query = { 
             tenantId,
-            academicYear: req.user.academicYear || new Date().getFullYear()
+            $or: [
+                { academicYear: currentYear },
+                { academicYear: { $exists: false } }
+            ]
         };
 
         if (courseId) {

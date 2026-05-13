@@ -1,45 +1,46 @@
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 import Grade from '../src/models/gradeModel.js';
 import Evaluation from '../src/models/evaluationModel.js';
-import dotenv from 'dotenv';
+import Anotacion from '../src/models/anotacionModel.js';
+import Attendance from '../src/models/attendanceModel.js';
+import Atraso from '../src/models/atrasoModel.js';
+import MedicalLicense from '../src/models/medicalLicenseModel.js';
+
 dotenv.config();
 
-async function checkGrades() {
+async function check() {
     try {
-        // Use localhost since we are running outside docker
-        const uri = 'mongodb://einsmart_app:apppass2024@localhost:27017/Einsmart?authSource=admin';
-        await mongoose.connect(uri);
-        console.log('Connected to DB:', uri);
-
-        const Course = (await import('../src/models/courseModel.js')).default;
-        const courses = await Course.find({ name: /4.*Medio.*I/i });
+        const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
+        if (!uri) throw new Error('No MONGO_URI found in .env');
         
-        if (courses.length === 0) {
-            console.log('Course not found');
-            return;
-        }
+        await mongoose.connect(uri);
+        console.log('Connected to DB');
 
-        for (const course of courses) {
-            console.log('\n--- Checking Course:', course.name, `(${course._id}) ---`);
-            const evals = await Evaluation.find({ courseId: course._id });
-            console.log(`Found ${evals.length} evaluations`);
-            
-            for (const e of evals) {
-                const count = await Grade.countDocuments({ evaluationId: e._id });
-                console.log(` - [${e.title}] ID: ${e._id} | Subject: ${e.subjectId} | Grades Count: ${count}`);
-                if (count > 0) {
-                    const grades = await Grade.find({ evaluationId: e._id }).limit(3);
-                    grades.forEach(g => {
-                        console.log(`   - Grade: ${g.score} | Student: ${g.estudianteId}`);
-                    });
-                }
+        const models = [
+            { name: 'Grade', model: Grade },
+            { name: 'Evaluation', model: Evaluation },
+            { name: 'Anotacion', model: Anotacion },
+            { name: 'Attendance', model: Attendance },
+            { name: 'Atraso', model: Atraso },
+            { name: 'MedicalLicense', model: MedicalLicense }
+        ];
+
+        for (const m of models) {
+            const count = await m.model.countDocuments({ academicYear: { $exists: false } });
+            console.log(`${m.name} without academicYear:`, count);
+            if (count > 0) {
+                console.log(`Migrating ${m.name} records to academicYear 2026...`);
+                await m.model.updateMany({ academicYear: { $exists: false } }, { $set: { academicYear: 2026 } });
             }
         }
 
-        await mongoose.disconnect();
+        console.log('Migration complete.');
+        process.exit(0);
     } catch (err) {
-        console.error(err);
+        console.error('Migration failed:', err.message);
+        process.exit(1);
     }
 }
 
-checkGrades();
+check();

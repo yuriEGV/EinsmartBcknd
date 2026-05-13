@@ -89,11 +89,15 @@ class AnotacionController {
     static async getAnotaciones(req, res) {
         try {
             const { tipo, estudianteId, cursoId } = req.query;
+            const currentYear = req.user.academicYear || new Date().getFullYear();
             let query = (req.user.role === 'admin')
                 ? {}
                 : { 
                     tenantId: req.user.tenantId,
-                    academicYear: req.user.academicYear || new Date().getFullYear()
+                    $or: [
+                        { academicYear: currentYear },
+                        { academicYear: { $exists: false } }
+                    ]
                 };
 
             // Restricción para estudiantes y apoderados

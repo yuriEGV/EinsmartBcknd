@@ -138,9 +138,13 @@ class MedicalLicenseController {
             }
 
             const { userId, userType, startDate, endDate, fecha } = req.query;
+            const currentYear = req.user.academicYear || new Date().getFullYear();
             const query = { 
                 tenantId: req.user.tenantId,
-                academicYear: req.user.academicYear || new Date().getFullYear()
+                $or: [
+                    { academicYear: currentYear },
+                    { academicYear: { $exists: false } }
+                ]
             };
 
             if (userId) query.userId = userId;

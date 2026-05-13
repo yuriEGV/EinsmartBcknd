@@ -264,11 +264,15 @@ class AttendanceController {
 
     static async listAttendances(req, res) {
         try {
+            const currentYear = req.user.academicYear || new Date().getFullYear();
             const query = (req.user.role === 'admin')
                 ? {}
                 : { 
                     tenantId: req.user.tenantId,
-                    academicYear: req.user.academicYear || new Date().getFullYear()
+                    $or: [
+                        { academicYear: currentYear },
+                        { academicYear: { $exists: false } }
+                    ]
                 };
 
             // Restricción para estudiantes y apoderados

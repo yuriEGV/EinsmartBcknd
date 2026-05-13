@@ -76,9 +76,13 @@ class GradeController {
     static async getGrades(req, res) {
         try {
             const { courseId, subjectId, studentId: studentIdParam } = req.query;
+            const currentYear = req.user.academicYear || new Date().getFullYear();
             const query = { 
                 tenantId: req.user.tenantId,
-                academicYear: req.user.academicYear || new Date().getFullYear()
+                $or: [
+                    { academicYear: currentYear },
+                    { academicYear: { $exists: false } }
+                ]
             };
 
             // 1. Role-based filtering
