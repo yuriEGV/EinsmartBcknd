@@ -74,13 +74,13 @@ class GradeController {
     // Get all grades (Filtered by Tenant and User)
     static async getGrades(req, res) {
         try {
+            const { courseId, subjectId, studentId: studentIdParam } = req.query;
             const query = { tenantId: req.user.tenantId };
 
-            // If student, filter by their own profileId
+            // 1. Role-based filtering
             if (req.user.role === 'student' && req.user.profileId) {
                 query.estudianteId = req.user.profileId;
             }
-            // If guardian, filter by their linked student
             else if (req.user.role === 'apoderado' && req.user.profileId) {
                 const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
                 const vinculation = await Apoderado.findById(req.user.profileId);
@@ -90,37 +90,49 @@ class GradeController {
                     return res.status(200).json([]);
                 }
             }
-            else if (req.user.role === 'student' || req.user.role === 'apoderado') {
-                return res.status(200).json([]);
+            else if (studentIdParam) {
+                query.estudianteId = studentIdParam;
             }
-            // [FIX] Data Isolation for Teachers
+
+            // 2. Context-based filtering (Course/Subject)
+            if (courseId || subjectId) {
+                const Evaluation = await import('../models/evaluationModel.js').then(m => m.default);
+                const evalQuery = { tenantId: req.user.tenantId };
+                if (courseId) evalQuery.courseId = courseId;
+                if (subjectId) evalQuery.subjectId = subjectId;
+                
+                const evaluations = await Evaluation.find(evalQuery).select('_id');
+                const evalIds = evaluations.map(e => e._id);
+                
+                // If subjectId provided but no evaluations found, return empty
+                if (subjectId && evalIds.length === 0) {
+                    return res.status(200).json([]);
+                }
+
+                if (evalIds.length > 0) {
+                    query.evaluationId = { $in: evalIds };
+                }
+            }
+            // Fallback for teachers if no specific course/subject filter is applied
             else if (req.user.role === 'teacher') {
-                // 1. Find courses where the teacher is assigned (Head Teacher or Subject Teacher)
                 const Course = await import('../models/courseModel.js').then(m => m.default);
                 const Subject = await import('../models/subjectModel.js').then(m => m.default);
                 const Evaluation = await import('../models/evaluationModel.js').then(m => m.default);
 
-                // Courses as Head Teacher
                 const headCourses = await Course.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('_id');
-
-                // Courses as Subject Teacher
                 const subjectAssignments = await Subject.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('courseId');
 
-                const courseIds = [
+                const teacherCourseIds = [
                     ...headCourses.map(c => c._id),
                     ...subjectAssignments.map(s => s.courseId)
                 ];
 
-                // 2. Find Evaluations linked to these courses
                 const teacherEvaluations = await Evaluation.find({
-                    courseId: { $in: courseIds },
+                    courseId: { $in: teacherCourseIds },
                     tenantId: req.user.tenantId
                 }).select('_id');
 
-                const evaluationIds = teacherEvaluations.map(e => e._id);
-
-                // 3. Filter Grades by these Evaluations
-                query.evaluationId = { $in: evaluationIds };
+                query.evaluationId = { $in: teacherEvaluations.map(e => e._id) };
             }
 
             const grades = await Grade.find(query)
