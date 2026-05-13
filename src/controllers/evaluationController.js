@@ -53,6 +53,7 @@ class EvaluationController {
             const evaluation = new Evaluation({
                 ...evaluationData,
                 tenantId: req.user.tenantId,
+                academicYear: req.user.academicYear || new Date().getFullYear(),
                 status: (['admin', 'director', 'utp'].includes(req.user.role)) ? 'approved' : 'draft'
             });
             await evaluation.save();
@@ -78,7 +79,10 @@ class EvaluationController {
     static async getEvaluations(req, res) {
         try {
             const { courseId, subjectId, studentId, guardianId } = req.query;
-            const query = { tenantId: req.user.tenantId };
+            const query = { 
+                tenantId: req.user.tenantId,
+                academicYear: req.user.academicYear || new Date().getFullYear()
+            };
 
             if (courseId) {
                 query.courseId = courseId;

@@ -61,7 +61,12 @@ const anotacionSchema = new mongoose.Schema({
     archivos: [{
         type: String,
         trim: true
-    }] // URLs de archivos adjuntos si es necesario
+    }], // URLs de archivos adjuntos si es necesario
+    academicYear: {
+        type: Number,
+        required: true,
+        default: () => new Date().getFullYear()
+    }
 }, {
     timestamps: true
 });

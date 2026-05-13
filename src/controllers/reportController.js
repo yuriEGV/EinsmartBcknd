@@ -32,6 +32,7 @@ class ReportController {
     static async getStudentSummary(req, res) {
         try {
             const { studentId } = req.params;
+            const { period } = req.query; // '1_semestre', '2_semestre', 'anual'
             const tenantId = req.user.tenantId;
 
             // Role-based access control
@@ -49,7 +50,7 @@ class ReportController {
             }
 
             // Lazy-load all required models
-            const [Estudiante, Grade, Attendance, Anotacion, MedicalLicense, Atraso, Apoderado, ClassLog, Tenant, Enrollment] = await Promise.all([
+            const [Estudiante, Grade, Attendance, Anotacion, MedicalLicense, Atraso, Apoderado, ClassLog, Tenant, Enrollment, Evaluation] = await Promise.all([
                 import('../models/estudianteModel.js').then(m => m.default),
                 import('../models/gradeModel.js').then(m => m.default),
                 import('../models/attendanceModel.js').then(m => m.default),
@@ -60,21 +61,71 @@ class ReportController {
                 import('../models/classLogModel.js').then(m => m.default),
                 import('../models/tenantModel.js').then(m => m.default),
                 import('../models/enrollmentModel.js').then(m => m.default),
+                import('../models/evaluationModel.js').then(m => m.default),
             ]);
 
-            const [student, grades, attendance, annotations, licenses, atrasos, tenant] = await Promise.all([
+            const [student, tenant] = await Promise.all([
                 Estudiante.findById(studentId),
-                Grade.find({ estudianteId: studentId, tenantId })
-                    .populate({ path: 'evaluationId', populate: { path: 'subjectId', select: 'name' } })
-                    .sort({ createdAt: 1 }),
-                Attendance.find({ estudianteId: studentId, tenantId }).sort({ fecha: -1 }),
-                Anotacion.find({ estudianteId: studentId, tenantId }).populate('creadoPor', 'name').sort({ createdAt: -1 }),
-                MedicalLicense.find({ userId: studentId, tenantId, userType: 'Estudiante' }).sort({ fechaInicio: -1 }),
-                Atraso.find({ estudianteId: studentId, tenantId }).populate('registradoPor', 'name').sort({ fecha: -1 }),
                 Tenant.findById(tenantId),
             ]);
 
             if (!student) return res.status(404).json({ message: 'Estudiante no encontrado' });
+
+            const currentYear = tenant?.academicYear || new Date().getFullYear();
+
+            // Date filtering for semesters
+            let dateFilter = {};
+            if (period === '1_semestre') {
+                dateFilter = { $gte: new Date(`${currentYear}-03-01`), $lte: new Date(`${currentYear}-07-31`) };
+            } else if (period === '2_semestre') {
+                dateFilter = { $gte: new Date(`${currentYear}-08-01`), $lte: new Date(`${currentYear}-12-31`) };
+            }
+
+            // Grade filtering by evaluation period
+            const evalQuery = { tenantId, academicYear: currentYear };
+            if (period && period !== 'anual') evalQuery.period = period;
+            const validEvals = await Evaluation.find(evalQuery).select('_id');
+            const evalIds = validEvals.map(e => e._id);
+
+            const [grades, attendance, annotations, licenses, atrasos] = await Promise.all([
+                Grade.find({ 
+                    estudianteId: studentId, 
+                    tenantId, 
+                    academicYear: currentYear,
+                    evaluationId: { $in: evalIds }
+                })
+                .populate({ path: 'evaluationId', populate: { path: 'subjectId', select: 'name' } })
+                .sort({ createdAt: 1 }),
+                
+                Attendance.find({ 
+                    estudianteId: studentId, 
+                    tenantId, 
+                    academicYear: currentYear,
+                    ...(Object.keys(dateFilter).length ? { fecha: dateFilter } : {})
+                }).sort({ fecha: -1 }),
+                
+                Anotacion.find({ 
+                    estudianteId: studentId, 
+                    tenantId, 
+                    academicYear: currentYear,
+                    ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {})
+                }).populate('creadoPor', 'name').sort({ createdAt: -1 }),
+                
+                MedicalLicense.find({ 
+                    userId: studentId, 
+                    tenantId, 
+                    userType: 'Estudiante', 
+                    academicYear: currentYear,
+                    ...(Object.keys(dateFilter).length ? { fechaInicio: dateFilter } : {})
+                }).sort({ fechaInicio: -1 }),
+                
+                Atraso.find({ 
+                    estudianteId: studentId, 
+                    tenantId, 
+                    academicYear: currentYear,
+                    ...(Object.keys(dateFilter).length ? { fecha: dateFilter } : {})
+                }).populate('registradoPor', 'name').sort({ fecha: -1 }),
+            ]);
 
             // Guardian & enrollment
             const [guardian, enrollment] = await Promise.all([

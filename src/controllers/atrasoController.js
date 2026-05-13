@@ -24,7 +24,10 @@ export const getAtrasos = async (req, res) => {
     try {
         const { tenantId } = req.user;
         const { courseId } = req.query;
-        let query = { tenantId };
+        let query = { 
+            tenantId,
+            academicYear: req.user.academicYear || new Date().getFullYear()
+        };
 
         if (courseId) {
             const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
@@ -73,7 +76,8 @@ export const createAtraso = async (req, res) => {
             minutosAtraso,
             motivo,
             estado: estado || 'injustificado',
-            registradoPor: userId
+            registradoPor: userId,
+            academicYear: req.user.academicYear || new Date().getFullYear()
         });
 
         const savedAtraso = await newAtraso.save();

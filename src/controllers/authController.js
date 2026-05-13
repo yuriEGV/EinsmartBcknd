@@ -179,14 +179,21 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 /* ===============================
    HELPERS
 ================================ */
-function buildPayload(user) {
+function buildPayload(user, academicYear) {
     return {
         userId: user._id,
         tenantId: user.tenantId,
         role: user.role,
         profileId: user.profileId,
-        email: user.email
+        email: user.email,
+        academicYear: academicYear
     };
+}
+
+function generarToken(user, academicYear) {
+    return jwt.sign(buildPayload(user, academicYear), JWT_SECRET, {
+        expiresIn: JWT_EXPIRES_IN
+    });
 }
 
 function sanitizeUser(user) {
@@ -248,7 +255,9 @@ async function registrar(req, res) {
             tenantId
         });
 
-        const token = generarToken(user);
+        const tenant = await Tenant.findById(user.tenantId);
+        const academicYear = tenant?.academicYear || new Date().getFullYear().toString();
+        const token = generarToken(user, academicYear);
 
         return res.status(201).json({
             message: 'Usuario registrado correctamente',
@@ -309,7 +318,9 @@ async function login(req, res) {
             return res.status(401).json({ message: 'Credenciales inválidas' });
         }
 
-        const token = generarToken(user);
+        const tenant = await Tenant.findById(user.tenantId);
+        const academicYear = tenant?.academicYear || new Date().getFullYear().toString();
+        const token = generarToken(user, academicYear);
 
         return res.json({
             message: 'Inicio de sesión exitoso',

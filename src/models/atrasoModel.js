@@ -37,6 +37,11 @@ const atrasoSchema = new mongoose.Schema({
     registradoPor: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
+    },
+    academicYear: {
+        type: Number,
+        required: true,
+        default: () => new Date().getFullYear()
     }
 }, { timestamps: true });
 

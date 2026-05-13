@@ -89,7 +89,8 @@ class MedicalLicenseController {
                 documentoUrl,
                 esElectronica,
                 fechaEntrega: fechaEntrega || new Date(),
-                observaciones
+                observaciones,
+                academicYear: req.user.academicYear || new Date().getFullYear()
             });
 
             await license.save();
@@ -137,7 +138,10 @@ class MedicalLicenseController {
             }
 
             const { userId, userType, startDate, endDate, fecha } = req.query;
-            const query = { tenantId: req.user.tenantId };
+            const query = { 
+                tenantId: req.user.tenantId,
+                academicYear: req.user.academicYear || new Date().getFullYear()
+            };
 
             if (userId) query.userId = userId;
             if (userType) query.userType = userType;

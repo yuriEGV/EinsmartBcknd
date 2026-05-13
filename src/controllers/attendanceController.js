@@ -46,6 +46,7 @@ class AttendanceController {
                 estado: finalEstado,
                 tenantId: req.user.tenantId,
                 registradoPor: req.user.userId,
+                academicYear: req.user.academicYear || new Date().getFullYear(),
                 observacion: activeLicense ? `Auto-justificado por Licencia Médica ID: ${activeLicense._id}` : ''
             });
 
@@ -153,6 +154,7 @@ class AttendanceController {
                                 $set: {
                                     estado: isLicensed ? 'justificado' : s.estado,
                                     registradoPor: req.user.userId,
+                                    academicYear: req.user.academicYear || new Date().getFullYear(),
                                     observacion: isLicensed ? `Auto-justificado por Licencia Médica ID: ${license._id}` : ''
                                 }
                             },
@@ -264,7 +266,10 @@ class AttendanceController {
         try {
             const query = (req.user.role === 'admin')
                 ? {}
-                : { tenantId: req.user.tenantId };
+                : { 
+                    tenantId: req.user.tenantId,
+                    academicYear: req.user.academicYear || new Date().getFullYear()
+                };
 
             // Restricción para estudiantes y apoderados
             if (req.user.role === 'student' && req.user.profileId) {

@@ -47,7 +47,8 @@ class AnotacionController {
                 medidas: medidas || '',
                 archivos: archivos || [],
                 creadoPor: req.user.userId,
-                tenantId: req.user.tenantId
+                tenantId: req.user.tenantId,
+                academicYear: req.user.academicYear || new Date().getFullYear()
             });
 
             await anotacion.save();
@@ -90,7 +91,10 @@ class AnotacionController {
             const { tipo, estudianteId, cursoId } = req.query;
             let query = (req.user.role === 'admin')
                 ? {}
-                : { tenantId: req.user.tenantId };
+                : { 
+                    tenantId: req.user.tenantId,
+                    academicYear: req.user.academicYear || new Date().getFullYear()
+                };
 
             // Restricción para estudiantes y apoderados
             if (req.user.role === 'student' && req.user.profileId) {

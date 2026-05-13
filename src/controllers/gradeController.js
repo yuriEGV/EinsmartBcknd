@@ -47,7 +47,8 @@ class GradeController {
                 score,
                 comments,
                 status: (activeLicense || req.body.status === 'justified') ? 'justified' : (req.body.status || 'graded'),
-                tenantId
+                tenantId,
+                academicYear: req.user.academicYear || new Date().getFullYear()
             });
             await grade.save();
             await grade.populate('estudianteId', 'nombres apellidos');
@@ -75,7 +76,10 @@ class GradeController {
     static async getGrades(req, res) {
         try {
             const { courseId, subjectId, studentId: studentIdParam } = req.query;
-            const query = { tenantId: req.user.tenantId };
+            const query = { 
+                tenantId: req.user.tenantId,
+                academicYear: req.user.academicYear || new Date().getFullYear()
+            };
 
             // 1. Role-based filtering
             if (req.user.role === 'student' && req.user.profileId) {
@@ -379,7 +383,8 @@ class GradeController {
                         $set: {
                             score: parsedScore,
                             status: g.status || 'graded',
-                            tenantId
+                            tenantId,
+                            academicYear: req.user.academicYear || new Date().getFullYear()
                         }
                     },
                     { upsert: true, new: true, setDefaultsOnInsert: true }

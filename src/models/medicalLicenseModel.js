@@ -59,6 +59,11 @@ const medicalLicenseSchema = new mongoose.Schema({
     observaciones: {
         type: String,
         default: ''
+    },
+    academicYear: {
+        type: Number,
+        required: true,
+        default: () => new Date().getFullYear()
     }
 }, { timestamps: true });
 
