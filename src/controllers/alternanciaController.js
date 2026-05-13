@@ -42,6 +42,26 @@ export const getAlternancias = async (req, res) => {
             ];
         }
 
+        // Feature: Filter by CourseId for Reports
+        const { courseId } = req.query;
+        if (courseId) {
+            const enrollments = await Enrollment.find({
+                courseId,
+                tenantId,
+                status: { $in: ['confirmada', 'activo', 'activa'] }
+            }).select('estudianteId');
+            const enrolledStudentIds = enrollments.map(e => e.estudianteId);
+            
+            if (query.estudianteId) {
+                // Intersect if already filtered by role
+                const currentIds = Array.isArray(query.estudianteId.$in) ? query.estudianteId.$in : [query.estudianteId];
+                const intersection = currentIds.filter(id => enrolledStudentIds.some(eid => eid.equals(id)));
+                query.estudianteId = { $in: intersection };
+            } else {
+                query.estudianteId = { $in: enrolledStudentIds };
+            }
+        }
+
         console.log(`[DEBUG] getAlternancias - User: ${userId}, Role: ${role}, Query:`, JSON.stringify(query));
 
         const alternancias = await Alternancia.find(query)
