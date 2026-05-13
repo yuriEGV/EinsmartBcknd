@@ -27,7 +27,12 @@ const evaluationSchema = new mongoose.Schema({
     },
     feedback: { type: String },
     approvedBy: { type: mongoose.Types.ObjectId, ref: 'User' },
-    rubricId: { type: mongoose.Types.ObjectId, ref: 'Rubric' }
+    rubricId: { type: mongoose.Types.ObjectId, ref: 'Rubric' },
+    academicYear: {
+        type: Number,
+        required: true,
+        default: () => new Date().getFullYear()
+    }
 }, { timestamps: true });
 
 export default mongoose.model('Evaluation', evaluationSchema);

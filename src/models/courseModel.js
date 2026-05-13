@@ -4,7 +4,12 @@ const courseSchema = new mongoose.Schema({
     tenantId: { type: mongoose.Types.ObjectId, ref: 'Tenant', required: true },
     name: { type: String, required: true },
     code: { type: String, required: true },
-    teacherId: { type: mongoose.Types.ObjectId, ref: 'User' },
+    rubricId: { type: mongoose.Types.ObjectId, ref: 'Rubric' },
+    academicYear: {
+        type: Number,
+        required: true,
+        default: () => new Date().getFullYear()
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Course', courseSchema);
@@ -63,12 +68,17 @@ const courseSchema = new mongoose.Schema({
   collaborators: [{
     type: mongoose.Types.ObjectId,
     ref: 'User'
-  }]
+  }],
+  academicYear: {
+    type: Number,
+    required: true,
+    default: () => new Date().getFullYear()
+  }
 }, {
   timestamps: true
 });
 
-// Índice compuesto para evitar duplicados por tenant y nombre
-courseSchema.index({ tenantId: 1, name: 1 }, { unique: true });
+// Índice compuesto para evitar duplicados por tenant, nombre y AÑO ACADÉMICO
+courseSchema.index({ tenantId: 1, name: 1, academicYear: 1 }, { unique: true });
 
 export default mongoose.model('Course', courseSchema);

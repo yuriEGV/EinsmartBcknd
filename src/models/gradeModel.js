@@ -10,6 +10,11 @@ const gradeSchema = new mongoose.Schema({
         enum: ['graded', 'justified', 'pending'],
         default: 'graded'
     },
+    academicYear: {
+        type: Number,
+        required: true,
+        default: () => new Date().getFullYear()
+    }
 }, { timestamps: true });
 
 export default mongoose.model('Grade', gradeSchema);
