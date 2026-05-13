@@ -212,11 +212,7 @@ function sanitizeUser(user) {
     };
 }
 
-function generarToken(user) {
-    return jwt.sign(buildPayload(user), JWT_SECRET, {
-        expiresIn: JWT_EXPIRES_IN
-    });
-}
+
 
 /* ===============================
    REGISTRO

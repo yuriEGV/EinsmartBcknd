@@ -90,17 +90,17 @@ class EvaluationController {
                 const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
                 const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
 
-                let studentId;
+                let targetStudentId;
                 if (req.user.role === 'student') {
-                    studentId = req.user.profileId;
+                    targetStudentId = req.user.profileId;
                 } else {
                     const guardian = await Apoderado.findById(req.user.profileId);
-                    studentId = guardian?.estudianteId;
+                    targetStudentId = guardian?.estudianteId;
                 }
 
-                if (studentId) {
+                if (targetStudentId) {
                     const enrollment = await Enrollment.findOne({
-                        estudianteId: studentId,
+                        estudianteId: targetStudentId,
                         tenantId: req.user.tenantId,
                         status: { $in: ['confirmada', 'activo', 'activa'] }
                     });
