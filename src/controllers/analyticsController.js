@@ -1024,6 +1024,98 @@ class AnalyticsController {
             return res.status(500).json({ message: error.message });
         }
     }
+
+    // Get ranking of student punctuality and attendance from class book logs
+    static async getPunctualityRanking(req, res) {
+        try {
+            await connectDB();
+            const tid = req.user.role === 'admin' ? req.query.tenantId || req.user.tenantId : req.user.tenantId;
+            const tenantId = new mongoose.Types.ObjectId(tid);
+            const courseId = req.query.courseId ? new mongoose.Types.ObjectId(req.query.courseId) : null;
+
+            // 1. Build student match criteria
+            let studentMatch = { tenantId };
+            if (courseId) {
+                const Enrollment = mongoose.model('Enrollment');
+                const enrollments = await Enrollment.find({ courseId, tenantId }).select('estudianteId');
+                const studentIds = enrollments.map(e => e.estudianteId);
+                studentMatch._id = { $in: studentIds };
+            }
+
+            // Get all students matching criteria
+            const students = await Estudiante.find(studentMatch).select('_id nombres apellidos grado');
+            const studentIds = students.map(s => s._id);
+
+            const Attendance = mongoose.model('Attendance');
+
+            // 2. Aggregate Attendance data for these students
+            const attendanceStats = await Attendance.aggregate([
+                {
+                    $match: {
+                        tenantId,
+                        estudianteId: { $in: studentIds }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$estudianteId',
+                        totalDays: { $sum: 1 },
+                        presentDays: {
+                            $sum: {
+                                $cond: [{ $in: ['$estado', ['presente', 'atraso', 'retiro_anticipado']] }, 1, 0]
+                            }
+                        },
+                        absentDays: {
+                            $sum: {
+                                $cond: [{ $eq: ['$estado', 'ausente'] }, 1, 0]
+                            }
+                        },
+                        tardinessCount: {
+                            $sum: {
+                                $cond: [{ $eq: ['$estado', 'atraso'] }, 1, 0]
+                            }
+                        },
+                        totalDelayMinutes: { $sum: { $ifNull: ['$minutosAtraso', 0] } }
+                    }
+                }
+            ]);
+
+            // Map and combine results
+            const statsMap = new Map(attendanceStats.map(s => [s._id.toString(), s]));
+
+            const ranking = students.map(student => {
+                const stats = statsMap.get(student._id.toString()) || {
+                    totalDays: 0,
+                    presentDays: 0,
+                    absentDays: 0,
+                    tardinessCount: 0,
+                    totalDelayMinutes: 0
+                };
+
+                const totalAtt = stats.presentDays + stats.absentDays;
+                const attendanceRate = totalAtt > 0
+                    ? parseFloat(((stats.presentDays / totalAtt) * 100).toFixed(1))
+                    : 100.0;
+
+                return {
+                    studentId: student._id,
+                    studentName: `${student.apellidos}, ${student.nombres}`,
+                    grado: student.grado,
+                    attendanceRate,
+                    tardinessCount: stats.tardinessCount,
+                    totalDelayMinutes: stats.totalDelayMinutes
+                };
+            });
+
+            // Sort by: most delays first, then total minutes of delay, then attendance rate lowest
+            ranking.sort((a, b) => b.tardinessCount - a.tardinessCount || b.totalDelayMinutes - a.totalDelayMinutes || a.attendanceRate - b.attendanceRate);
+
+            return res.status(200).json(ranking);
+        } catch (error) {
+            console.error('Punctuality Ranking Error:', error);
+            return res.status(500).json({ message: error.message });
+        }
+    }
 }
 
 export default AnalyticsController;

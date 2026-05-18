@@ -31,6 +31,9 @@ router.get('/debtors', analyticsController.getDebtorRanking);
 // Get medical license ranking
 router.get('/licenses-ranking', analyticsController.getMedicalLicenseRanking);
 
+// Get punctuality and attendance ranking
+router.get('/punctuality-ranking', analyticsController.getPunctualityRanking);
+
 // Get high-level authority stats
 router.get('/authority-stats', analyticsController.getAuthorityStats);
 
