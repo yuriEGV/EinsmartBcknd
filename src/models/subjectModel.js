@@ -33,6 +33,20 @@ const subjectSchema = new mongoose.Schema({
     isTechnical: {
         type: Boolean,
         default: false
+    },
+    utpValidated: {
+        type: Boolean,
+        default: false
+    },
+    utpValidatedAt: {
+        type: Date
+    },
+    utpValidatedBy: {
+        type: mongoose.Types.ObjectId,
+        ref: 'User'
+    },
+    utpSignatureLog: {
+        type: String
     }
 }, {
     timestamps: true

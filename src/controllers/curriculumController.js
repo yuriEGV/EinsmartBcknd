@@ -6,6 +6,8 @@ import Evaluation from '../models/evaluationModel.js';
 import Grade from '../models/gradeModel.js';
 import Enrollment from '../models/enrollmentModel.js';
 import Estudiante from '../models/estudianteModel.js';
+import Course from '../models/courseModel.js';
+import Career from '../models/careerModel.js';
 import mongoose from 'mongoose';
 
 // PREDEFINED TP CURRICULUM SEED DATA BASED ON OFFICIAL DOCUMENTATION
@@ -114,6 +116,21 @@ class CurriculumController {
             }
 
             const studentIds = enrolled.filter(e => e && e.estudianteId).map(e => e.estudianteId);
+
+            // Find or create Career
+            let career = await Career.findOne({ tenantId, name: careerName });
+            if (!career) {
+                career = new Career({
+                    tenantId,
+                    name: careerName,
+                    description: `Especialidad Técnica Profesional de ${careerName}`,
+                    type: 'tecnico-profesional'
+                });
+                await career.save();
+            }
+
+            // Update course's careerId
+            await Course.findByIdAndUpdate(courseId, { careerId: career._id });
 
             let createdSubjectsCount = 0;
             let createdPlanningsCount = 0;

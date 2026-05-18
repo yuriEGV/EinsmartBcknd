@@ -11,9 +11,16 @@ class GradeController {
 
             // 1. Fetch Evaluation to get courseId
             const Evaluation = await import('../models/evaluationModel.js').then(m => m.default);
+            const Subject = await import('../models/subjectModel.js').then(m => m.default);
             const evaluation = await Evaluation.findOne({ _id: evaluationId, tenantId });
             if (!evaluation) {
                 return res.status(404).json({ message: 'Evaluación no encontrada' });
+            }
+
+            // Check if Subject is validated by UTP
+            const subject = await Subject.findById(evaluation.subjectId);
+            if (subject && subject.utpValidated) {
+                return res.status(403).json({ message: 'Este módulo técnico profesional ya ha sido firmado y cerrado oficialmente por UTP. Las calificaciones están bloqueadas.' });
             }
 
             // 2. Check if student is ENROLLED in this course
@@ -271,17 +278,30 @@ class GradeController {
     // Update a grade by ID (Secure)
     static async updateGrade(req, res) {
         try {
-            const grade = await Grade.findOneAndUpdate(
+            const grade = await Grade.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+            if (!grade) {
+                return res.status(404).json({ message: 'Calificación no encontrada' });
+            }
+
+            // Check if Subject is UTP-validated
+            const Evaluation = await import('../models/evaluationModel.js').then(m => m.default);
+            const Subject = await import('../models/subjectModel.js').then(m => m.default);
+            const evaluationObj = await Evaluation.findOne({ _id: grade.evaluationId, tenantId: req.user.tenantId });
+            if (evaluationObj) {
+                const subjectObj = await Subject.findById(evaluationObj.subjectId);
+                if (subjectObj && subjectObj.utpValidated) {
+                    return res.status(403).json({ message: 'Este módulo técnico profesional ya ha sido firmado y cerrado oficialmente por UTP. Las calificaciones están bloqueadas.' });
+                }
+            }
+
+            // Perform actual update
+            const updatedGrade = await Grade.findOneAndUpdate(
                 { _id: req.params.id, tenantId: req.user.tenantId },
                 req.body,
                 { new: true }
             )
                 .populate('estudianteId', 'nombres apellidos')
                 .populate('evaluationId', 'title maxScore');
-
-            if (!grade) {
-                return res.status(404).json({ message: 'Calificación no encontrada' });
-            }
 
             // Log update
             await AuditLog.create({
@@ -311,14 +331,26 @@ class GradeController {
     // Delete a grade by ID (Secure)
     static async deleteGrade(req, res) {
         try {
-            const grade = await Grade.findOneAndDelete({
-                _id: req.params.id,
-                tenantId: req.user.tenantId
-            });
-
+            const grade = await Grade.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
             if (!grade) {
                 return res.status(404).json({ message: 'Calificación no encontrada' });
             }
+
+            // Check if Subject is UTP-validated
+            const Evaluation = await import('../models/evaluationModel.js').then(m => m.default);
+            const Subject = await import('../models/subjectModel.js').then(m => m.default);
+            const evaluationObj = await Evaluation.findOne({ _id: grade.evaluationId, tenantId: req.user.tenantId });
+            if (evaluationObj) {
+                const subjectObj = await Subject.findById(evaluationObj.subjectId);
+                if (subjectObj && subjectObj.utpValidated) {
+                    return res.status(403).json({ message: 'Este módulo técnico profesional ya ha sido firmado y cerrado oficialmente por UTP. Las calificaciones están bloqueadas y no se pueden eliminar.' });
+                }
+            }
+
+            await Grade.findOneAndDelete({
+                _id: req.params.id,
+                tenantId: req.user.tenantId
+            });
 
             // Log deletion
             await AuditLog.create({
@@ -357,6 +389,17 @@ class GradeController {
 
             if (grades.length === 0) {
                 return res.status(200).json([]);
+            }
+
+            // Check if any evaluation belongs to a UTP-validated subject
+            const Evaluation = await import('../models/evaluationModel.js').then(m => m.default);
+            const Subject = await import('../models/subjectModel.js').then(m => m.default);
+            const evalIds = [...new Set(grades.map(g => g.evaluationId).filter(Boolean))];
+            const evals = await Evaluation.find({ _id: { $in: evalIds }, tenantId });
+            const subjectIds = [...new Set(evals.map(e => e.subjectId).filter(Boolean))];
+            const validatedSubjects = await Subject.find({ _id: { $in: subjectIds }, utpValidated: true });
+            if (validatedSubjects.length > 0) {
+                return res.status(403).json({ message: 'Este módulo técnico profesional ya ha sido firmado y cerrado oficialmente por UTP. Las calificaciones están bloqueadas.' });
             }
 
             console.log(`bulkUpsertGrades: processing ${grades.length} grades for tenant ${tenantId}`);

@@ -536,6 +536,32 @@ class EnrollmentController {
     // Update an enrollment by ID (Secure)
     static async updateEnrollment(req, res) {
         try {
+            if (req.body.status && !['confirmada', 'activo', 'activa', 'pendiente', 'pre-matricula'].includes(req.body.status)) {
+                // Changing to a closed status! Let's check the enrollment
+                const currentEnrollment = await Enrollment.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+                if (currentEnrollment) {
+                    const Subject = await import('../models/subjectModel.js').then(m => m.default);
+                    // Find all technical subjects for this course
+                    const technicalSubjects = await Subject.find({
+                        courseId: currentEnrollment.courseId,
+                        tenantId: req.user.tenantId
+                    });
+                    
+                    const unvalidated = technicalSubjects.filter(sub => {
+                        const nameLower = sub.name.toLowerCase();
+                        const technicalKeywords = ['elaboración', 'elaboracion', 'cocina', 'análisis', 'analisis', 'almacenaje', 'bodega', 'calidad', 'consolidación', 'consolidacion', 'control', 'registro', 'cuidado', 'medio ambiente', 'documentación', 'documentacion', 'emprendimiento', 'empleabilidad', 'taller', 'módulo', 'modulo', 'gastronomía', 'gastronomia', 'menús', 'carta', 'bebidas', 'masas', 'ajuste', 'motores', 'planos', 'manuales', 'eléctricos', 'electrónicos', 'hidráulicos', 'neumáticos', 'transmisión', 'frenos', 'dirección', 'suspensión', 'estiba', 'desestiba', 'portuaria', 'química', 'laboratorio', 'muestra'];
+                        const isTech = sub.isTechnical || technicalKeywords.some(kw => nameLower.includes(kw));
+                        return isTech && !sub.utpValidated;
+                    });
+                    
+                    if (unvalidated.length > 0) {
+                        return res.status(400).json({
+                            message: `No se puede cerrar el año académico del alumno ni cambiar su estado a "${req.body.status}". Aún existen ${unvalidated.length} módulos técnicos profesionales sin validar y firmar por la UTP (ej: "${unvalidated[0].name}").`
+                        });
+                    }
+                }
+            }
+
             const enrollment = await Enrollment.findOneAndUpdate(
                 { _id: req.params.id, tenantId: req.user.tenantId },
                 req.body,

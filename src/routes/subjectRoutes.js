@@ -12,5 +12,6 @@ router.get('/', authMiddleware, SubjectController.getSubjects);
 router.post('/', authMiddleware, authorizeRoles('admin', 'sostenedor', 'teacher', 'director', 'utp'), SubjectController.createSubject);
 router.put('/:id', authMiddleware, authorizeRoles('admin', 'sostenedor', 'teacher', 'director', 'utp'), SubjectController.updateSubject);
 router.delete('/:id', authMiddleware, authorizeRoles('admin', 'sostenedor', 'teacher', 'director', 'utp'), SubjectController.deleteSubject);
+router.post('/:id/validate-utp', authMiddleware, authorizeRoles('admin', 'director', 'utp'), SubjectController.validateTechnicalSubject);
 
 export default router;

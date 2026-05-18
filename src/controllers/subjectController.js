@@ -181,4 +181,58 @@ export default class SubjectController {
             return res.status(500).json({ message: 'Error eliminando asignatura', error: error.message });
         }
     }
+
+    static async validateTechnicalSubject(req, res) {
+        try {
+            const { id } = req.params;
+            const { pin } = req.body;
+
+            const authorizedRoles = ['admin', 'director', 'utp'];
+            if (!authorizedRoles.includes(req.user.role)) {
+                return res.status(403).json({ message: 'Acceso denegado: solo el UTP o la dirección pueden validar y cerrar módulos técnicos.' });
+            }
+
+            if (!pin) {
+                return res.status(400).json({ message: 'Se requiere el PIN personal para validar la firma.' });
+            }
+
+            const User = await import('../models/userModel.js').then(m => m.default);
+            const user = await User.findById(req.user.userId);
+            if (!user) {
+                return res.status(404).json({ message: 'Usuario no encontrado.' });
+            }
+
+            if (user.signaturePin !== pin) {
+                return res.status(401).json({ message: 'PIN personal incorrecto. No se pudo validar la firma.' });
+            }
+
+            const subject = await Subject.findOne({ _id: id, tenantId: req.user.tenantId });
+            if (!subject) {
+                return res.status(404).json({ message: 'Asignatura no encontrada.' });
+            }
+
+            // Perform check: subject should be technical
+            const nameLower = subject.name.toLowerCase();
+            const technicalKeywords = ['elaboración', 'elaboracion', 'cocina', 'análisis', 'analisis', 'almacenaje', 'bodega', 'calidad', 'consolidación', 'consolidacion', 'control', 'registro', 'cuidado', 'medio ambiente', 'documentación', 'documentacion', 'emprendimiento', 'empleabilidad', 'taller', 'módulo', 'modulo', 'gastronomía', 'gastronomia', 'menús', 'carta', 'bebidas', 'masas', 'ajuste', 'motores', 'planos', 'manuales', 'eléctricos', 'electrónicos', 'hidráulicos', 'neumáticos', 'transmisión', 'frenos', 'dirección', 'suspensión', 'estiba', 'desestiba', 'portuaria', 'química', 'laboratorio', 'muestra'];
+            const isTech = subject.isTechnical || technicalKeywords.some(kw => nameLower.includes(kw));
+
+            if (!isTech) {
+                return res.status(400).json({ message: 'Esta asignatura no corresponde a una Especialidad Técnica Profesional (TP).' });
+            }
+
+            subject.utpValidated = true;
+            subject.utpValidatedAt = new Date();
+            subject.utpValidatedBy = user._id;
+            subject.utpSignatureLog = `FIRMADO DIGITALMENTE POR UTP: ${user.name.toUpperCase()} (RUT: ${user.rut || 'N/A'}) EL ${new Date().toLocaleString()}`;
+            await subject.save();
+
+            return res.status(200).json({
+                message: 'Asignatura y módulo técnico profesional validados y cerrados exitosamente.',
+                subject
+            });
+        } catch (error) {
+            console.error('Error validateTechnicalSubject:', error);
+            return res.status(500).json({ message: 'Error validando asignatura técnica', error: error.message });
+        }
+    }
 }
