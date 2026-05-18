@@ -1,0 +1,75 @@
+{
+    "Elaboracion Industrial de Alimentos": [
+        "Elaboracion de alimentos de baja complejidad",
+        "Higiene para la elaboracion de alimentos",
+        "Almacenaje y bodega de alimentos e insumos",
+        "Recepcion de materias primas",
+        "Aseguramiento de la calidad de procesos y alimentos",
+        "Envasado y embalaje de alimentos",
+        "Operaciones de transferencia de calor",
+        "Control fisicoquimico y microbiologico de alimentos",
+        "Gestion del agua y residuos en la industria de alimentos",
+        "Emprendimiento y empleabilidad"
+    ],
+    "Gastronomia Mencion Cocina": [
+        "Servicio de comedores, bares y salones",
+        "Higiene para la elaboracion de alimentos",
+        "Elaboracion de alimentos de baja complejidad",
+        "Recepcion y almacenamiento de insumos",
+        "Planificacion de la produccion gastronomica",
+        "Preparacion, diseo y montaje de buffet",
+        "Elaboracion de masas y pastas",
+        "Cocina de especialidad chilena",
+        "Cocina internacional",
+        "Bebidas y cocteleria",
+        "Emprendimiento y empleabilidad"
+    ],
+    "Gastronomia Mencion Pasteleria y Reposteria": [
+        "Servicio de comedores, bares y salones",
+        "Higiene para la elaboracion de alimentos",
+        "Elaboracion de alimentos de baja complejidad",
+        "Recepcion y almacenamiento de insumos",
+        "Planificacion de la produccion gastronomica",
+        "Preparacion, diseo y montaje de buffet",
+        "Elaboracion de masas y pastas",
+        "Elaboracion de productos de pasteleria",
+        "Elaboracion de productos de reposteria",
+        "Innovacion en la pasteleria y reposteria",
+        "Emprendimiento y empleabilidad"
+    ],
+    "Mecanica Automotriz": [
+        "Ajuste de motores",
+        "Lectura de planos y manuales tecnicos",
+        "Manejo de residuos y desechos automotrices",
+        "Mantenimiento de sistemas electricos y electronicos",
+        "Mantenimiento de sistemas de seguridad y confortabilidad",
+        "Mantenimiento de motores",
+        "Mantenimiento de sistemas hidraulicos y neumaticos",
+        "Mantenimiento de los sistemas de transmision y frenos",
+        "Mantenimiento de sistemas de direccion y suspension",
+        "Emprendimiento y empleabilidad"
+    ],
+    "Operaciones Portuarias": [
+        "Documentacion en la Operacion Portuaria",
+        "Consolidacion y Desconsolidacion de Contenedores",
+        "Seguridad y Prevencion de Riesgos en Faenas Portuarias",
+        "Operacion de Movilizacion y Distribuciion de Cargas",
+        "Tramitacion y Documentacion de Recepcion y Despacho de Carga",
+        "Tramitacion de Movilizacion y Distribucion de Cargas",
+        "Estiba y Desestiba de Naves Mercantes",
+        "Organizacion y Almacenamiento de Cargas en Zonas de Deposito",
+        "Emprendimiento y Empleabilidad"
+    ],
+    "Quimica Industrial Mencion Laboratorio Quimico": [
+        "Manejo y almacenamiento seguro de materiales",
+        "Tecnicas, procesos y equipos de laboratorio",
+        "Fabricacion de productos industriales",
+        "Cuidado del medioambiente y tratamiento de residuos",
+        "Toma de muestra",
+        "Preparacion de muestras para analisis organico",
+        "Mantenimiento de equipos e instrumentos de laboratorio",
+        "Tecnicas de analisis fisico-quimico",
+        "Tecnicas de analisis instrumental",
+        "Emprendimiento y empleabilidad"
+    ]
+}

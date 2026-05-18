@@ -118,11 +118,14 @@ class AttendanceController {
             // [NUEVO] Solo procesar alumnos con matrícula confirmada
             const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
             const enrolledStudents = await Enrollment.find({
-                tenantId: new mongoose.Types.ObjectId(req.user.tenantId),
+                tenantId: req.user.tenantId,
+                courseId: courseId,
                 status: { $in: ['confirmada', 'activo', 'activa'] }
             }).select('estudianteId');
 
-            const enrolledIds = enrolledStudents.map(e => e.estudianteId.toString());
+            const enrolledIds = enrolledStudents
+                .filter(e => e && e.estudianteId)
+                .map(e => e.estudianteId.toString());
 
             // [NUEVO] Fetch all active medical licenses for these students on this date
             const MedicalLicense = await import('../models/medicalLicenseModel.js').then(m => m.default);
@@ -138,7 +141,7 @@ class AttendanceController {
             const licensedStudentIds = activeLicenses.map(l => l.userId.toString());
 
             const operations = students
-                .filter(s => enrolledIds.includes(s.estudianteId.toString()))
+                .filter(s => s && s.estudianteId && enrolledIds.includes(s.estudianteId.toString()))
                 .map(s => {
                     const isLicensed = licensedStudentIds.includes(s.estudianteId.toString());
                     const license = activeLicenses.find(l => l.userId.toString() === s.estudianteId.toString());
@@ -175,17 +178,20 @@ class AttendanceController {
                 let dynamicMinutosAtraso = 15; // default fail-safe
                 try {
                      const currentLog = await ClassLog.findOne({
-                         tenantId: req.user.tenantId,
-                         courseId,
-                         bloqueHorario: bloque,
-                         date: { $gte: normalizedFecha, $lt: new Date(normalizedFecha.getTime() + 86400000) }
-                     });
-                     if (currentLog) {
-                         const startReference = currentLog.plannedStartTime || currentLog.startTime;
-                         if (startReference) {
-                             dynamicMinutosAtraso = Math.max(1, Math.floor((Date.now() - startReference.getTime()) / 60000));
-                         }
-                     }
+                          tenantId: req.user.tenantId,
+                          courseId,
+                          bloqueHorario: bloque,
+                          date: { $gte: normalizedFecha, $lt: new Date(normalizedFecha.getTime() + 86400000) }
+                      });
+                      if (currentLog) {
+                          const startReference = currentLog.plannedStartTime || currentLog.startTime;
+                          if (startReference) {
+                              const startRefDate = startReference instanceof Date ? startReference : new Date(startReference);
+                              if (!isNaN(startRefDate.getTime())) {
+                                  dynamicMinutosAtraso = Math.max(1, Math.floor((Date.now() - startRefDate.getTime()) / 60000));
+                              }
+                          }
+                      }
                 } catch(e) {
                      console.error('Error calculando retrasos desde ClassLog:', e);
                 }
