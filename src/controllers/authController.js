@@ -169,6 +169,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/userModel.js';
 import * as tokenStore from '../utils/tokenStore.js';
+import AuditLog from '../models/auditLogModel.js';
 
 /* ===============================
    CONFIGURACIÓN JWT
@@ -317,6 +318,25 @@ async function login(req, res) {
         const tenant = await Tenant.findById(user.tenantId);
         const academicYear = tenant?.academicYear || new Date().getFullYear().toString();
         const token = generarToken(user, academicYear);
+
+        // ── Registro de auditoría de inicio de sesión ──────────────────────
+        try {
+            await AuditLog.create({
+                action: 'LOGIN',
+                entityId: user._id,
+                entityType: 'User',
+                user: user._id,
+                tenantId: user.tenantId,
+                details: {
+                    ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown',
+                    userAgent: req.headers['user-agent'] || 'unknown',
+                    email: user.email || user.rut
+                }
+            });
+        } catch (auditErr) {
+            console.warn('No se pudo registrar login en auditoría:', auditErr.message);
+        }
+        // ──────────────────────────────────────────────────────────────────
 
         return res.json({
             message: 'Inicio de sesión exitoso',
