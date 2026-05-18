@@ -203,7 +203,7 @@ class CurriculumController {
                 const q1 = new Question({
                     tenantId,
                     subjectId: subject._id,
-                    questionText: ¿Cuál es el protocolo de seguridad obligatorio al ingresar a la faena del módulo?,
+                    questionText: "¿Cuál es el protocolo de seguridad obligatorio al ingresar a la faena del módulo?",
                     type: "multiple_choice",
                     options: [
                         { text: "Uso obligatorio de EPP completo y check-list de herramientas", isCorrect: true },
@@ -218,7 +218,7 @@ class CurriculumController {
                 const q2 = new Question({
                     tenantId,
                     subjectId: subject._id,
-                    questionText: ¿Cuál es el principio regulador o norma de calidad aplicable a este proceso?,
+                    questionText: "¿Cuál es el principio regulador o norma de calidad aplicable a este proceso?",
                     type: "multiple_choice",
                     options: [
                         { text: "Normativa nacional vigente e ISO 9001", isCorrect: true },
