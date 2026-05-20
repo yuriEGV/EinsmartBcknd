@@ -5,6 +5,8 @@ const router = express.Router();
 
 router.get('/', alternanciaController.getAlternancias);
 router.post('/', alternanciaController.createAlternancia);
+router.get('/horarios', alternanciaController.getHorariosProfesores);
+router.get('/docentes-carrera', alternanciaController.getDocentesDisponiblesPorCarrera);
 router.get('/gps/monitoring', alternanciaController.getActiveLocations);
 router.get('/:id', alternanciaController.getAlternanciaById);
 router.get('/estudiante/:estudianteId', alternanciaController.getAlternanciasByEstudiante);

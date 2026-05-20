@@ -68,8 +68,8 @@ export const getAlternancias = async (req, res) => {
             .populate('estudianteId', 'nombres apellidos rut photoUrl')
             .populate('empresa', 'razonSocial rut emailContacto')
             .populate('careerId', 'name headTeacher profesorJefe')
-            .populate('profesorSupervisor', 'name')
-            .populate('tutorId', 'name email')
+            .populate('profesorSupervisor', 'nombres apellidos name email')
+            .populate('tutorId', 'nombres apellidos name email')
             .populate('modulosDual.subjectId', 'name')
             .sort({ fechaInicio: -1 });
 
@@ -370,5 +370,74 @@ export const getActiveLocations = async (req, res) => {
         res.status(200).json(populated);
     } catch (error) {
         res.status(500).json({ message: 'Error al obtener ubicaciones activas', error: error.message });
+    }
+};
+
+export const getHorariosProfesores = async (req, res) => {
+    try {
+        const { tenantId } = req.user;
+        const { courseId } = req.query;
+
+        if (!courseId) {
+            return res.status(400).json({ message: 'El ID del curso es obligatorio.' });
+        }
+
+        const enrollments = await Enrollment.find({
+            courseId,
+            tenantId,
+            status: { $in: ['confirmada', 'activo', 'activa'] }
+        }).populate('profesorId', 'nombres apellidos name email horarios horariosAula')
+         .populate('courseId', 'name codigo');
+
+        const horarios = enrollments.map(e => ({
+            _id: e.profesorId._id,
+            profesor: e.profesorId.name || `${e.profesorId.nombres} ${e.profesorId.apellidos}`,
+            email: e.profesorId.email,
+            curso: e.courseId.name,
+            horarios: e.profesorId.horarios || [],
+            horariosAula: e.profesorId.horariosAula || []
+        }));
+
+        // Remove duplicates by profesor ID
+        const uniqueHorarios = Array.from(new Map(horarios.map(h => [h._id.toString(), h])).values());
+
+        res.status(200).json(uniqueHorarios);
+    } catch (error) {
+        console.error('Error en getHorariosProfesores:', error);
+        res.status(500).json({ message: 'Error al obtener horarios de profesores', error: error.message });
+    }
+};
+
+export const getDocentesDisponiblesPorCarrera = async (req, res) => {
+    try {
+        const { tenantId, userId } = req.user;
+        const { careerId } = req.query;
+
+        if (!careerId) {
+            return res.status(400).json({ message: 'El ID de la carrera es obligatorio.' });
+        }
+
+        const career = await Career.findOne({ _id: careerId, tenantId })
+            .populate('cursos', '_id')
+            .exec();
+
+        if (!career) {
+            return res.status(404).json({ message: 'Carrera no encontrada' });
+        }
+
+        const courseIds = career.cursos?.map(c => c._id) || [];
+
+        const enrollments = await Enrollment.find({
+            courseId: { $in: courseIds },
+            tenantId,
+            status: { $in: ['confirmada', 'activo', 'activa'] }
+        }).populate('profesorId', 'nombres apellidos name email role').distinct('profesorId');
+
+        const docentes = enrollments.filter(prof => prof.role === 'teacher' || prof.role === 'docente');
+
+        res.status(200).json(docentes);
+    } catch (error) {
+        console.error('Error en getDocentesDisponiblesPorCarrera:', error);
+        res.status(500).json({ message: 'Error al obtener docentes disponibles', error: error.message });
     }
 };

@@ -8,8 +8,16 @@ export default class SubjectController {
     static async createSubject(req, res) {
         try {
             const { name, courseId, teacherId } = req.body;
+            const { role, tenantId } = req.user;
 
-            // Allow teachers to create subjects, but force tenantId
+            // [RESTRICTED ACCESS] Only UTP, Director, Admin and Sostenedor can create subjects
+            const allowedRoles = ['admin', 'sostenedor', 'director', 'utp', 'inspector_general'];
+            if (!allowedRoles.includes(role)) {
+                return res.status(403).json({ 
+                    message: 'Acceso denegado: Solo UTP, Dirección, Administrador y Sostenedor pueden crear asignaturas' 
+                });
+            }
+
             if (!name || !courseId || !teacherId) {
                 return res.status(400).json({ message: 'Todos los campos son obligatorios' });
             }
@@ -18,8 +26,10 @@ export default class SubjectController {
                 name,
                 courseId,
                 teacherId,
-                tenantId: req.user.tenantId
+                tenantId
             });
+
+            console.log(`[AUDIT] Subject created by ${role}: ${name} (${subject._id})`);
 
             return res.status(201).json(subject);
         } catch (error) {
