@@ -105,6 +105,7 @@ class CitacionController {
                 .populate('estudianteId', 'nombres apellidos')
                 .populate('profesorId', 'name email')
                 .populate('apoderadoId', 'nombre apellidos correo telefono')
+                .populate('courseId', 'name level letter')
                 .sort({ fecha: 1, hora: 1 });
 
             res.json(citaciones);
