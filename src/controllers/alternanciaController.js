@@ -11,9 +11,25 @@ export const getAlternancias = async (req, res) => {
         const { tenantId, userId, role } = req.user;
         let query = { tenantId };
 
-        // Data Isolation: Teachers only see their assigned supervisions
+        // Data Isolation: Teachers see their assigned supervisions OR alternancias for careers they lead (jefe de carrera)
         if (role === 'teacher') {
-            query.profesorSupervisor = userId;
+            const careersHeaded = await Career.find({
+                $or: [
+                    { headTeacher: userId },
+                    { profesorJefe: userId }
+                ],
+                tenantId
+            }).select('_id');
+            const careerIds = careersHeaded.map(c => c._id);
+            
+            if (careerIds.length > 0) {
+                query.$or = [
+                    { profesorSupervisor: userId },
+                    { careerId: { $in: careerIds } }
+                ];
+            } else {
+                query.profesorSupervisor = userId;
+            }
         }
 
         // Data Isolation: Students only see their own alternancias
@@ -105,7 +121,23 @@ export const getAlternanciaById = async (req, res) => {
         let query = { _id: id, tenantId };
 
         if (role === 'teacher') {
-            query.profesorSupervisor = userId;
+            const careersHeaded = await Career.find({
+                $or: [
+                    { headTeacher: userId },
+                    { profesorJefe: userId }
+                ],
+                tenantId
+            }).select('_id');
+            const careerIds = careersHeaded.map(c => c._id);
+            
+            query = {
+                _id: id,
+                tenantId,
+                $or: [
+                    { profesorSupervisor: userId },
+                    { careerId: { $in: careerIds } }
+                ]
+            };
         }
 
         if (role === 'student' || role === 'alumno') {
@@ -156,7 +188,19 @@ export const getAlternanciasByEstudiante = async (req, res) => {
         
         let query = { tenantId, estudianteId };
         if (role === 'teacher') {
-            query.profesorSupervisor = userId;
+            const careersHeaded = await Career.find({
+                $or: [
+                    { headTeacher: userId },
+                    { profesorJefe: userId }
+                ],
+                tenantId
+            }).select('_id');
+            const careerIds = careersHeaded.map(c => c._id);
+            
+            query.$or = [
+                { profesorSupervisor: userId },
+                { careerId: { $in: careerIds } }
+            ];
         }
 
         if (role === 'tutor_empresa') {
