@@ -58,8 +58,13 @@ class ScheduleController {
                 activeCourseId = enrollment.courseId;
                 query.courseId = activeCourseId;
             } else if (req.user.role === 'teacher') {
-                // Teachers can see their own schedule by default
-                activeTeacherId = req.user.userId;
+                // If a teacher requests a specific course schedule, show the full course schedule instead of only their own classes
+                if (courseId) {
+                    activeCourseId = courseId;
+                    activeTeacherId = undefined;
+                } else {
+                    activeTeacherId = req.user.userId;
+                }
             }
 
             if (activeCourseId) query.courseId = activeCourseId;
