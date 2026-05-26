@@ -19,14 +19,19 @@ class AdminDayController {
                 return res.status(404).json({ message: 'Usuario no encontrado' });
             }
 
-            const usedDays = await AdminDay.countDocuments({
+            const requests = await AdminDay.find({
                 userId,
                 tenantId,
                 status: { $in: ['pendiente', 'aprobado'] }
             });
+            let usedDays = 0;
+            for (const r of requests) {
+                usedDays += (r.type === 'media_tarde' || r.type === 'media_mañana') ? 0.5 : 1;
+            }
 
+            const currentRequestValue = (type === 'media_tarde' || type === 'media_mañana') ? 0.5 : 1;
             const limit = user.adminDaysAllowed || 6;
-            if (usedDays >= limit) {
+            if (usedDays + currentRequestValue > limit) {
                 return res.status(400).json({ message: 'Has alcanzado el límite de días administrativos para este año.' });
             }
 
@@ -141,16 +146,25 @@ class AdminDayController {
                 return res.status(404).json({ message: 'Usuario no encontrado' });
             }
 
-            const usedDays = await AdminDay.countDocuments({
+            const approvedRequests = await AdminDay.find({
                 userId,
                 tenantId,
                 status: 'aprobado'
             });
-            const pendingDays = await AdminDay.countDocuments({
+            let usedDays = 0;
+            for (const r of approvedRequests) {
+                usedDays += (r.type === 'media_tarde' || r.type === 'media_mañana') ? 0.5 : 1;
+            }
+
+            const pendingRequests = await AdminDay.find({
                 userId,
                 tenantId,
                 status: 'pendiente'
             });
+            let pendingDays = 0;
+            for (const r of pendingRequests) {
+                pendingDays += (r.type === 'media_tarde' || r.type === 'media_mañana') ? 0.5 : 1;
+            }
 
             res.json({
                 totalAllowed: user.adminDaysAllowed || 6,
@@ -174,7 +188,15 @@ class AdminDayController {
                 {
                     $group: {
                         _id: '$userId',
-                        usedDays: { $sum: 1 }
+                        usedDays: {
+                            $sum: {
+                                $cond: [
+                                    { $eq: ['$type', 'completo'] },
+                                    1,
+                                    0.5
+                                ]
+                            }
+                        }
                     }
                 },
                 {

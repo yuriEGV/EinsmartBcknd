@@ -21,7 +21,7 @@ class MedicalLicenseController {
             } = req.body;
 
             // Only specific roles can manage licenses
-            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp', 'inspector_general', 'secretary', 'secretaria', 'secretario'];
+            const authorizedRoles = ['inspector_general', 'secretary', 'secretaria', 'secretario'];
             if (!authorizedRoles.includes(req.user.role.toLowerCase())) {
                 return res.status(403).json({ message: 'No tienes permisos para gestionar licencias médicas.' });
             }
@@ -132,7 +132,7 @@ class MedicalLicenseController {
     // List licenses with filters
     static async list(req, res) {
         try {
-            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp', 'inspector_general', 'secretary', 'secretaria', 'secretario'];
+            const authorizedRoles = ['inspector_general', 'secretary', 'secretaria', 'secretario'];
             if (!authorizedRoles.includes(req.user.role.toLowerCase())) {
                 return res.status(403).json({ message: 'No tienes permisos para listar licencias médicas.' });
             }
@@ -193,7 +193,7 @@ class MedicalLicenseController {
     // Update license status (approve/reject)
     static async updateStatus(req, res) {
         try {
-            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp', 'inspector_general', 'secretary', 'secretaria', 'secretario'];
+            const authorizedRoles = ['inspector_general', 'secretary', 'secretaria', 'secretario'];
             if (!authorizedRoles.includes(req.user.role.toLowerCase())) {
                 return res.status(403).json({ message: 'No tienes permisos para actualizar esta licencia.' });
             }
@@ -236,7 +236,7 @@ class MedicalLicenseController {
     // Get a specific license
     static async getById(req, res) {
         try {
-            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp', 'inspector_general', 'secretary', 'secretaria', 'secretario'];
+            const authorizedRoles = ['inspector_general', 'secretary', 'secretaria', 'secretario'];
             if (!authorizedRoles.includes(req.user.role.toLowerCase())) {
                 return res.status(403).json({ message: 'No tienes permisos para ver esta licencia médica.' });
             }
@@ -253,7 +253,7 @@ class MedicalLicenseController {
     // Delete a license
     static async delete(req, res) {
         try {
-            const authorizedRoles = ['admin', 'director', 'sostenedor', 'utp', 'inspector_general', 'secretary', 'secretaria', 'secretario'];
+            const authorizedRoles = ['inspector_general', 'secretary', 'secretaria', 'secretario'];
             if (!authorizedRoles.includes(req.user.role.toLowerCase())) {
                 return res.status(403).json({ message: 'No tienes permisos para eliminar licencias médicas.' });
             }
