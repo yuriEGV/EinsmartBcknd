@@ -376,20 +376,14 @@ class ReportController {
             const Atraso = await import('../models/atrasoModel.js').then(m => m.default);
             const { startDate, endDate } = req.query;
 
-            const tenantOid = typeof tenantId === 'string' ? new mongoose.Types.ObjectId(tenantId) : tenantId;
-
-            const match = {
-                tenantId: tenantOid,
-                isSigned: true
-            };
-
+            const tenantOid = new mongoose.Types.ObjectId(tenantId);
+            const match = { tenantId: tenantOid };
             if (startDate || endDate) {
-                match.signedAt = {};
-                if (startDate) match.signedAt.$gte = new Date(startDate);
-                if (endDate) match.signedAt.$lte = new Date(endDate);
+                match.date = {};
+                if (startDate) match.date.$gte = new Date(startDate);
+                if (endDate) match.date.$lte = new Date(endDate);
             }
 
-            // 1. Summary aggregation (existing logic)
             const performance = await ClassLog.aggregate([
                 { $match: match },
                 {

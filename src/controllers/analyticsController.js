@@ -787,7 +787,16 @@ class AnalyticsController {
                             date: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
                             bloqueHorario: '$bloqueHorario'
                         },
-                        totalDuration: { $sum: '$effectiveDuration' },
+                        // Use effectiveDuration when signed, fallback to duration for unsigned
+                        totalDuration: {
+                            $sum: {
+                                $cond: [
+                                    { $gt: ['$effectiveDuration', 0] },
+                                    '$effectiveDuration',
+                                    { $ifNull: ['$duration', 0] }
+                                ]
+                            }
+                        },
                         totalDelay: { $sum: '$delayMinutes' },
                         totalInterruption: { $sum: '$interruptionMinutes' },
                         classCount: { $sum: 1 }
@@ -825,25 +834,23 @@ class AnalyticsController {
                 }
             ]);
 
-            // 2. Global Coverage %
-            const totalScheduled = await Schedule.countDocuments({ tenantId });
-            const totalRealized = await ClassLog.countDocuments({ tenantId, isSigned: true });
-
-            // Note: Coverage usually measured against expected monthly classes. 
-            // Simplified: (Realized)/(Scheduled * 4 weeks) for estimation
-            const globalCoverage = totalScheduled > 0
-                ? parseFloat(((totalRealized / (totalScheduled * 4)) * 100).toFixed(2))
-                : 100;
-
-            // 3. Teacher Efficiency Ranking
-            const teacherEfficiency = await ClassLog.aggregate([
-                { $match: { ...matchCriteria, isSigned: true } },
+            // 2. Teachers with UNSIGNED class logs (critical alerts for Director/UTP)
+            const unsignedClasses = await ClassLog.aggregate([
+                {
+                    $match: {
+                        tenantId,
+                        isSigned: false,
+                        $or: [
+                            { startTime: { $exists: true, $ne: null } },
+                            { topic: { $exists: true, $ne: '' } }
+                        ]
+                    }
+                },
                 {
                     $group: {
                         _id: '$teacherId',
-                        signedClasses: { $sum: 1 },
-                        totalEffectiveMinutes: { $sum: '$effectiveDuration' },
-                        totalLostMinutes: { $sum: { $add: ['$delayMinutes', '$interruptionMinutes'] } }
+                        unsignedCount: { $sum: 1 },
+                        lastUnsignedDate: { $max: '$date' }
                     }
                 },
                 {
@@ -854,38 +861,65 @@ class AnalyticsController {
                         as: 'teacher'
                     }
                 },
-                { $unwind: '$teacher' },
+                { $unwind: { path: '$teacher', preserveNullAndEmptyArrays: true } },
                 {
                     $project: {
-                        teacherName: '$teacher.name',
-                        signedClasses: 1,
-                        totalEffectiveMinutes: 1,
-                        totalLostMinutes: 1,
-                        efficiency: {
-                            $cond: [
-                                { $gt: [{ $add: ['$totalEffectiveMinutes', '$totalLostMinutes'] }, 0] },
-                                {
-                                    $multiply: [
-                                        { $divide: ['$totalEffectiveMinutes', { $add: ['$totalEffectiveMinutes', '$totalLostMinutes'] }] },
-                                        100
-                                    ]
-                                },
-                                100
-                            ]
-                        }
+                        teacherName: { $ifNull: ['$teacher.name', 'Profesor desconocido'] },
+                        unsignedCount: 1,
+                        lastUnsignedDate: 1
                     }
                 },
-                { $sort: { signedClasses: -1 } }
+                { $sort: { lastUnsignedDate: -1 } }
             ]);
+
+            // 3. Global Coverage %
+            const totalScheduled = await Schedule.countDocuments({ tenantId });
+            const totalRealized = await ClassLog.countDocuments({ tenantId, isSigned: true });
+
+            const globalCoverage = totalScheduled > 0
+                ? parseFloat(((totalRealized / (totalScheduled * 4)) * 100).toFixed(2))
+                : 100;
+
+            // 4. Teacher Efficiency Ranking (Includes all teachers)
+            const allTeachers = await User.find({ tenantId, role: 'teacher' }).select('_id name');
+            const teacherStats = await ClassLog.aggregate([
+                { $match: { ...matchCriteria, isSigned: true } },
+                {
+                    $group: {
+                        _id: '$teacherId',
+                        signedClasses: { $sum: 1 },
+                        totalEffectiveMinutes: { $sum: '$effectiveDuration' },
+                        totalLostMinutes: { $sum: { $add: ['$delayMinutes', '$interruptionMinutes'] } }
+                    }
+                }
+            ]);
+
+            const teacherEfficiency = allTeachers.map(teacher => {
+                const stats = teacherStats.find(t => t._id.equals(teacher._id)) || {
+                    signedClasses: 0,
+                    totalEffectiveMinutes: 0,
+                    totalLostMinutes: 0
+                };
+                
+                const totalMins = stats.totalEffectiveMinutes + stats.totalLostMinutes;
+                return {
+                    teacherName: teacher.name,
+                    signedClasses: stats.signedClasses,
+                    totalEffectiveMinutes: stats.totalEffectiveMinutes,
+                    totalLostMinutes: stats.totalLostMinutes,
+                    efficiency: totalMins > 0 ? parseFloat(((stats.totalEffectiveMinutes / totalMins) * 100).toFixed(2)) : 100
+                };
+            }).sort((a, b) => b.signedClasses - a.signedClasses);
 
             return res.status(200).json({
                 globalCoverage,
                 classTimeMetrics,
                 teacherEfficiency,
+                unsignedClasses,
                 stats: {
                     totalRealized,
-                    totalLostGlobal: teacherEfficiency.reduce((acc, curr) => acc + curr.totalLostMinutes, 0),
-                    totalEffectiveGlobal: teacherEfficiency.reduce((acc, curr) => acc + curr.totalEffectiveMinutes, 0)
+                    totalLostGlobal: teacherStats.reduce((acc, curr) => acc + curr.totalLostMinutes, 0),
+                    totalEffectiveGlobal: teacherStats.reduce((acc, curr) => acc + curr.totalEffectiveMinutes, 0)
                 }
             });
         } catch (error) {
