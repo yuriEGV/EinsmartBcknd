@@ -4,6 +4,7 @@ import AuditLog from '../models/auditLogModel.js';
 
 class GradeController {
     // Create a new grade
+    static async createGrade(req, res) {
         try {
             if (req.user.role === 'inspector_general') {
                 return res.status(403).json({ message: 'Los inspectores generales no tienen permiso para gestionar calificaciones.' });
