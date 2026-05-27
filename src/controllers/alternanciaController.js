@@ -233,12 +233,11 @@ export const createAlternancia = async (req, res) => {
                 tenantId,
                 $or: [
                     { headTeacher: userId },
-                    { profesorJefe: userId },
-                    { teachers: userId }
+                    { profesorJefe: userId }
                 ]
             });
             if (!isCareerTeacher) {
-                return res.status(403).json({ message: 'Acceso denegado: Solo profesores de formación técnica/carreras pueden gestionar alternancias.' });
+                return res.status(403).json({ message: 'Acceso denegado: Solo profesores jefes de formación técnica/carreras pueden gestionar alternancias.' });
             }
         }
 
@@ -269,12 +268,11 @@ export const updateAlternancia = async (req, res) => {
                 tenantId,
                 $or: [
                     { headTeacher: userId },
-                    { profesorJefe: userId },
-                    { teachers: userId }
+                    { profesorJefe: userId }
                 ]
             });
             if (!isCareerTeacher) {
-                return res.status(403).json({ message: 'Acceso denegado: Solo profesores de formación técnica/carreras pueden gestionar alternancias.' });
+                return res.status(403).json({ message: 'Acceso denegado: Solo profesores jefes de formación técnica/carreras pueden gestionar alternancias.' });
             }
         }
 
@@ -305,12 +303,11 @@ export const deleteAlternancia = async (req, res) => {
                 tenantId,
                 $or: [
                     { headTeacher: userId },
-                    { profesorJefe: userId },
-                    { teachers: userId }
+                    { profesorJefe: userId }
                 ]
             });
             if (!isCareerTeacher) {
-                return res.status(403).json({ message: 'Acceso denegado: Solo profesores de formación técnica/carreras pueden gestionar alternancias.' });
+                return res.status(403).json({ message: 'Acceso denegado: Solo profesores jefes de formación técnica/carreras pueden gestionar alternancias.' });
             }
         }
 

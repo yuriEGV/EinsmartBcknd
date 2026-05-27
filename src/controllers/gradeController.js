@@ -4,8 +4,11 @@ import AuditLog from '../models/auditLogModel.js';
 
 class GradeController {
     // Create a new grade
-    static async createGrade(req, res) {
         try {
+            if (req.user.role === 'inspector_general') {
+                return res.status(403).json({ message: 'Los inspectores generales no tienen permiso para gestionar calificaciones.' });
+            }
+
             const { estudianteId, evaluationId, score, comments } = req.body;
             const tenantId = req.user.tenantId;
 
@@ -278,6 +281,10 @@ class GradeController {
     // Update a grade by ID (Secure)
     static async updateGrade(req, res) {
         try {
+            if (req.user.role === 'inspector_general') {
+                return res.status(403).json({ message: 'Los inspectores generales no tienen permiso para gestionar calificaciones.' });
+            }
+
             const grade = await Grade.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
             if (!grade) {
                 return res.status(404).json({ message: 'Calificación no encontrada' });
@@ -331,6 +338,10 @@ class GradeController {
     // Delete a grade by ID (Secure)
     static async deleteGrade(req, res) {
         try {
+            if (req.user.role === 'inspector_general') {
+                return res.status(403).json({ message: 'Los inspectores generales no tienen permiso para gestionar calificaciones.' });
+            }
+
             const grade = await Grade.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
             if (!grade) {
                 return res.status(404).json({ message: 'Calificación no encontrada' });
@@ -380,6 +391,10 @@ class GradeController {
     // Bulk Create or Update Grades
     static async bulkUpsertGrades(req, res) {
         try {
+            if (req.user.role === 'inspector_general') {
+                return res.status(403).json({ message: 'Los inspectores generales no tienen permiso para gestionar calificaciones.' });
+            }
+
             const { grades } = req.body; // Array of { estudianteId, evaluationId, score }
             const tenantId = req.user.tenantId;
 

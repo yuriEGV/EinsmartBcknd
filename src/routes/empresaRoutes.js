@@ -1,6 +1,7 @@
 import express from 'express';
 import EmpresaController from '../controllers/empresaController.js';
 import authMiddleware, { authorizeRoles } from '../middleware/authMiddleware.js';
+import { verifyHeadTeacherOrHigher } from '../middleware/verifyHeadTeacher.js';
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ router.get('/', authMiddleware, EmpresaController.getEmpresas);
 router.post(
     '/',
     authMiddleware,
-    authorizeRoles('admin', 'sostenedor', 'director', 'utp', 'teacher'),
+    verifyHeadTeacherOrHigher,
     EmpresaController.createEmpresa
 );
 
@@ -19,7 +20,7 @@ router.post(
 router.put(
     '/:id',
     authMiddleware,
-    authorizeRoles('admin', 'sostenedor', 'director', 'utp', 'teacher'),
+    verifyHeadTeacherOrHigher,
     EmpresaController.updateEmpresa
 );
 
@@ -27,7 +28,7 @@ router.put(
 router.delete(
     '/:id',
     authMiddleware,
-    authorizeRoles('admin', 'sostenedor', 'director', 'utp'),
+    verifyHeadTeacherOrHigher,
     EmpresaController.deleteEmpresa
 );
 
