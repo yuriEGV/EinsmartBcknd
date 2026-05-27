@@ -28,7 +28,7 @@ class EventRequestController {
                 title: 'Nueva Solicitud de Evento',
                 message: `El profesor ${req.user.name} ha solicitado organizar un evento: ${title}`,
                 type: 'event_request',
-                link: '/events'
+                link: '/event-requests'
             });
 
             res.status(201).json(request);
@@ -108,6 +108,18 @@ class EventRequestController {
                 type: 'event_update',
                 link: '/events'
             });
+
+            // Automatically mark corresponding broadcasted notifications to admins as read
+            const UserNotification = await import('../models/userNotificationModel.js').then(m => m.default);
+            await UserNotification.updateMany(
+                {
+                    tenantId: req.user.tenantId,
+                    type: 'event_request',
+                    message: { $regex: request.title, $options: 'i' },
+                    isRead: false
+                },
+                { isRead: true }
+            );
 
             res.json(request);
         } catch (error) {

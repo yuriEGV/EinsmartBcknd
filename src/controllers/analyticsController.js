@@ -896,7 +896,7 @@ class AnalyticsController {
             ]);
 
             const teacherEfficiency = allTeachers.map(teacher => {
-                const stats = teacherStats.find(t => t._id.equals(teacher._id)) || {
+                const stats = teacherStats.find(t => t._id && teacher._id && t._id.toString() === teacher._id.toString()) || {
                     signedClasses: 0,
                     totalEffectiveMinutes: 0,
                     totalLostMinutes: 0

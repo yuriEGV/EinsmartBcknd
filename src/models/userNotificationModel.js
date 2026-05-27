@@ -31,7 +31,9 @@ const userNotificationSchema = new mongoose.Schema({
             'planning_rejected',
             'rubric_submitted',
             'rubric_approved',
-            'rubric_rejected'
+            'rubric_rejected',
+            'event_request',
+            'event_update'
         ],
         default: 'system'
     },
