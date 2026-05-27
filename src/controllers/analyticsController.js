@@ -5,6 +5,7 @@ import Grade from '../models/gradeModel.js';
 import Anotacion from '../models/anotacionModel.js';
 import Estudiante from '../models/estudianteModel.js';
 import Evaluation from '../models/evaluationModel.js';
+import User from '../models/userModel.js';
 // Course model is loaded via mongoose.model('Course') usually if registered, or import it.
 import Course from '../models/courseModel.js';
 import Payment from '../models/paymentModel.js';

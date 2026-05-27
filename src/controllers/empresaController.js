@@ -5,7 +5,8 @@ class EmpresaController {
     
     static async createEmpresa(req, res) {
         try {
-            const { rut, razonSocial, direccion, telefono, emailContacto, rubro } = req.body;
+            const { rut, razonSocial, direccion, telefono, emailContacto, rubro,
+                    convenioNumero, convenioFechaInicio, convenioFechaTermino, convenioEstado } = req.body;
             const tenantId = req.user.tenantId;
 
             if (!rut || !razonSocial) {
@@ -30,7 +31,11 @@ class EmpresaController {
                 direccion,
                 telefono,
                 emailContacto,
-                rubro
+                rubro,
+                convenioNumero,
+                convenioFechaInicio,
+                convenioFechaTermino,
+                convenioEstado
             });
 
             res.status(201).json(empresa);

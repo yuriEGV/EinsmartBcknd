@@ -225,18 +225,27 @@ export const getAlternanciasByEstudiante = async (req, res) => {
 
 export const createAlternancia = async (req, res) => {
     try {
-        const { tenantId } = req.user;
+        const { tenantId, userId, role } = req.user;
         const data = req.body;
+
+        if (role === 'teacher') {
+            const isCareerTeacher = await Career.findOne({
+                tenantId,
+                $or: [
+                    { headTeacher: userId },
+                    { profesorJefe: userId },
+                    { teachers: userId }
+                ]
+            });
+            if (!isCareerTeacher) {
+                return res.status(403).json({ message: 'Acceso denegado: Solo profesores de formación técnica/carreras pueden gestionar alternancias.' });
+            }
+        }
 
         if (!data.empresa) {
             return res.status(400).json({ message: 'La Selección de la Empresa es obligatoria.' });
         }
         
-        if (['Pasantía', 'Práctica Profesional'].includes(data.tipo) && !data.seguroEscolar) {
-            // Optional strict check, or handle in frontend. Let's strictly enforce if required:
-            // return res.status(400).json({ message: 'El Seguro Escolar es obligatorio para Pasantías y Prácticas.' });
-        }
-
         const newAlternancia = new Alternancia({
             ...data,
             tenantId
@@ -251,9 +260,23 @@ export const createAlternancia = async (req, res) => {
 
 export const updateAlternancia = async (req, res) => {
     try {
-        const { tenantId } = req.user;
+        const { tenantId, userId, role } = req.user;
         const { id } = req.params;
         const updates = req.body;
+
+        if (role === 'teacher') {
+            const isCareerTeacher = await Career.findOne({
+                tenantId,
+                $or: [
+                    { headTeacher: userId },
+                    { profesorJefe: userId },
+                    { teachers: userId }
+                ]
+            });
+            if (!isCareerTeacher) {
+                return res.status(403).json({ message: 'Acceso denegado: Solo profesores de formación técnica/carreras pueden gestionar alternancias.' });
+            }
+        }
 
         const currentAlt = await Alternancia.findOne({ _id: id, tenantId });
         if (!currentAlt) return res.status(404).json({ message: 'Alternancia no encontrada' });
@@ -274,8 +297,22 @@ export const updateAlternancia = async (req, res) => {
 
 export const deleteAlternancia = async (req, res) => {
     try {
-        const { tenantId } = req.user;
+        const { tenantId, userId, role } = req.user;
         const { id } = req.params;
+
+        if (role === 'teacher') {
+            const isCareerTeacher = await Career.findOne({
+                tenantId,
+                $or: [
+                    { headTeacher: userId },
+                    { profesorJefe: userId },
+                    { teachers: userId }
+                ]
+            });
+            if (!isCareerTeacher) {
+                return res.status(403).json({ message: 'Acceso denegado: Solo profesores de formación técnica/carreras pueden gestionar alternancias.' });
+            }
+        }
 
         const deletedAlternancia = await Alternancia.findOneAndDelete({ _id: id, tenantId });
         if (!deletedAlternancia) {

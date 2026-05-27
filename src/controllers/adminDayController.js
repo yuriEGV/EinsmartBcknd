@@ -75,10 +75,11 @@ class AdminDayController {
     static async getAllRequests(req, res) {
         try {
             await connectDB();
-            // Only admins or sostenedores can see all
-            const requests = await AdminDay.find({
-                tenantId: req.user.tenantId
-            }).populate('userId', 'name role').sort({ createdAt: -1 });
+            const filter = { tenantId: req.user.tenantId };
+            if (req.query.status) {
+                filter.status = req.query.status;
+            }
+            const requests = await AdminDay.find(filter).populate('userId', 'name role').sort({ createdAt: -1 });
 
             res.json(requests);
         } catch (error) {
