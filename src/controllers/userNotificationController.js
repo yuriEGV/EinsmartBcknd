@@ -61,6 +61,30 @@ class UserNotificationController {
             res.status(500).json({ message: error.message });
         }
     }
+    // Create a new internal notification
+    static async createNotification(req, res) {
+        try {
+            await connectDB();
+            const { title, message, type, link } = req.body;
+            
+            if (!title || !message) {
+                return res.status(400).json({ message: 'Title and message are required' });
+            }
+
+            const notification = await UserNotification.create({
+                tenantId: req.user.tenantId,
+                userId: req.user.userId,
+                title,
+                message,
+                type: type || 'system',
+                link: link || ''
+            });
+
+            res.status(201).json(notification);
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
 }
 
 export default UserNotificationController;

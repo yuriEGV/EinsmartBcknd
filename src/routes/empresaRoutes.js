@@ -8,11 +8,11 @@ const router = express.Router();
 // Get all empresas
 router.get('/', authMiddleware, EmpresaController.getEmpresas);
 
-// Create empresa (only teachers, UTP, directors, admins)
+// Create empresa (only director, UTP, jefe_carrera, admins)
 router.post(
     '/',
     authMiddleware,
-    verifyHeadTeacherOrHigher,
+    authorizeRoles('director', 'utp', 'jefe_carrera', 'admin', 'sostenedor'),
     EmpresaController.createEmpresa
 );
 
@@ -20,7 +20,7 @@ router.post(
 router.put(
     '/:id',
     authMiddleware,
-    verifyHeadTeacherOrHigher,
+    authorizeRoles('director', 'utp', 'jefe_carrera', 'admin', 'sostenedor'),
     EmpresaController.updateEmpresa
 );
 
@@ -28,7 +28,7 @@ router.put(
 router.delete(
     '/:id',
     authMiddleware,
-    verifyHeadTeacherOrHigher,
+    authorizeRoles('director', 'utp', 'jefe_carrera', 'admin', 'sostenedor'),
     EmpresaController.deleteEmpresa
 );
 

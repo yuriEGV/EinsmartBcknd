@@ -86,7 +86,8 @@ class CitacionController {
                     query.courseId = courseId;
                 }
             } else if (['director', 'inspector_general', 'utp', 'admin', 'sostenedor'].includes(req.user.role)) {
-                // Keep query as is (tenant only)
+                // For admin/directors, do not show citations they have dismissed
+                query.dismissedBy = { $ne: new mongoose.Types.ObjectId(req.user.userId) };
             } else if (req.user.role === 'apoderado') {
                 const apoderados = await mongoose.model('Apoderado').find({ 
                     $or: [
@@ -168,6 +169,22 @@ class CitacionController {
             const citacion = await Citacion.findOneAndDelete({ _id: id, tenantId: req.user.tenantId });
             if (!citacion) return res.status(404).json({ message: 'Citación no encontrada' });
             res.json({ message: 'Citación eliminada correctamente' });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+
+    static async dismiss(req, res) {
+        try {
+            const { id } = req.params;
+            const userId = req.user.userId;
+            const citacion = await Citacion.findOneAndUpdate(
+                { _id: id, tenantId: req.user.tenantId },
+                { $addToSet: { dismissedBy: userId } },
+                { new: true }
+            );
+            if (!citacion) return res.status(404).json({ message: 'Citación no encontrada' });
+            res.json({ message: 'Citación ocultada correctamente' });
         } catch (error) {
             res.status(500).json({ message: error.message });
         }

@@ -106,7 +106,11 @@ const citacionSchema = new mongoose.Schema({
     },
     fechaFirmaApoderado: {
         type: Date
-    }
+    },
+    dismissedBy: [{
+        type: mongoose.Types.ObjectId,
+        ref: 'User'
+    }]
 }, {
     timestamps: true
 });
