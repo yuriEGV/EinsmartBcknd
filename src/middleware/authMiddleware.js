@@ -62,8 +62,9 @@ export const authorizeRoles = (...roles) => {
 
 import jwt from 'jsonwebtoken';
 import * as tokenStore from '../utils/tokenStore.js';
+import User from '../models/userModel.js';
 
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
     let token;
 
     /* =====================================================
@@ -115,7 +116,7 @@ function authMiddleware(req, res, next) {
     }
 
     /* =====================================================
-       5. Verificación JWT
+       5. Verificación JWT y Session Única
     ===================================================== */
     try {
         const secret = process.env.JWT_SECRET;
@@ -124,6 +125,19 @@ function authMiddleware(req, res, next) {
         }
 
         const payload = jwt.verify(token, secret);
+
+        // Búsqueda rápida del usuario para verificar sessionToken
+        const user = await User.findById(payload.userId).select('sessionToken');
+        
+        if (!user) {
+            return res.status(401).json({ message: 'Usuario no existe' });
+        }
+
+        if (user.sessionToken && payload.sessionToken !== user.sessionToken) {
+            // Si el session token no coincide, se inició sesión en otro lado
+            tokenStore.add(token);
+            return res.status(401).json({ message: 'Sesión iniciada en otro dispositivo. Por favor, ingresa de nuevo.' });
+        }
 
         // Adjuntar usuario al request
         req.user = payload;

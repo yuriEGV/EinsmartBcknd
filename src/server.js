@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
+import helmet from 'helmet';
+import mongoSanitize from 'express-mongo-sanitize';
 import connectDB from './config/db.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -71,6 +73,13 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf && buf.toString(); } }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Middlewares de seguridad
+app.use(helmet({
+  crossOriginResourcePolicy: false // Permite cargar recursos desde orígenes externos en la aplicación si es necesario
+}));
+app.use(mongoSanitize()); // Previene inyección NoSQL
+
 app.use(morgan('dev'));
 
 // Local File Uploads Static Serving Map

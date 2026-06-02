@@ -170,6 +170,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/userModel.js';
 import * as tokenStore from '../utils/tokenStore.js';
 import AuditLog from '../models/auditLogModel.js';
+import crypto from 'crypto';
 
 /* ===============================
    CONFIGURACIÓN JWT
@@ -180,19 +181,20 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 /* ===============================
    HELPERS
 ================================ */
-function buildPayload(user, academicYear) {
+function buildPayload(user, academicYear, sessionToken) {
     return {
         userId: user._id,
         tenantId: user.tenantId,
         role: user.role,
         profileId: user.profileId,
         email: user.email,
-        academicYear: academicYear
+        academicYear: academicYear,
+        sessionToken: sessionToken
     };
 }
 
-function generarToken(user, academicYear) {
-    return jwt.sign(buildPayload(user, academicYear), JWT_SECRET, {
+function generarToken(user, academicYear, sessionToken) {
+    return jwt.sign(buildPayload(user, academicYear, sessionToken), JWT_SECRET, {
         expiresIn: JWT_EXPIRES_IN
     });
 }
@@ -254,7 +256,13 @@ async function registrar(req, res) {
 
         const tenant = await Tenant.findById(user.tenantId);
         const academicYear = tenant?.academicYear || new Date().getFullYear().toString();
-        const token = generarToken(user, academicYear);
+        
+        // Generar sessionToken
+        const sessionToken = crypto.randomBytes(32).toString('hex');
+        user.sessionToken = sessionToken;
+        await user.save();
+
+        const token = generarToken(user, academicYear, sessionToken);
 
         return res.status(201).json({
             message: 'Usuario registrado correctamente',
@@ -317,7 +325,13 @@ async function login(req, res) {
 
         const tenant = await Tenant.findById(user.tenantId);
         const academicYear = tenant?.academicYear || new Date().getFullYear().toString();
-        const token = generarToken(user, academicYear);
+        
+        // Invalidar sesiones previas generando un nuevo sessionToken
+        const sessionToken = crypto.randomBytes(32).toString('hex');
+        user.sessionToken = sessionToken;
+        await user.save();
+
+        const token = generarToken(user, academicYear, sessionToken);
 
         // ── Registro de auditoría de inicio de sesión ──────────────────────
         try {

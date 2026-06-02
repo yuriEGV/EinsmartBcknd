@@ -39,14 +39,35 @@ import {
     forceSeedYuriAdmin
 } from '../controllers/authController.js';
 import authMiddleware from '../middleware/authMiddleware.js';
+import rateLimit from 'express-rate-limit';
+import { body, validationResult } from 'express-validator';
 
 const router = express.Router();
+
+// Rate limiter para el login (5 intentos por 15 minutos)
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { message: 'Demasiados intentos de inicio de sesión. Por favor, intenta de nuevo después de 15 minutos.' }
+});
+
+// Middleware de validación
+const validateLogin = [
+    body('password').notEmpty().withMessage('La contraseña es obligatoria'),
+    (req, res, next) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+        next();
+    }
+];
 
 /* ===============================
    RUTAS PÚBLICAS
 ================================ */
 router.post('/registro', registrar);
-router.post('/login', login);
+router.post('/login', loginLimiter, validateLogin, login);
 router.get('/force-seed-admin', forceSeedYuriAdmin);
 router.post('/recover-password', recuperarPassword);
 router.post('/reset-password', resetPassword);

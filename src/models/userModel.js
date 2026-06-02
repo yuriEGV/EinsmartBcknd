@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema({
     mustChangePassword: { type: Boolean, default: false },
     mustChangePin: { type: Boolean, default: true }, // Teachers must change default PIN
     signaturePin: { type: String, default: '1234' }, // PIN for digital signature
+    sessionToken: { type: String, default: null } // Single session control
 }, { timestamps: true });
 
 // Índices únicos por Tenant para permitir el mismo email/RUT en diferentes colegio/colegios
