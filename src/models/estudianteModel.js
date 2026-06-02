@@ -11,6 +11,9 @@ const estudianteSchema = new mongoose.Schema({
     trim: true,
     // match: [/^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/, 'Formato de RUT inválido (ej: 12.345.678-9)']
   },
+  nacionalidad: { type: String, default: 'Chilena' },
+  tipoIdentificador: { type: String, enum: ['RUT', 'IPE', 'Pasaporte', 'Otro'], default: 'RUT' },
+  identificador: { type: String, sparse: true, trim: true }, // General purpose ID field
   matricula: { type: String, sparse: true, trim: true },
   fotoUrl: { type: String, default: '' },
   estado: {
@@ -37,10 +40,21 @@ const estudianteSchema = new mongoose.Schema({
   direccion: { type: String, trim: true, default: '' },
   salud: {
     seguro: { type: String, default: '' }, // e.g., Fonasa, Isapre
+    grupoSanguineo: { type: String, default: '' },
+    vacunasAlDia: { type: Boolean, default: true },
     alergias: [String],
     cronicas: [String],
     medicamentos: [String],
     observaciones: { type: String, default: '' }
+  },
+  fichaFamiliar: {
+    cantidadIntegrantes: { type: Number, default: 0 },
+    ingresoFamiliar: { type: String, default: '' }, // Opcional, tramos referenciales
+    contactoEmergencia: {
+        nombre: { type: String, default: '' },
+        telefono: { type: String, default: '' },
+        parentesco: { type: String, default: '' }
+    }
   },
   etnia: { type: String, default: '' },
   programaPIE: { type: Boolean, default: false },
@@ -58,6 +72,7 @@ const estudianteSchema = new mongoose.Schema({
 
 // Índices únicos por Tenant para permitir el mismo RUT en diferentes colegios (si fuera necesario para la SaaS)
 estudianteSchema.index({ rut: 1, tenantId: 1 }, { unique: true, sparse: true });
+estudianteSchema.index({ identificador: 1, tenantId: 1 }, { unique: true, sparse: true });
 estudianteSchema.index({ matricula: 1, tenantId: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model('Estudiante', estudianteSchema);

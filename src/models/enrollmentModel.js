@@ -15,7 +15,14 @@ const enrollmentSchema = new mongoose.Schema({
         mimeType: { type: String },
         size: { type: Number },
         uploadedAt: { type: Date, default: Date.now }
-    }]
+    }],
+    documentacionAportada: {
+        identidadEstudiante: { type: Boolean, default: false },
+        identidadApoderado: { type: Boolean, default: false },
+        antecedentesAcademicos: { type: Boolean, default: false },
+        comprobanteSAE: { type: Boolean, default: false },
+        poderSimple: { type: Boolean, default: false }
+    }
 }, { timestamps: true });
 
 // Índices únicos para evitar duplicados por periodo y tenant

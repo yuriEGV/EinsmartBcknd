@@ -18,8 +18,9 @@ class EnrollmentController {
                 notes,
                 metodoPago,    // [NUEVO] Método de pago inicial
                 tariffIds,     // [NUEVO] Array de IDs de tarifas a asignar
-                newStudent,   // { nombres, apellidos, rut, email, grado, edad }
-                newGuardian   // { nombre, apellidos, correo, telefono, direccion, parentesco }
+                newStudent,   // { nombres, apellidos, rut, email, grado, edad, nacionalidad, tipoIdentificador, identificador, salud, fichaFamiliar }
+                newGuardian,  // { nombre, apellidos, correo, telefono, direccion, parentesco, nacionalidad, tipoIdentificador, identificador }
+                documentacionAportada // { identidadEstudiante, identidadApoderado, antecedentesAcademicos, comprobanteSAE, poderSimple }
             } = req.body;
 
             const tenantId = req.user.tenantId;
@@ -43,12 +44,14 @@ class EnrollmentController {
                 const Estudiante = await import('../models/estudianteModel.js').then(m => m.default);
 
                 // Check if student already exists IN THIS TENANT to avoid cross-tenant conflicts
+                const queryConditions = [];
+                if (newStudent.rut) queryConditions.push({ rut: newStudent.rut });
+                if (newStudent.identificador) queryConditions.push({ identificador: newStudent.identificador });
+                if (newStudent.email) queryConditions.push({ email: newStudent.email });
+
                 const existingStudent = await Estudiante.findOne({
                     tenantId, // Isolation check
-                    $or: [
-                        { rut: newStudent.rut },
-                        { email: newStudent.email }
-                    ].filter(c => Object.values(c)[0])
+                    $or: queryConditions.length > 0 ? queryConditions : [{ _id: null }] // Prevent matching all if empty
                 });
 
                 if (existingStudent) {
@@ -62,6 +65,11 @@ class EnrollmentController {
                     if (newStudent.edad) existingStudent.edad = newStudent.edad;
                     if (newStudent.direccion) existingStudent.direccion = newStudent.direccion;
                     if (newStudent.photoUrl) existingStudent.fotoUrl = newStudent.photoUrl; // [NUEVO] Update photo if provided
+                    if (newStudent.nacionalidad) existingStudent.nacionalidad = newStudent.nacionalidad;
+                    if (newStudent.tipoIdentificador) existingStudent.tipoIdentificador = newStudent.tipoIdentificador;
+                    if (newStudent.identificador) existingStudent.identificador = newStudent.identificador;
+                    if (newStudent.salud) existingStudent.salud = newStudent.salud;
+                    if (newStudent.fichaFamiliar) existingStudent.fichaFamiliar = newStudent.fichaFamiliar;
                     await existingStudent.save();
                 } else {
                     const std = new Estudiante({
@@ -83,7 +91,7 @@ class EnrollmentController {
                             tenantId,
                             name: `${newStudent.nombres} ${newStudent.apellidos}`,
                             email: newStudent.email.toLowerCase().trim(),
-                            rut: newStudent.rut,
+                            rut: newStudent.rut || newStudent.identificador,
                             passwordHash,
                             role: 'student',
                             profileId: finalStudentId
@@ -126,6 +134,9 @@ class EnrollmentController {
                     apo.telefono = newGuardian.telefono || apo.telefono;
                     apo.direccion = newGuardian.direccion || apo.direccion;
                     apo.parentesco = newGuardian.parentesco || apo.parentesco;
+                    apo.nacionalidad = newGuardian.nacionalidad || apo.nacionalidad;
+                    apo.tipoIdentificador = newGuardian.tipoIdentificador || apo.tipoIdentificador;
+                    apo.identificador = newGuardian.identificador || apo.identificador;
                     await apo.save();
                 } else {
                     // Create new
@@ -141,9 +152,9 @@ class EnrollmentController {
                 finalGuardianId = apo._id;
 
                 // [NUEVO] Crear Usuario para el Apoderamiento si no existe
-                if (apo.correo || apo.rut) {
+                if (apo.correo || apo.rut || apo.identificador) {
                     const normalizedEmail = apo.correo ? apo.correo.toLowerCase().trim() : undefined;
-                    const query = normalizedEmail ? { email: normalizedEmail } : { rut: apo.rut };
+                    const query = normalizedEmail ? { email: normalizedEmail } : { rut: apo.rut || apo.identificador };
 
                     let userAccount = await User.findOne(query);
                     if (!userAccount) {
@@ -152,7 +163,7 @@ class EnrollmentController {
                             tenantId,
                             name: `${apo.nombre} ${apo.apellidos}`,
                             email: normalizedEmail,
-                            rut: apo.rut,
+                            rut: apo.rut || apo.identificador,
                             passwordHash,
                             role: 'apoderado',
                             profileId: apo._id
@@ -285,7 +296,8 @@ class EnrollmentController {
                 apoderadoId: finalGuardianId,
                 status: initialStatus,
                 fee: finalFee,
-                notes
+                notes,
+                documentacionAportada // [NUEVO] Documentos requeridos por MINEDUC
             });
 
             // Documentos (si vienen)

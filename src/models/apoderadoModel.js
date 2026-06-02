@@ -25,6 +25,19 @@ const apoderadoSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    nacionalidad: {
+        type: String,
+        default: 'Chilena'
+    },
+    tipoIdentificador: {
+        type: String,
+        enum: ['RUT', 'IPA', 'Pasaporte', 'Otro'],
+        default: 'RUT'
+    },
+    identificador: {
+        type: String,
+        trim: true
+    },
     direccion: {
         type: String,
         trim: true,
