@@ -395,24 +395,54 @@ class AnalyticsController {
                 const Course = mongoose.model('Course');
                 const Subject = mongoose.model('Subject');
                 const Enrollment = mongoose.model('Enrollment');
+                const Career = mongoose.model('Career');
 
-                // 1. Find courses where teacher is Head Teacher
-                const headCourses = await Course.find({ teacherId: req.user.userId, tenantId }).select('_id');
+                // 1. Find courses where teacher is Head Teacher or collaborator
+                const headCourses = await Course.find({
+                    $or: [
+                        { teacherId: req.user.userId },
+                        { collaborators: req.user.userId }
+                    ],
+                    tenantId
+                }).select('_id');
+                
                 // 2. Find courses where teacher teaches a Subject
                 const subjectAssignments = await Subject.find({ teacherId: req.user.userId, tenantId }).select('courseId');
 
+                // 3. Find courses from careers led by this teacher
+                let careerCourseIds = [];
+                if (Career) {
+                    const ledCareers = await Career.find({
+                        $or: [
+                            { headTeacher: req.user.userId },
+                            { profesorJefe: req.user.userId }
+                        ],
+                        tenantId
+                    }).select('_id');
+
+                    if (ledCareers.length > 0) {
+                        const coursesInCareers = await Course.find({
+                            careerId: { $in: ledCareers.map(c => c._id) },
+                            tenantId
+                        }).select('_id');
+                        careerCourseIds = coursesInCareers.map(c => c._id.toString());
+                    }
+                }
+
                 const courseIds = new Set([
                     ...headCourses.map(c => c._id.toString()),
-                    ...subjectAssignments.map(s => s.courseId.toString())
+                    ...subjectAssignments.map(s => s.courseId.toString()),
+                    ...careerCourseIds
                 ]);
 
                 courseCount = courseIds.size;
 
-                // 3. Count unique students in those courses
+                // 4. Count unique active students in those courses
                 if (courseCount > 0) {
                     const enrollments = await Enrollment.find({
                         courseId: { $in: Array.from(courseIds) },
-                        tenantId
+                        tenantId,
+                        status: { $in: ['confirmada', 'activo', 'activa'] }
                     }).distinct('estudianteId');
                     studentCount = enrollments.length;
                 }
