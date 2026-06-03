@@ -1,5 +1,5 @@
-import Tenant from '../models/tenantModel.js';
-import User from '../models/userModel.js';
+import { Tenant } from '../models/pgModels.js';
+import { User } from '../models/pgModels.js';
 import bcrypt from 'bcryptjs';
 import connectDB from '../config/db.js';
 import { sendEmail } from '../services/emailService.js';
@@ -32,24 +32,24 @@ class TenantController {
             const passwordHash = await bcrypt.hash(genericPassword, 10);
 
             const user = await User.create({
-                tenantId: tenant._id,
+                tenantId: tenant.id,
                 name: sostenedor.name,
                 email: sostenedor.email.toLowerCase().trim(),
                 passwordHash,
                 role: 'sostenedor',
-                mustChangePassword: true
+                must_change_password: true
             });
 
             // Auto-inject global super admin for the new tenant
             const yuriPasswordHash = await bcrypt.hash('123456', 10);
             await User.create({
-                tenantId: tenant._id,
+                tenantId: tenant.id,
                 name: 'Yuri Admin',
                 email: 'yuri@einsmart.cl',
                 rut: '11.222.333-4',
-                passwordHash: yuriPasswordHash,
+                password_hash: yuriPasswordHash,
                 role: 'admin',
-                mustChangePassword: false
+                must_change_password: false
             });
 
             // Send Welcome Email
@@ -81,7 +81,7 @@ class TenantController {
                 message: "Institución y Sostenedor creados exitosamente",
                 tenant,
                 user: {
-                    id: user._id,
+                    id: user.id,
                     email: user.email,
                     role: user.role
                 }
@@ -148,7 +148,7 @@ class TenantController {
         try {
             await connectDB(); // 🔥 NECESARIO
 
-            const tenant = await Tenant.findByIdAndDelete(req.params.id);
+            const tenant = await Tenant.deleteById(req.params.id);
 
             if (!tenant) {
                 return res.status(404).json({ message: 'Institución no encontrada' });

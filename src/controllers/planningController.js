@@ -1,22 +1,21 @@
 
 import Planning from '../models/planningModel.js';
-import mongoose from 'mongoose';
 import NotificationService from '../services/notificationService.js';
-import User from '../models/userModel.js';
+import { User } from '../models/pgModels.js';
 
 class PlanningController {
     static async create(req, res) {
         try {
             const planning = await Planning.create({
                 ...req.body,
-                teacherId: req.user.userId,
-                tenantId: req.user.tenantId,
+                teacher_id: req.user.userId,
+                tenant_id: req.user.tenantId,
                 status: req.body.status || 'draft'
             });
 
             if (planning.status === 'submitted') {
                 await NotificationService.broadcastToAdmins({
-                    tenantId: req.user.tenantId,
+                    tenant_id: req.user.tenantId,
                     title: 'Nueva Planificación Recibida',
                     message: `El docente ha enviado la planificación: "${planning.title}" para revisión.`,
                     type: 'planning_submitted',
@@ -32,7 +31,7 @@ class PlanningController {
 
     static async list(req, res) {
         try {
-            const query = { tenantId: req.user.tenantId };
+            const query = { tenant_id: req.user.tenantId };
 
             if (req.query.subjectId) query.subjectId = req.query.subjectId;
             if (req.query.status) query.status = req.query.status;
@@ -49,10 +48,10 @@ class PlanningController {
             console.log(`[Planning List] User: ${req.user.userId} (${req.user.role}) - Query:`, query);
 
             const plannings = await Planning.find(query)
-                .populate('subjectId', 'name')
-                .populate('teacherId', 'name')
-                .populate('objectives')
-                .populate('rubricId')
+                
+                
+                
+                
                 .sort({ createdAt: -1 });
 
             res.json(plannings);
@@ -64,7 +63,7 @@ class PlanningController {
     static async update(req, res) {
         try {
             const { id } = req.params;
-            const planning = await Planning.findOne({ _id: id, tenantId: req.user.tenantId });
+            const planning = await Planning.findOne({ _id: id, tenant_id: req.user.tenantId });
 
             if (!planning) return res.status(404).json({ message: 'Planificación no encontrada' });
 
@@ -89,7 +88,7 @@ class PlanningController {
         try {
             const { id } = req.params;
             const planning = await Planning.findOneAndUpdate(
-                { _id: id, tenantId: req.user.tenantId, teacherId: req.user.userId },
+                { _id: id, tenant_id: req.user.tenantId, teacher_id: req.user.userId },
                 { status: 'submitted' },
                 { new: true }
             );
@@ -97,7 +96,7 @@ class PlanningController {
 
             // Notify Admins/UTP
             await NotificationService.broadcastToAdmins({
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 title: 'Nueva Planificación Recibida',
                 message: `El docente ha enviado la planificación: "${planning.title}" para revisión.`,
                 type: 'planning_submitted',
@@ -120,7 +119,7 @@ class PlanningController {
             }
 
             const planning = await Planning.findOneAndUpdate(
-                { _id: id, tenantId: req.user.tenantId },
+                { _id: id, tenant_id: req.user.tenantId },
                 {
                     status,
                     feedback,
@@ -133,7 +132,7 @@ class PlanningController {
 
             // Notify Teacher
             await NotificationService.createInternalNotification({
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 userId: planning.teacherId,
                 title: status === 'approved' ? 'Planificación Aprobada' : 'Planificación Rechazada',
                 message: status === 'approved'
@@ -152,7 +151,7 @@ class PlanningController {
     static async delete(req, res) {
         try {
             const { id } = req.params;
-            const query = { _id: id, tenantId: req.user.tenantId };
+            const query = { _id: id, tenant_id: req.user.tenantId };
             const adminRoles = ['admin', 'director', 'utp', 'sostenedor'];
 
             if (!adminRoles.includes(req.user.role)) {

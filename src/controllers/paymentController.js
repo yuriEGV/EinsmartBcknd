@@ -1,12 +1,11 @@
 
-import Payment from '../models/paymentModel.js';
-import Tariff from '../models/tariffModel.js';
+import { Payment } from '../models/pgModels.js';
+import { Tariff } from '../models/pgModels.js';
 import paymentService from '../services/paymentService.js';
-import mongoose from 'mongoose';
 import { sendEmail } from '../utils/emailService.js';
-import User from '../models/userModel.js';
-import Apoderado from '../models/apoderadoModel.js';
-import Estudiante from '../models/estudianteModel.js';
+import { User } from '../models/pgModels.js';
+import { Guardian as Apoderado } from '../models/pgModels.js';
+import { Student as Estudiante } from '../models/pgModels.js';
 import connectDB from '../config/db.js';
 
 class PaymentController {
@@ -14,7 +13,7 @@ class PaymentController {
   static async createPayment(req, res) {
     try {
       await connectDB();
-      const { estudianteId, apoderadoId, tariffId, provider, metadata } = req.body;
+      const { student_id, apoderadoId, tariffId, provider, metadata } = req.body;
       const tenantId = req.user.tenantId;
 
       if (!estudianteId || (!tariffId && (!metadata?.concepto || !metadata?.amount))) {
@@ -35,9 +34,9 @@ class PaymentController {
       // NOTIFICATION LOGIC
       // 1. Fetch relevant emails
       const student = await Estudiante.findById(estudianteId);
-      const apoderado = await Apoderado.findOne({ estudianteId, tipo: 'principal' });
+      const apoderado = await Apoderado.findOne({ student_id, tipo: 'principal' });
 
-      const financeUsers = await User.find({ tenantId, role: { $in: ['sostenedor', 'admin', 'secretary'] } });
+      const financeUsers = await User.find({ tenant_id, role: { $in: ['sostenedor', 'admin', 'secretary'] } });
       const financeEmails = financeUsers.map(u => u.email);
 
       // 2. Logic based on provider/status
@@ -95,8 +94,8 @@ class PaymentController {
       // Notify if approved
       if (status === 'pagado' || status === 'approved') {
         const student = await Estudiante.findById(payment.estudianteId);
-        const apoderado = await Apoderado.findOne({ estudianteId: payment.estudianteId, tipo: 'principal' });
-        const financeUsers = await User.find({ tenantId, role: { $in: ['sostenedor', 'admin', 'secretary'] } });
+        const apoderado = await Apoderado.findOne({ student_id: payment.estudianteId, tipo: 'principal' });
+        const financeUsers = await User.find({ tenant_id, role: { $in: ['sostenedor', 'admin', 'secretary'] } });
 
         if (apoderado?.email) {
           await sendEmail(apoderado.email, `Pago Aprobado - ${student?.nombres}`, `<p>Su pago de $${payment.amount} ha sido verificado y aprobado.</p>`);
@@ -120,7 +119,7 @@ class PaymentController {
       await connectDB();
       const query = (req.user.role === 'admin')
         ? {}
-        : { tenantId: req.user.tenantId };
+        : { tenant_id: req.user.tenantId };
 
       if (req.user.role === 'student' && req.user.profileId) {
         query.estudianteId = req.user.profileId;
@@ -137,8 +136,8 @@ class PaymentController {
       }
 
       const payments = await Payment.find(query)
-        .populate('estudianteId', 'nombres apellidos rut')
-        .populate('tariffId', 'name amount')
+        
+        
         .sort({ createdAt: -1 });
 
       const totalCollected = payments
@@ -167,9 +166,9 @@ class PaymentController {
       await connectDB();
       const payment = await Payment.findOne({
         _id: req.params.id,
-        tenantId: req.user.tenantId
-      }).populate('estudianteId', 'nombres apellidos rut')
-        .populate('tariffId', 'name amount');
+        tenant_id: req.user.tenantId
+      })
+        ;
 
       if (!payment) {
         return res.status(404).json({ message: 'Pago no encontrado' });
@@ -184,7 +183,7 @@ class PaymentController {
   static async assignBulkTariff(req, res) {
     try {
       await connectDB();
-      const { courseId, tariffId, studentIds, dueDate, metadata } = req.body;
+      const { course_id, tariffId, studentIds, dueDate, metadata } = req.body;
       const tenantId = req.user.tenantId;
 
       if (!tariffId) {
@@ -217,8 +216,8 @@ class PaymentController {
 
       const paymentsToCreate = targetStudentIds.map(sid => ({
         tenantId,
-        estudianteId: sid,
-        tariffId: tariff._id,
+        student_id: sid,
+        tariffId: tariff.id,
         concepto: tariff.name,
         amount: tariff.amount,
         currency: tariff.currency || 'CLP',
@@ -242,17 +241,17 @@ class PaymentController {
   static async getDebtStats(req, res) {
     try {
       await connectDB();
-      const { courseId } = req.query;
+      const { course_id } = req.query;
       const tenantId = req.user.tenantId;
 
       const matchStage = {
-        tenantId: new mongoose.Types.ObjectId(tenantId),
+        tenantId: tenantId,
         estado: { $ne: 'pagado' }
       };
 
       if (courseId) {
         const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
-        const enrollments = await Enrollment.find({ courseId: courseId, tenantId: tenantId }).select('estudianteId');
+        const enrollments = await Enrollment.find({ course_id: courseId, tenant_id: tenantId }).select('estudianteId');
         const studentIds = enrollments.map(e => e.estudianteId);
         matchStage.estudianteId = { $in: studentIds };
       }
@@ -286,10 +285,10 @@ class PaymentController {
       const tenantId = req.user.tenantId;
 
       const unpaidPayments = await Payment.find({
-        estudianteId: studentId,
+        student_id: studentId,
         tenantId,
         estado: { $in: ['pendiente', 'vencido'] }
-      }).populate('tariffId', 'name');
+      });
 
       const totalDebt = unpaidPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
@@ -297,7 +296,7 @@ class PaymentController {
         studentId,
         totalDebt,
         details: unpaidPayments.map(p => ({
-          id: p._id,
+          id: p.id,
           concepto: p.tariffId?.name || p.concepto || 'Otro',
           amount: p.amount,
           estado: p.estado,
@@ -321,7 +320,7 @@ class PaymentController {
       payment.estado = 'pagado';
       payment.metodoPago = 'efectivo';
       payment.fechaPago = new Date();
-      payment.metadata = { ...payment.metadata, processedBy: req.user._id, officePayment: true };
+      payment.metadata = { ...payment.metadata, processedBy: req.user.id, officePayment: true };
 
       await payment.save();
 

@@ -1,12 +1,11 @@
-import ClassLog from '../models/classLogModel.js';
-import Schedule from '../models/scheduleModel.js';
-import User from '../models/userModel.js';
-import mongoose from 'mongoose';
+import { ClassLog } from '../models/pgModels.js';
+import { Schedule } from '../models/pgModels.js';
+import { User } from '../models/pgModels.js';
 
 class ClassLogController {
     static async startClass(req, res) {
         try {
-            const { courseId, subjectId, bloqueHorario } = req.body;
+            const { course_id, subjectId, bloqueHorario } = req.body;
 
             // Find if there's an existing unsigned log for this course/subject today
             const today = new Date();
@@ -15,10 +14,10 @@ class ClassLogController {
             tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
             let log = await ClassLog.findOne({
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 courseId,
                 subjectId,
-                teacherId: req.user.userId,
+                teacher_id: req.user.userId,
                 date: { $gte: today, $lt: tomorrow },
                 isSigned: false
             });
@@ -35,7 +34,7 @@ class ClassLogController {
                 const currentTimeStr = `${currentHour}:${currentMin}`;
 
                 const schedule = await Schedule.findOne({
-                    tenantId: req.user.tenantId,
+                    tenant_id: req.user.tenantId,
                     courseId,
                     subjectId,
                     dayOfWeek,
@@ -44,16 +43,16 @@ class ClassLogController {
                 });
 
                 log = new ClassLog({
-                    tenantId: req.user.tenantId,
+                    tenant_id: req.user.tenantId,
                     courseId,
                     subjectId,
-                    teacherId: req.user.userId,
+                    teacher_id: req.user.userId,
                     date: new Date(),
                     startTime: new Date(),
                     topic: 'Clase en curso...',
                     activities: '',
                     bloqueHorario: schedule ? `${schedule.blockId}º Bloque` : bloqueHorario,
-                    scheduleId: schedule ? schedule._id : undefined,
+                    scheduleId: schedule ? schedule.id : undefined,
                     status: 'en_curso'
                 });
 
@@ -90,7 +89,7 @@ class ClassLogController {
 
     static async create(req, res) {
         try {
-            const { courseId, subjectId, date, topic, activities, objectives, startTime, planningId, bloqueHorario } = req.body;
+            const { course_id, subjectId, date, topic, activities, objectives, startTime, planningId, bloqueHorario } = req.body;
 
             // If there's an existing draft log for this course/subject today, update it instead of creating
             const today = new Date();
@@ -99,10 +98,10 @@ class ClassLogController {
             tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
             let log = await ClassLog.findOne({
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 courseId,
                 subjectId,
-                teacherId: req.user.userId,
+                teacher_id: req.user.userId,
                 date: { $gte: today, $lt: tomorrow },
                 isSigned: false
             });
@@ -117,10 +116,10 @@ class ClassLogController {
                 await log.save();
             } else {
                 log = new ClassLog({
-                    tenantId: req.user.tenantId,
+                    tenant_id: req.user.tenantId,
                     courseId,
                     subjectId,
-                    teacherId: req.user.userId,
+                    teacher_id: req.user.userId,
                     date: date || new Date(),
                     topic,
                     activities,
@@ -134,14 +133,14 @@ class ClassLogController {
                 const logDate = new Date(log.date);
                 const dayOfWeek = logDate.getDay();
                 const schedule = await Schedule.findOne({
-                    tenantId: req.user.tenantId,
+                    tenant_id: req.user.tenantId,
                     courseId,
                     subjectId,
                     dayOfWeek
                 });
 
                 if (schedule) {
-                    log.scheduleId = schedule._id;
+                    log.scheduleId = schedule.id;
                     const [sh, sm] = schedule.startTime.split(':');
                     const [eh, em] = schedule.endTime.split(':');
                     const pst = new Date(logDate); pst.setHours(parseInt(sh), parseInt(sm), 0, 0);
@@ -162,8 +161,8 @@ class ClassLogController {
 
     static async list(req, res) {
         try {
-            const { courseId, subjectId, startDate, endDate, isSigned } = req.query;
-            const query = { tenantId: req.user.tenantId };
+            const { course_id, subjectId, startDate, endDate, isSigned } = req.query;
+            const query = { tenant_id: req.user.tenantId };
 
             if (isSigned !== undefined) query.isSigned = isSigned === 'true';
 
@@ -182,9 +181,9 @@ class ClassLogController {
             }
 
             const logs = await ClassLog.find(query)
-                .populate('courseId', 'name')
-                .populate('subjectId', 'name')
-                .populate('teacherId', 'name')
+                
+                
+                
                 .sort({ date: -1 });
 
             res.json(logs);
@@ -199,7 +198,7 @@ class ClassLogController {
             const { pin, effectiveDuration, bloqueHorario: signBlock } = req.body;
 
             const [log, user] = await Promise.all([
-                ClassLog.findOne({ _id: id, tenantId: req.user.tenantId }),
+                ClassLog.findOne({ _id: id, tenant_id: req.user.tenantId }),
                 User.findById(req.user.userId)
             ]);
 
@@ -267,7 +266,7 @@ class ClassLogController {
             const { id } = req.params;
             const { justification } = req.body;
             const log = await ClassLog.findOneAndUpdate(
-                { _id: id, tenantId: req.user.tenantId, teacherId: req.user.userId },
+                { _id: id, tenant_id: req.user.tenantId, teacher_id: req.user.userId },
                 { justification },
                 { new: true }
             );
@@ -281,7 +280,7 @@ class ClassLogController {
     static async delete(req, res) {
         try {
             const { id } = req.params;
-            const query = { _id: id, tenantId: req.user.tenantId };
+            const query = { _id: id, tenant_id: req.user.tenantId };
 
             // Teachers can only delete their unsigned logs
             if (req.user.role === 'teacher') {

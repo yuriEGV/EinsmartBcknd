@@ -1,5 +1,5 @@
 // controllers/courseController.js
-import Course from '../models/courseModel.js';
+import { Course } from '../models/pgModels.js';
 import connectDB from '../config/db.js';
 
 export default class CourseController {
@@ -30,9 +30,9 @@ export default class CourseController {
                 const startOfYear = new Date(currentYear, 0, 1);
                 const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59);
 
-                const existingCoursesCount = await Course.countDocuments({
-                    teacherId: req.user.userId,
-                    tenantId: req.user.tenantId,
+                const existingCoursesCount = await Course.count({
+                    teacher_id: req.user.userId,
+                    tenant_id: req.user.tenantId,
                     createdAt: { $gte: startOfYear, $lte: endOfYear }
                 });
 
@@ -54,9 +54,9 @@ export default class CourseController {
                 letter,
                 description,
                 teacherId,
-                careerId: careerId || null,
+                career_id: careerId || null,
                 collaborators: collaborators || [],
-                tenantId: req.user.tenantId
+                tenant_id: req.user.tenantId
             });
 
             // AUTO-SEED: Create general formation subjects for the new course
@@ -76,9 +76,9 @@ export default class CourseController {
 
                 for (const sub of GENERAL_SUBJECTS) {
                     await Subject.create({
-                        tenantId: req.user.tenantId,
-                        courseId: course._id,
-                        teacherId: teacherId, // usar el profesor jefe como docente por defecto
+                        tenant_id: req.user.tenantId,
+                        course_id: course.id,
+                        teacher_id: teacherId, // usar el profesor jefe como docente por defecto
                         name: sub.name,
                         description: sub.description,
                         isTechnical: false
@@ -101,7 +101,7 @@ export default class CourseController {
     static async getCourses(req, res) {
         try {
             await connectDB();
-            let query = { tenantId: req.user.tenantId };
+            let query = { tenant_id: req.user.tenantId };
 
             // [ROLES WITH FULL ACCESS TO TENANT]
             const fullAccessRoles = ['admin', 'sostenedor', 'director', 'utp', 'inspector_general', 'psicologo', 'orientador', 'bibliotecario', 'secretario', 'secretary', 'secretaria', 'paradocente'];
@@ -109,12 +109,12 @@ export default class CourseController {
             if (req.user.role === 'student' && req.user.profileId) {
                 const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
                 const enrollments = await Enrollment.find({
-                    estudianteId: req.user.profileId,
-                    tenantId: req.user.tenantId,
+                    student_id: req.user.profileId,
+                    tenant_id: req.user.tenantId,
                     status: { $in: ['confirmada', 'activo', 'activa'] }
                 });
                 const courseIds = enrollments.map(e => e.courseId);
-                query._id = { $in: courseIds };
+                query.id = { $in: courseIds };
             }
             else if (req.user.role === 'apoderado' && req.user.profileId) {
                 const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
@@ -123,12 +123,12 @@ export default class CourseController {
                 const vinculation = await Apoderado.findById(req.user.profileId);
                 if (vinculation) {
                     const enrollments = await Enrollment.find({
-                        estudianteId: vinculation.estudianteId,
-                        tenantId: req.user.tenantId,
+                        student_id: vinculation.estudianteId,
+                        tenant_id: req.user.tenantId,
                         status: { $in: ['confirmada', 'activo', 'activa'] }
                     });
                     const courseIds = enrollments.map(e => e.courseId);
-                    query._id = { $in: courseIds };
+                    query.id = { $in: courseIds };
                 } else {
                     return res.status(200).json([]);
                 }
@@ -139,17 +139,17 @@ export default class CourseController {
 
                 // 1. Get subjects where they teach
                 const teacherSubjects = await Subject.find({
-                    teacherId: req.user.userId,
-                    tenantId: req.user.tenantId
+                    teacher_id: req.user.userId,
+                    tenant_id: req.user.tenantId
                 }).select('courseId isTechnical');
 
                 // 2. Get courses where they are head teacher (Profesor Jefe) or collaborator
                 const directCourses = await Course.find({
                     $or: [
-                        { teacherId: req.user.userId },
+                        { teacher_id: req.user.userId },
                         { collaborators: req.user.userId }
                     ],
-                    tenantId: req.user.tenantId
+                    tenant_id: req.user.tenantId
                 }).select('_id');
 
                 // 3. Get courses in careers they lead (Jefe de Carrera or Profesor Jefe de Carrera)
@@ -158,12 +158,12 @@ export default class CourseController {
                         { headTeacher: req.user.userId },
                         { profesorJefe: req.user.userId }
                     ],
-                    tenantId: req.user.tenantId
+                    tenant_id: req.user.tenantId
                 }).select('_id');
 
                 const careerCourseIds = await Course.find({
-                    careerId: { $in: ledCareers.map(c => c._id) },
-                    tenantId: req.user.tenantId
+                    career_id: { $in: ledCareers.map(c => c.id) },
+                    tenant_id: req.user.tenantId
                 }).select('_id');
 
                 // [NUEVO] Lógica de "Formación General" vs "Técnico"
@@ -174,10 +174,10 @@ export default class CourseController {
                 if (!isTechnicalTeacher) {
                     // Es un profesor de Formación General. Puede ver todos los cursos básicos (sin careerId)
                     const basicCourses = await Course.find({
-                        tenantId: req.user.tenantId,
-                        careerId: null
+                        tenant_id: req.user.tenantId,
+                        career_id: null
                     }).select('_id');
-                    allBasicCourseIds = basicCourses.map(c => c._id.toString());
+                    allBasicCourseIds = basicCourses.map(c => c.id.toString());
                     console.log(`[COURSES] Teacher ${req.user.userId} is Formación General. Granted access to ${allBasicCourseIds.length} basic courses.`);
                 } else {
                     console.log(`[COURSES] Teacher ${req.user.userId} is Técnico. Limited access to specific subjects and careers.`);
@@ -186,8 +186,8 @@ export default class CourseController {
                 const courseIds = [
                     ...new Set([
                         ...teacherSubjects.map(s => s.courseId?.toString()).filter(Boolean),
-                        ...directCourses.map(c => c._id.toString()),
-                        ...careerCourseIds.map(c => c._id.toString()),
+                        ...directCourses.map(c => c.id.toString()),
+                        ...careerCourseIds.map(c => c.id.toString()),
                         ...allBasicCourseIds // Add all basic courses if applicable
                     ])
                 ];
@@ -195,7 +195,7 @@ export default class CourseController {
                 console.log(`[COURSES] Teacher ${req.user.userId} ledCareers: ${ledCareers.length}, careerCourses: ${careerCourseIds.length}, total allowed courses: ${courseIds.length}`);
 
                 if (courseIds.length > 0) {
-                    query._id = { $in: courseIds };
+                    query.id = { $in: courseIds };
                 } else {
                     // Force zero results if no assignments found
                     return res.status(200).json([]);
@@ -209,9 +209,9 @@ export default class CourseController {
             }
 
             const allCourses = await Course.find(query)
-                .populate('teacherId', 'name email rut')
-                .populate('careerId', 'name')
-                .populate('collaborators', 'name email')
+                
+                
+                
                 .sort({ createdAt: -1 });
 
             console.log(`[COURSES] Role: ${req.user.role} - Found: ${allCourses.length} courses for query:`, JSON.stringify(query));
@@ -229,17 +229,17 @@ export default class CourseController {
 
     static async getCoursesByTenant(req, res) {
         try {
-            const { tenantId } = req.params;
+            const { tenant_id } = req.params;
 
             // Strict check: only SuperAdmin or the owner institutional user
             if (req.user.role !== 'admin' && req.user.tenantId !== tenantId) {
                 return res.status(403).json({ message: 'Acceso denegado' });
             }
 
-            const courses = await Course.find({ tenantId })
-                .populate('teacherId', 'name email')
-                .populate('careerId', 'name')
-                .populate('collaborators', 'name email')
+            const courses = await Course.find({ tenant_id })
+                
+                
+                
                 .sort({ createdAt: -1 });
 
             return res.status(200).json(courses);
@@ -260,10 +260,10 @@ export default class CourseController {
 
             const course = await Course.findOne({
                 _id: id,
-                tenantId: req.user.tenantId
-            }).populate('teacherId', 'name email')
-                .populate('careerId', 'name')
-                .populate('collaborators', 'name email');
+                tenant_id: req.user.tenantId
+            })
+                
+                ;
 
             if (!course) {
                 return res.status(404).json({
@@ -289,20 +289,20 @@ export default class CourseController {
             const { name, level, letter, description, teacherId, careerId, collaborators } = req.body;
 
             const course = await Course.findOneAndUpdate(
-                { _id: id, tenantId: req.user.tenantId },
+                { _id: id, tenant_id: req.user.tenantId },
                 {
                     name: name ? name.trim() : undefined,
                     level,
                     letter,
                     description,
                     teacherId,
-                    careerId: careerId || null,
+                    career_id: careerId || null,
                     collaborators
                 },
                 { new: true, runValidators: true }
-            ).populate('teacherId', 'name email')
-                .populate('careerId', 'name')
-                .populate('collaborators', 'name email');
+            )
+                
+                ;
 
             if (!course) {
                 return res.status(404).json({
@@ -328,7 +328,7 @@ export default class CourseController {
 
             const course = await Course.findOneAndDelete({
                 _id: id,
-                tenantId: req.user.tenantId
+                tenant_id: req.user.tenantId
             });
 
             if (!course) {
@@ -339,7 +339,7 @@ export default class CourseController {
 
             // [NUEVO] Eliminar matrículas asociadas para evitar huérfanos "Sin Curso"
             const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
-            await Enrollment.deleteMany({ courseId: id, tenantId: req.user.tenantId });
+            await Enrollment.deleteMany({ course_id: id, tenant_id: req.user.tenantId });
 
             return res.status(204).send();
 

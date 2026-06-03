@@ -1,5 +1,5 @@
-import AuditLog from '../models/auditLogModel.js';
-import Tenant from '../models/tenantModel.js';
+import { AuditLog } from '../models/pgModels.js';
+import { Tenant } from '../models/pgModels.js';
 
 const GLOBAL_ROLES = ['superadmin', 'fiscalizador'];
 
@@ -23,8 +23,8 @@ class AuditLogController {
             }
 
             const logs = await AuditLog.find(query)
-                .populate('user', 'name email role')
-                .populate('tenantId', 'name')
+                
+                
                 .sort({ createdAt: -1 })
                 .limit(Number(limit));
 

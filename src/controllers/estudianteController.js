@@ -1,6 +1,5 @@
-import Estudiante from '../models/estudianteModel.js';
+import { Student as Estudiante } from '../models/pgModels.js';
 import connectDB from '../config/db.js';
-import mongoose from 'mongoose';
 import { validarRUT, formatearRUT } from '../utils/rutValidator.js';
 import NotificationService from '../services/notificationService.js';
 import { saveBase64Image } from '../utils/fileStorage.js';
@@ -53,7 +52,7 @@ const createEstudiante = async (req, res) => {
       const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
       await Apoderado.create({
         ...guardian,
-        estudianteId: estudiante._id,
+        student_id: estudiante.id,
         tenantId
       });
     }
@@ -64,7 +63,7 @@ const createEstudiante = async (req, res) => {
       title: 'Nuevo Estudiante Registrado',
       message: `Se ha matriculado a ${estudianteData.nombres} ${estudianteData.apellidos}.`,
       type: 'student',
-      link: `/students/${estudiante._id}`
+      link: `/students/${estudiante.id}`
     });
 
     res.status(201).json(estudiante);
@@ -83,7 +82,7 @@ const getEstudiantes = async (req, res) => {
 
     if (req.user.role !== 'admin') {
       // Aggregation does not auto-cast string to ObjectId, so we must do it manually
-      query.tenantId = new mongoose.Types.ObjectId(req.user.tenantId);
+      query.tenantId = req.user.tenantId;
     }
 
     // AT-RISK FILTER: If filter=at-risk is requested, we need a special pipeline
@@ -92,7 +91,7 @@ const getEstudiantes = async (req, res) => {
 
       // We first find students at risk via grades aggregation
       const atRiskAgg = await Grade.aggregate([
-        { $match: { tenantId: query.tenantId } },
+        { $match: { tenant_id: query.tenantId } },
         {
           $lookup: {
             from: 'evaluations',
@@ -117,8 +116,8 @@ const getEstudiantes = async (req, res) => {
         { $match: { overallAvg: { $lt: 4.0 } } }
       ]);
 
-      const atRiskIds = atRiskAgg.map(a => a._id);
-      query._id = { $in: atRiskIds };
+      const atRiskIds = atRiskAgg.map(a => a.id);
+      query.id = { $in: atRiskIds };
       console.log('GET ESTUDIANTES - At-Risk Filter: found', atRiskIds.length, 'students');
     }
 
@@ -128,12 +127,12 @@ const getEstudiantes = async (req, res) => {
 
     if (restrictiveRoles.includes(req.user.role)) {
       if (req.user.role === 'student' && req.user.profileId) {
-        query._id = req.user.profileId;
+        query.id = req.user.profileId;
       } else if (req.user.role === 'apoderado' && req.user.profileId) {
         const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
         const vinculation = await Apoderado.findById(req.user.profileId);
         if (vinculation) {
-          query._id = vinculation.estudianteId;
+          query.id = vinculation.estudianteId;
         } else {
           console.log('GET ESTUDIANTES - Apoderado without vinculation, returning empty');
           return res.status(200).json([]);
@@ -149,35 +148,35 @@ const getEstudiantes = async (req, res) => {
         // Find all courses where this teacher has subjects OR is head teacher OR course belongs to led career
         const [teacherSubjects, directCourses, ledCareers] = await Promise.all([
           Subject.find({
-            teacherId: new mongoose.Types.ObjectId(req.user.userId),
-            tenantId: new mongoose.Types.ObjectId(req.user.tenantId)
+            teacher_id: req.user.userId,
+            tenantId: req.user.tenantId
           }).select('courseId'),
           Course.find({
             $or: [
-              { teacherId: new mongoose.Types.ObjectId(req.user.userId) },
-              { collaborators: new mongoose.Types.ObjectId(req.user.userId) }
+              { teacher_id: req.user.userId },
+              { collaborators: req.user.userId }
             ],
-            tenantId: new mongoose.Types.ObjectId(req.user.tenantId)
+            tenantId: req.user.tenantId
           }).select('_id'),
           Career.find({
             $or: [
               { headTeacher: req.user.userId },
               { profesorJefe: req.user.userId }
             ],
-            tenantId: req.user.tenantId
+            tenant_id: req.user.tenantId
           }).select('_id')
         ]);
 
         const careerCourseIds = await Course.find({
-          careerId: { $in: ledCareers.map(c => c._id) },
-          tenantId: req.user.tenantId
+          career_id: { $in: ledCareers.map(c => c.id) },
+          tenant_id: req.user.tenantId
         }).select('_id');
 
         const courseIds = [
           ...new Set([
             ...teacherSubjects.map(s => s.courseId.toString()),
-            ...directCourses.map(c => c._id.toString()),
-            ...careerCourseIds.map(c => c._id.toString())
+            ...directCourses.map(c => c.id.toString()),
+            ...careerCourseIds.map(c => c.id.toString())
           ])
         ];
 
@@ -189,13 +188,13 @@ const getEstudiantes = async (req, res) => {
         }
 
         const enrollments = await Enrollment.find({
-          courseId: { $in: courseIds },
-          tenantId: req.user.tenantId,
+          course_id: { $in: courseIds },
+          tenant_id: req.user.tenantId,
           status: { $in: ['confirmada', 'activo', 'activa'] }
         }).select('estudianteId');
 
         const allowedStudentIds = enrollments.map(e => e.estudianteId);
-        query._id = { $in: allowedStudentIds };
+        query.id = { $in: allowedStudentIds };
         console.log(`GET ESTUDIANTES - Teacher filter: found ${allowedStudentIds.length} allowed students across ${courseIds.length} courses`);
       } else if (!req.user.profileId) {
         // Student or guardian without profileId = no access
@@ -208,31 +207,31 @@ const getEstudiantes = async (req, res) => {
     if (req.query.cursoId) {
       const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
       const enrollments = await Enrollment.find({
-        courseId: req.query.cursoId,
-        tenantId: req.user.tenantId,
+        course_id: req.query.cursoId,
+        tenant_id: req.user.tenantId,
         status: { $in: ['confirmada', 'activo', 'activa', 'pre-matricula', 'inscrito'] }
       }).select('estudianteId');
 
       const enrolledStudentIds = enrollments.map(e => e.estudianteId);
       console.log('GET ESTUDIANTES - Course filter:', req.query.cursoId, 'Found:', enrolledStudentIds.length, 'enrolled');
 
-      if (query._id && query._id.$in) {
-        // Teacher case: query._id is already { $in: [allowedIds] }
-        const allowedIdsStrings = query._id.$in.map(id => id.toString());
+      if (query.id && query.id.$in) {
+        // Teacher case: query.id is already { $in: [allowedIds] }
+        const allowedIdsStrings = query.id.$in.map(id => id.toString());
         const filteredIds = enrolledStudentIds
           .filter(id => allowedIdsStrings.includes(id.toString()))
-          .map(id => new mongoose.Types.ObjectId(id));
+          .map(id => id);
 
-        query._id = { $in: filteredIds };
+        query.id = { $in: filteredIds };
         console.log(`GET ESTUDIANTES - Teacher + Course filter: intersection found ${filteredIds.length} students`);
-      } else if (query._id) {
+      } else if (query.id) {
         // Single student case (student/apoderado)
-        if (!enrolledStudentIds.some(id => id.toString() === query._id.toString())) {
+        if (!enrolledStudentIds.some(id => id.toString() === query.id.toString())) {
           console.log('GET ESTUDIANTES - Student not enrolled in course, returning empty');
           return res.status(200).json([]);
         }
       } else {
-        query._id = { $in: enrolledStudentIds.map(id => new mongoose.Types.ObjectId(id)) };
+        query.id = { $in: enrolledStudentIds.map(id => id) };
       }
     }
 
@@ -268,7 +267,7 @@ const getEstudiantes = async (req, res) => {
               $addFields: {
                 isRequestedCourse: {
                   $cond: [
-                    { $eq: ['$courseId', req.query.cursoId ? new mongoose.Types.ObjectId(req.query.cursoId) : null] },
+                    { $eq: ['$courseId', req.query.cursoId ? req.query.cursoId : null] },
                     1,
                     0
                   ]
@@ -318,7 +317,7 @@ const getEstudianteById = async (req, res) => {
     await connectDB();
     const query = {
       _id: req.params.id,
-      tenantId: req.user.tenantId,
+      tenant_id: req.user.tenantId,
     };
     // ... logic remains same
 
@@ -374,7 +373,7 @@ const updateEstudiante = async (req, res) => {
 
     // 1. Update Student
     const estudiante = await Estudiante.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.user.tenantId },
+      { _id: req.params.id, tenant_id: req.user.tenantId },
       updateData,
       { new: true, runValidators: true }
     );
@@ -388,21 +387,21 @@ const updateEstudiante = async (req, res) => {
     if (guardian) {
       const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
       await Apoderado.findOneAndUpdate(
-        { estudianteId: estudiante._id, tenantId: req.user.tenantId },
+        { student_id: estudiante.id, tenant_id: req.user.tenantId },
         guardian,
         { new: true, runValidators: true, upsert: true } // Upsert in case it doesn't exist for some reason
       );
     }
 
-    console.log('UPDATE ESTUDIANTE - Success:', estudiante._id);
+    console.log('UPDATE ESTUDIANTE - Success:', estudiante.id);
 
     // [NUEVO] Notificar cambio en plataforma
     await NotificationService.notifyPlatformChange({
-      tenantId: req.user.tenantId,
+      tenant_id: req.user.tenantId,
       title: 'Ficha de Estudiante Actualizada',
       message: `Se han modificado los datos de ${estudiante.nombres} ${estudiante.apellidos}.`,
       type: 'student',
-      link: `/students/${estudiante._id}`
+      link: `/students/${estudiante.id}`
     });
 
     res.status(200).json(estudiante);
@@ -426,23 +425,23 @@ const deleteEstudiante = async (req, res) => {
 
     // 1. Delete Enrollments
     const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
-    await Enrollment.deleteMany({ estudianteId: id, tenantId });
+    await Enrollment.deleteMany({ student_id: id, tenantId });
 
     // 2. Delete Payments
     const Payment = await import('../models/paymentModel.js').then(m => m.default);
-    await Payment.deleteMany({ estudianteId: id, tenantId });
+    await Payment.deleteMany({ student_id: id, tenantId });
 
     // 3. Delete Grades
     const Grade = await import('../models/gradeModel.js').then(m => m.default);
-    await Grade.deleteMany({ estudianteId: id, tenantId });
+    await Grade.deleteMany({ student_id: id, tenantId });
 
     // 4. Delete Attendance Records
     const Attendance = await import('../models/attendanceModel.js').then(m => m.default);
-    await Attendance.deleteMany({ estudianteId: id, tenantId });
+    await Attendance.deleteMany({ student_id: id, tenantId });
 
     // 5. Delete Annotations
     const Anotacion = await import('../models/anotacionModel.js').then(m => m.default);
-    await Anotacion.deleteMany({ estudianteId: id, tenantId });
+    await Anotacion.deleteMany({ student_id: id, tenantId });
 
     // 6. Delete Payment Promises
     const PaymentPromise = await import('../models/paymentPromiseModel.js').then(m => m.default);
@@ -451,7 +450,7 @@ const deleteEstudiante = async (req, res) => {
     // 7. Unlink or Delete Apoderado
     const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
     // Find apoderados linked to this student
-    const apoderadosCoords = await Apoderado.find({ estudianteId: id, tenantId });
+    const apoderadosCoords = await Apoderado.find({ student_id: id, tenantId });
 
     for (const apo of apoderadosCoords) {
       // Check if this apoderado has other students. 
@@ -459,7 +458,7 @@ const deleteEstudiante = async (req, res) => {
       // we effectively delete the relationship record. 
       // If "Apoderado" is a unique person entity linked to multiple students via array, we would pull.
       // But looking at the schema: estudianteId is a single Ref. So one Apoderado record = one link.
-      await Apoderado.findByIdAndDelete(apo._id);
+      await Apoderado.deleteById(apo.id);
 
       // Also delete User account if it exists and is only for this profileId? 
       // Maybe too aggressive. Let's keep the User for now, or just leave it. 
@@ -467,7 +466,7 @@ const deleteEstudiante = async (req, res) => {
     }
 
     // Finally delete student
-    await Estudiante.findByIdAndDelete(id);
+    await Estudiante.deleteById(id);
 
     // [NUEVO] Notificar cambio en plataforma
     await NotificationService.notifyPlatformChange({

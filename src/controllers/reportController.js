@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import Report from '../models/reportModel.js';
 import NotificationService from '../services/notificationService.js';
 
@@ -91,23 +90,23 @@ class ReportController {
             };
             if (period && period !== 'anual') evalQuery.period = period;
             const validEvals = await Evaluation.find(evalQuery).select('_id');
-            const evalIds = validEvals.map(e => e._id);
+            const evalIds = validEvals.map(e => e.id);
 
             const [grades, attendance, annotations, licenses, atrasos] = await Promise.all([
                 Grade.find({ 
-                    estudianteId: studentId, 
+                    student_id: studentId, 
                     tenantId, 
                     $or: [
                         { academicYear: currentYear },
                         { academicYear: { $exists: false } }
                     ],
-                    evaluationId: { $in: evalIds }
+                    evaluation_id: { $in: evalIds }
                 })
-                .populate({ path: 'evaluationId', populate: { path: 'subjectId', select: 'name' } })
+                
                 .sort({ createdAt: 1 }),
                 
                 Attendance.find({ 
-                    estudianteId: studentId, 
+                    student_id: studentId, 
                     tenantId, 
                     $or: [
                         { academicYear: currentYear },
@@ -117,14 +116,14 @@ class ReportController {
                 }).sort({ fecha: -1 }),
                 
                 Anotacion.find({ 
-                    estudianteId: studentId, 
+                    student_id: studentId, 
                     tenantId, 
                     $or: [
                         { academicYear: currentYear },
                         { academicYear: { $exists: false } }
                     ],
                     ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {})
-                }).populate('creadoPor', 'name').sort({ createdAt: -1 }),
+                }).sort({ createdAt: -1 }),
                 
                 MedicalLicense.find({ 
                     userId: studentId, 
@@ -138,29 +137,29 @@ class ReportController {
                 }).sort({ fechaInicio: -1 }),
                 
                 Atraso.find({ 
-                    estudianteId: studentId, 
+                    student_id: studentId, 
                     tenantId, 
                     $or: [
                         { academicYear: currentYear },
                         { academicYear: { $exists: false } }
                     ],
                     ...(Object.keys(dateFilter).length ? { fecha: dateFilter } : {})
-                }).populate('registradoPor', 'name').sort({ fecha: -1 }),
+                }).sort({ fecha: -1 }),
             ]);
 
             // Guardian & enrollment
             const [guardian, enrollment] = await Promise.all([
-                Apoderado.findOne({ estudianteId: studentId, tenantId }),
-                Enrollment.findOne({ estudianteId: studentId, tenantId, status: { $in: ['confirmada', 'activo', 'activa'] } })
-                    .populate('courseId', 'name'),
+                Apoderado.findOne({ student_id: studentId, tenantId }),
+                Enrollment.findOne({ student_id: studentId, tenantId, status: { $in: ['confirmada', 'activo', 'activa'] } })
+                    ,
             ]);
 
             // Class logs for this student's course
             let classLogs = [];
-            if (enrollment?.courseId?._id) {
-                classLogs = await ClassLog.find({ courseId: enrollment.courseId._id, tenantId, isSigned: true })
-                    .populate('teacherId', 'name')
-                    .populate('subjectId', 'name')
+            if (enrollment?.courseId?.id) {
+                classLogs = await ClassLog.find({ course_id: enrollment.courseId.id, tenantId, isSigned: true })
+                    
+                    
                     .sort({ date: -1 })
                     .limit(50);
             }
@@ -216,7 +215,7 @@ class ReportController {
                     academicYear: tenant?.academicYear || new Date().getFullYear().toString(),
                 },
                 student: {
-                    _id: student._id,
+                    _id: student.id,
                     nombres: student.nombres,
                     apellidos: student.apellidos,
                     rut: student.rut,
@@ -264,7 +263,7 @@ class ReportController {
                     autor: a.creadoPor?.name,
                 })),
                 licenses: licenses.map(lic => ({
-                    _id: lic._id,
+                    _id: lic.id,
                     tipo: lic.tipo,
                     fechaInicio: lic.fechaInicio,
                     fechaFin: lic.fechaFin,
@@ -274,7 +273,7 @@ class ReportController {
                     esElectronica: lic.esElectronica,
                 })),
                 atrasos: atrasos.map(a => ({
-                    _id: a._id,
+                    _id: a.id,
                     fecha: a.fecha,
                     bloque: a.bloque,
                     minutosAtraso: a.minutosAtraso,
@@ -312,7 +311,7 @@ class ReportController {
             const performance = await ClassLog.aggregate([
                 {
                     $match: {
-                        tenantId: new mongoose.Types.ObjectId(tenantId),
+                        tenantId: tenantId,
                         isSigned: true,
                         signedAt: { $gte: sevenDaysAgo }
                     }
@@ -347,7 +346,7 @@ class ReportController {
                 {
                     $group: {
                         _id: {
-                            teacherId: '$teacherId',
+                            teacher_id: '$teacherId',
                             teacherName: '$teacher.name',
                             courseName: '$course.name',
                             subjectName: '$subject.name'
@@ -376,8 +375,8 @@ class ReportController {
             const Atraso = await import('../models/atrasoModel.js').then(m => m.default);
             const { startDate, endDate } = req.query;
 
-            const tenantOid = new mongoose.Types.ObjectId(tenantId);
-            const match = { tenantId: tenantOid };
+            const tenantOid = tenantId;
+            const match = { tenant_id: tenantOid };
             if (startDate || endDate) {
                 match.date = {};
                 if (startDate) match.date.$gte = new Date(startDate);
@@ -412,12 +411,12 @@ class ReportController {
                 },
                 { $unwind: { path: '$teacher', preserveNullAndEmptyArrays: true } },
                 { $unwind: { path: '$course', preserveNullAndEmptyArrays: true } },
-                { $match: { 'teacher._id': { $exists: true }, 'course._id': { $exists: true } } },
+                { $match: { 'teacher.id': { $exists: true }, 'course.id': { $exists: true } } },
                 { $unwind: { path: '$subject', preserveNullAndEmptyArrays: true } },
                 {
                     $group: {
                         _id: {
-                            teacherId: '$teacherId',
+                            teacher_id: '$teacherId',
                             teacherName: '$teacher.name',
                             courseName: '$course.name',
                             subjectName: { $ifNull: ['$subject.name', 'Sin asignatura'] }
@@ -437,7 +436,7 @@ class ReportController {
                 {
                     $group: {
                         _id: {
-                            teacherId: '$_id.teacherId',
+                            teacher_id: '$_id.teacherId',
                             teacherName: '$_id.teacherName'
                         },
                         totalMinutosAllCourses: { $sum: '$totalMinutos' },
@@ -463,18 +462,18 @@ class ReportController {
 
             // 2. Fetch individual class sessions with details
             const detailedLogs = await ClassLog.find(match)
-                .populate('teacherId', 'name')
-                .populate('courseId', 'name letter')
-                .populate('subjectId', 'name')
+                
+                
+                
                 .sort({ date: -1 })
-                .lean();
+                ;
 
             // 3. Build student-to-course mapping via enrollments
             const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
             const enrollments = await Enrollment.find({
                 tenantId: tenantOid,
                 status: { $in: ['confirmada', 'activo', 'activa'] }
-            }).select('estudianteId courseId').lean();
+            }).select('estudianteId courseId');
 
             const studentToCourse = {};
             for (const e of enrollments) {
@@ -482,41 +481,41 @@ class ReportController {
             }
 
             // 4. Fetch tardiness data for the period
-            const atrasoMatch = { tenantId: tenantOid };
+            const atrasoMatch = { tenant_id: tenantOid };
             if (startDate || endDate) {
                 atrasoMatch.fecha = {};
                 if (startDate) atrasoMatch.fecha.$gte = new Date(startDate);
                 if (endDate) atrasoMatch.fecha.$lte = new Date(endDate);
             }
             const atrasos = await Atraso.find(atrasoMatch)
-                .populate('estudianteId', 'nombres apellidos')
-                .lean();
+                
+                ;
 
             // 5. Group sessions by teacher and enrich with tardiness
-            const teacherIds = performance.map(p => p._id.teacherId.toString());
+            const teacherIds = performance.map(p => p.id.teacherId.toString());
             const sessionsByTeacher = {};
             teacherIds.forEach(id => { sessionsByTeacher[id] = []; });
 
             for (const log of detailedLogs) {
-                const tid = log.teacherId?._id?.toString();
+                const tid = log.teacherId?.id?.toString();
                 if (!tid || !sessionsByTeacher[tid]) continue;
 
                 // Find tardiness for this session's course on the same date
                 const logDateStr = new Date(log.date).toISOString().split('T')[0];
-                const logCourseId = log.courseId?._id?.toString();
+                const logCourseId = log.courseId?.id?.toString();
 
                 const sessionAtrasos = atrasos.filter(a => {
                     const aDate = new Date(a.fecha).toISOString().split('T')[0];
                     if (aDate !== logDateStr) return false;
                     // Match student's enrolled course to this class log's course
-                    const studentCourse = studentToCourse[a.estudianteId?._id?.toString()];
+                    const studentCourse = studentToCourse[a.estudianteId?.id?.toString()];
                     return studentCourse === logCourseId;
                 });
 
                 const effectiveMin = log.effectiveDuration > 0 ? log.effectiveDuration : (log.duration || 0);
 
                 sessionsByTeacher[tid].push({
-                    _id: log._id,
+                    _id: log.id,
                     date: log.date,
                     topic: log.topic,
                     activities: log.activities,
@@ -540,7 +539,7 @@ class ReportController {
             // 5. Merge sessions into performance data
             const enriched = performance.map(p => ({
                 ...p,
-                sessions: sessionsByTeacher[p._id.teacherId.toString()] || []
+                sessions: sessionsByTeacher[p.id.teacherId.toString()] || []
             }));
 
             res.json(enriched);
@@ -552,8 +551,8 @@ class ReportController {
 
     static async getCoursePerformance(req, res) {
         try {
-            const { courseId } = req.params;
-            const { subjectId } = req.query;
+            const { course_id } = req.params;
+            const { subject_id } = req.query;
             const tenantId = req.user.tenantId;
 
             const [Grade, Evaluation, Enrollment, Estudiante] = await Promise.all([
@@ -568,22 +567,22 @@ class ReportController {
                 courseId, 
                 tenantId, 
                 status: { $in: ['confirmada', 'activo', 'activa'] } 
-            }).populate('estudianteId', 'nombres apellidos');
+            });
             
-            const studentIds = enrollments.map(e => e.estudianteId._id);
+            const studentIds = enrollments.map(e => e.estudianteId.id);
             if (studentIds.length === 0) return res.json({ stats: null, studentAverages: [] });
 
             // 2. Fetch Evaluations
-            const evalQuery = { courseId, tenantId };
+            const evalQuery = { course_id, tenantId };
             if (subjectId) evalQuery.subjectId = subjectId;
             const evaluations = await Evaluation.find(evalQuery).select('_id title weight subjectId');
-            const evalIds = evaluations.map(e => e._id);
+            const evalIds = evaluations.map(e => e.id);
 
             // 3. Fetch Grades
             const grades = await Grade.find({
                 tenantId,
-                estudianteId: { $in: studentIds },
-                evaluationId: { $in: evalIds }
+                student_id: { $in: studentIds },
+                evaluation_id: { $in: evalIds }
             });
 
             // 4. Group by Student to calculate per-student subject average
@@ -602,9 +601,9 @@ class ReportController {
             });
 
             const studentAverages = enrollments.map(e => {
-                const stats = studentStats[e.estudianteId._id.toString()];
+                const stats = studentStats[e.estudianteId.id.toString()];
                 return {
-                    estudianteId: e.estudianteId._id,
+                    student_id: e.estudianteId.id,
                     name: `${e.estudianteId.apellidos}, ${e.estudianteId.nombres}`,
                     average: stats.count > 0 ? parseFloat((stats.total / stats.count).toFixed(1)) : null,
                     count: stats.count

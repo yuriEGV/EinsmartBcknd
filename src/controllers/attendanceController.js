@@ -1,12 +1,11 @@
-import Attendance from '../models/attendanceModel.js';
-import mongoose from 'mongoose';
+import { Attendance } from '../models/pgModels.js';
 import NotificationService from '../services/notificationService.js';
 
 class AttendanceController {
 
     static async createAttendance(req, res) {
         try {
-            const { estudianteId, fecha, estado = 'presente' } = req.body;
+            const { student_id, fecha, estado = 'presente' } = req.body;
 
             if (!estudianteId || !fecha) {
                 return res.status(400).json({
@@ -18,7 +17,7 @@ class AttendanceController {
             const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
             const enrollment = await Enrollment.findOne({
                 estudianteId,
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 status: 'confirmada'
             });
 
@@ -31,7 +30,7 @@ class AttendanceController {
             // [NUEVO] Check for medical license
             const MedicalLicense = await import('../models/medicalLicenseModel.js').then(m => m.default);
             const activeLicense = await MedicalLicense.findOne({
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 userId: estudianteId,
                 fechaInicio: { $lte: new Date(fecha) },
                 fechaFin: { $gte: new Date(fecha) },
@@ -44,10 +43,10 @@ class AttendanceController {
                 estudianteId,
                 fecha,
                 estado: finalEstado,
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 registradoPor: req.user.userId,
                 academicYear: req.user.academicYear || new Date().getFullYear(),
-                observacion: activeLicense ? `Auto-justificado por Licencia Médica ID: ${activeLicense._id}` : ''
+                observacion: activeLicense ? `Auto-justificado por Licencia Médica ID: ${activeLicense.id}` : ''
             });
 
             // [NUEVO] Alerta de asistencia baja (< 75%)
@@ -71,8 +70,8 @@ class AttendanceController {
             const stats = await Attendance.aggregate([
                 {
                     $match: {
-                        tenantId: new mongoose.Types.ObjectId(tenantId),
-                        estudianteId: new mongoose.Types.ObjectId(estudianteId)
+                        tenantId: tenantId,
+                        student_id: estudianteId
                     }
                 },
                 {
@@ -84,7 +83,7 @@ class AttendanceController {
             ]);
 
             const total = stats.reduce((acc, curr) => acc + curr.count, 0);
-            const present = stats.find(s => s._id === 'presente')?.count || 0;
+            const present = stats.find(s => s.id === 'presente')?.count || 0;
             const attendanceRate = total > 5 ? (present / total) * 100 : 100;
 
             if (attendanceRate < 75) {
@@ -108,8 +107,8 @@ class AttendanceController {
     // Bulk create/update attendance
     static async createBulkAttendance(req, res) {
         try {
-            const { courseId, fecha, students } = req.body;
-            // students: [{ estudianteId, estado }]
+            const { course_id, fecha, students } = req.body;
+            // students: [{ student_id, estado }]
 
             if (!fecha || !students || !Array.isArray(students)) {
                 return res.status(400).json({ message: 'Datos inválidos' });
@@ -118,8 +117,8 @@ class AttendanceController {
             // [NUEVO] Solo procesar alumnos con matrícula confirmada
             const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
             const enrolledStudents = await Enrollment.find({
-                tenantId: req.user.tenantId,
-                courseId: courseId,
+                tenant_id: req.user.tenantId,
+                course_id: courseId,
                 status: { $in: ['confirmada', 'activo', 'activa'] }
             }).select('estudianteId');
 
@@ -131,7 +130,7 @@ class AttendanceController {
             const MedicalLicense = await import('../models/medicalLicenseModel.js').then(m => m.default);
             const normalizedFecha = new Date(new Date(fecha).setUTCHours(0, 0, 0, 0));
             const activeLicenses = await MedicalLicense.find({
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 userId: { $in: enrolledIds },
                 fechaInicio: { $lte: normalizedFecha },
                 fechaFin: { $gte: normalizedFecha },
@@ -149,16 +148,16 @@ class AttendanceController {
                     return {
                         updateOne: {
                             filter: {
-                                estudianteId: s.estudianteId,
+                                student_id: s.estudianteId,
                                 fecha: normalizedFecha,
-                                tenantId: req.user.tenantId
+                                tenant_id: req.user.tenantId
                             },
                             update: {
                                 $set: {
                                     estado: isLicensed ? 'justificado' : s.estado,
                                     registradoPor: req.user.userId,
                                     academicYear: req.user.academicYear || new Date().getFullYear(),
-                                    observacion: isLicensed ? `Auto-justificado por Licencia Médica ID: ${license._id}` : ''
+                                    observacion: isLicensed ? `Auto-justificado por Licencia Médica ID: ${license.id}` : ''
                                 }
                             },
                             upsert: true
@@ -178,7 +177,7 @@ class AttendanceController {
                 let dynamicMinutosAtraso = 15; // default fail-safe
                 try {
                      const currentLog = await ClassLog.findOne({
-                          tenantId: req.user.tenantId,
+                          tenant_id: req.user.tenantId,
                           courseId,
                           bloqueHorario: bloque,
                           date: { $gte: normalizedFecha, $lt: new Date(normalizedFecha.getTime() + 86400000) }
@@ -210,10 +209,10 @@ class AttendanceController {
                         latenessOps.push({
                             updateOne: {
                                 filter: {
-                                    estudianteId: student.estudianteId,
+                                    student_id: student.estudianteId,
                                     fecha: normalizedFecha,
                                     bloque: bloque,
-                                    tenantId: req.user.tenantId
+                                    tenant_id: req.user.tenantId
                                 },
                                 update: {
                                     $setOnInsert: {
@@ -231,10 +230,10 @@ class AttendanceController {
                         latenessOps.push({
                             deleteOne: {
                                 filter: {
-                                    estudianteId: student.estudianteId,
+                                    student_id: student.estudianteId,
                                     fecha: normalizedFecha,
                                     bloque: bloque,
-                                    tenantId: req.user.tenantId
+                                    tenant_id: req.user.tenantId
                                 }
                             }
                         });
@@ -253,7 +252,7 @@ class AttendanceController {
             const course = await Course.findById(courseId);
             
             await NotificationService.notifyPlatformChange({
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 title: 'Asistencia Registrada',
                 message: `Se ha registrado la asistencia para el curso ${course?.name || 'S/I'} del día ${new Date(fecha).toLocaleDateString()}.`,
                 type: 'attendance',
@@ -274,7 +273,7 @@ class AttendanceController {
             const query = (req.user.role === 'admin')
                 ? {}
                 : { 
-                    tenantId: req.user.tenantId,
+                    tenant_id: req.user.tenantId,
                     $or: [
                         { academicYear: currentYear },
                         { academicYear: { $exists: false } }
@@ -304,8 +303,8 @@ class AttendanceController {
                 const cId = req.query.cursoId || req.query.courseId;
                 const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
                 const enrollments = await Enrollment.find({
-                    courseId: cId,
-                    tenantId: req.user.tenantId,
+                    course_id: cId,
+                    tenant_id: req.user.tenantId,
                     status: { $in: ['confirmada', 'activo', 'activa'] }
                 }).select('estudianteId');
 
@@ -329,7 +328,7 @@ class AttendanceController {
 
             const attendances = await Attendance.find(query)
                 .sort({ fecha: -1 })
-                .populate('estudianteId', 'nombres apellidos rut');
+                ;
 
             res.json(attendances);
         } catch (error) {
@@ -340,11 +339,11 @@ class AttendanceController {
     // Statistics for Sostenedor/Admin
     static async getStats(req, res) {
         try {
-            const { courseId, startDate, endDate } = req.query;
+            const { course_id, startDate, endDate } = req.query;
             const tenantId = req.user.tenantId;
 
             // Basic match stage - Cast to ObjectId for aggregation!
-            const matchStage = { tenantId: new mongoose.Types.ObjectId(tenantId) };
+            const matchStage = { tenant_id: tenantId };
 
             // Filter by date range
             if (startDate || endDate) {
@@ -374,7 +373,7 @@ class AttendanceController {
                 // 1. Match Tenant and Date Range
                 // We need to cast tenantId string to ObjectId if stored as ObjectId
                 // Usually controller req.user.tenantId is string.
-                // But in mongoose query, it auto-casts. In aggregate, we might need to be careful.
+                // But in PG query, it auto-casts. In aggregate, we might need to be careful.
                 // Let's assume tenantId is stored effectively.
                 // { $match: matchStage }, 
 
@@ -389,8 +388,8 @@ class AttendanceController {
 
             // Calculate totals
             const total = stats.reduce((acc, curr) => acc + curr.count, 0);
-            const present = stats.find(s => s._id === 'presente')?.count || 0;
-            const absent = stats.find(s => s._id === 'ausente')?.count || 0;
+            const present = stats.find(s => s.id === 'presente')?.count || 0;
+            const absent = stats.find(s => s.id === 'ausente')?.count || 0;
 
             res.json({
                 total,

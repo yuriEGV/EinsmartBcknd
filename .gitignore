@@ -10,3 +10,4 @@ uploads
 *.xls
 ssl/
 scripts/init_admin_days.js
+*.xlsx

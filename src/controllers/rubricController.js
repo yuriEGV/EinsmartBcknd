@@ -6,8 +6,8 @@ class RubricController {
         try {
             const rubric = await Rubric.create({
                 ...req.body,
-                teacherId: req.user.userId,
-                tenantId: req.user.tenantId,
+                teacher_id: req.user.userId,
+                tenant_id: req.user.tenantId,
                 status: (['admin', 'director', 'utp'].includes(req.user.role)) ? 'approved' : 'draft'
             });
             res.status(201).json(rubric);
@@ -18,7 +18,7 @@ class RubricController {
 
     static async list(req, res) {
         try {
-            const query = { tenantId: req.user.tenantId };
+            const query = { tenant_id: req.user.tenantId };
 
             // Security: Restrict visibility based on role
             const adminRoles = ['admin', 'director', 'utp', 'sostenedor'];
@@ -31,8 +31,8 @@ class RubricController {
             console.log(`[Rubrics List] User: ${req.user.userId} (${req.user.role}) - Query:`, query);
 
             const rubrics = await Rubric.find(query)
-                .populate('subjectId', 'name')
-                .populate('teacherId', 'name')
+                
+                
                 .sort({ createdAt: -1 });
 
             res.json(rubrics);
@@ -45,8 +45,8 @@ class RubricController {
         try {
             const rubric = await Rubric.findOne({
                 _id: req.params.id,
-                tenantId: req.user.tenantId
-            }).populate('subjectId', 'name');
+                tenant_id: req.user.tenantId
+            });
 
             if (!rubric) return res.status(404).json({ message: 'Rúbrica no encontrada' });
             res.json(rubric);
@@ -58,7 +58,7 @@ class RubricController {
     static async update(req, res) {
         try {
             const adminRoles = ['admin', 'director', 'utp'];
-            const query = { _id: req.params.id, tenantId: req.user.tenantId };
+            const query = { _id: req.params.id, tenant_id: req.user.tenantId };
 
             if (!adminRoles.includes(req.user.role)) {
                 query.teacherId = req.user.userId;
@@ -75,7 +75,7 @@ class RubricController {
     static async delete(req, res) {
         try {
             const adminRoles = ['admin', 'director', 'utp'];
-            const query = { _id: req.params.id, tenantId: req.user.tenantId };
+            const query = { _id: req.params.id, tenant_id: req.user.tenantId };
 
             if (!adminRoles.includes(req.user.role)) {
                 query.teacherId = req.user.userId;
@@ -92,7 +92,7 @@ class RubricController {
     static async submit(req, res) {
         try {
             const rubric = await Rubric.findOneAndUpdate(
-                { _id: req.params.id, tenantId: req.user.tenantId, teacherId: req.user.userId, status: { $in: ['draft', 'rejected'] } },
+                { _id: req.params.id, tenant_id: req.user.tenantId, teacher_id: req.user.userId, status: { $in: ['draft', 'rejected'] } },
                 { status: 'submitted' },
                 { new: true }
             );
@@ -100,7 +100,7 @@ class RubricController {
 
             // Notify Admins/UTP
             await NotificationService.broadcastToAdmins({
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 title: 'Nueva Rúbrica Recibida',
                 message: `El docente ha enviado la rúbrica: "${rubric.title}" para revisión.`,
                 type: 'rubric_submitted',
@@ -122,7 +122,7 @@ class RubricController {
             }
 
             const rubric = await Rubric.findOneAndUpdate(
-                { _id: req.params.id, tenantId: req.user.tenantId },
+                { _id: req.params.id, tenant_id: req.user.tenantId },
                 { status, feedback, approvedBy: req.user.userId },
                 { new: true }
             );
@@ -130,7 +130,7 @@ class RubricController {
 
             // Notify Teacher
             await NotificationService.createInternalNotification({
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 userId: rubric.teacherId,
                 title: status === 'approved' ? 'Rúbrica Aprobada' : 'Rúbrica Rechazada',
                 message: status === 'approved'

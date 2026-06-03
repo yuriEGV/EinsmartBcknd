@@ -1,11 +1,11 @@
-import Apoderado from '../models/apoderadoModel.js';
+import { Guardian as Apoderado } from '../models/pgModels.js';
 import { validarRUT, formatearRUT } from '../utils/rutValidator.js';
 
 class ApoderadoController {
     // Crear un nuevo apoderado
     static async createApoderado(req, res) {
         try {
-            const { estudianteId, nombre, apellidos, direccion, telefono, correo, tipo, parentesco, rut } = req.body;
+            const { student_id, nombre, apellidos, direccion, telefono, correo, tipo, parentesco, rut } = req.body;
 
             if (!estudianteId || !nombre || !apellidos) {
                 return res.status(400).json({
@@ -31,11 +31,11 @@ class ApoderadoController {
                 tipo: tipo || 'principal',
                 parentesco: parentesco || '',
                 rut: finalRut,
-                tenantId: req.user.tenantId
+                tenant_id: req.user.tenantId
             });
 
             await apoderado.save();
-            await apoderado.populate('estudianteId', 'nombre apellido grado');
+            await apoderado;
 
             res.status(201).json({
                 message: 'Apoderado creado exitosamente',
@@ -57,10 +57,10 @@ class ApoderadoController {
         try {
             const query = (req.user.role === 'admin')
                 ? {}
-                : { tenantId: req.user.tenantId };
+                : { tenant_id: req.user.tenantId };
 
             const apoderados = await Apoderado.find(query)
-                .populate('estudianteId', 'nombre apellido grado')
+                
                 .sort({ createdAt: -1 });
 
             res.status(200).json(apoderados);
@@ -72,11 +72,11 @@ class ApoderadoController {
     // Obtener apoderados de un estudiante específico
     static async getApoderadosByEstudiante(req, res) {
         try {
-            const { estudianteId } = req.params;
+            const { student_id } = req.params;
             const apoderados = await Apoderado.find({
                 estudianteId,
-                tenantId: req.user.tenantId
-            }).populate('estudianteId', 'nombre apellido grado');
+                tenant_id: req.user.tenantId
+            });
 
             res.status(200).json(apoderados);
         } catch (error) {
@@ -89,8 +89,8 @@ class ApoderadoController {
         try {
             const apoderado = await Apoderado.findOne({
                 _id: req.params.id,
-                tenantId: req.user.tenantId
-            }).populate('estudianteId', 'nombre apellido grado');
+                tenant_id: req.user.tenantId
+            });
 
             if (!apoderado) {
                 return res.status(404).json({ message: 'Apoderado no encontrado' });
@@ -114,10 +114,10 @@ class ApoderadoController {
             }
 
             const apoderado = await Apoderado.findOneAndUpdate(
-                { _id: req.params.id, tenantId: req.user.tenantId },
+                { _id: req.params.id, tenant_id: req.user.tenantId },
                 updateData,
                 { new: true, runValidators: true }
-            ).populate('estudianteId', 'nombre apellido grado');
+            );
 
             if (!apoderado) {
                 return res.status(404).json({
@@ -141,7 +141,7 @@ class ApoderadoController {
         try {
             const apoderado = await Apoderado.findOneAndDelete({
                 _id: req.params.id,
-                tenantId: req.user.tenantId
+                tenant_id: req.user.tenantId
             });
 
             if (!apoderado) {

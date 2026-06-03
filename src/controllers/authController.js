@@ -1,596 +1,211 @@
-/*import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import User from '../models/userModel.js';
-import * as tokenStore from '../utils/tokenStore.js';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
-
-function buildPayload(user) {
-    return {
-        userId: user._id,
-        tenantId: user.tenantId,
-        role: user.role
-    };
-}
-
-function sanitizeUser(user) {
-    return {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        tenantId: user.tenantId,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-    };
-}
-
-function generarToken(user) {
-    return jwt.sign(buildPayload(user), JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-}
-
-async function registrar(req, res) {
-    try {
-        const { name, email, password, role = 'teacher', tenantId } = req.body;
-
-        if (!name || !email || !password) {
-            return res.status(400).json({ message: 'Nombre, email y contraseña son obligatorios' });
-        }
-
-        if (!tenantId) {
-            return res.status(400).json({ message: 'tenantId es obligatorio para registrar usuarios' });
-        }
-
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(409).json({ message: 'El correo ya está registrado' });
-        }
-
-        const passwordHash = await bcrypt.hash(password, 10);
-        const user = await User.create({
-            name,
-            email,
-            passwordHash,
-            role,
-            tenantId
-        });
-
-        const token = generarToken(user);
-
-        return res.status(201).json({
-            message: 'Usuario registrado correctamente',
-            user: sanitizeUser(user),
-            token
-        });
-    } catch (error) {
-        return res.status(500).json({ message: 'Error al registrar usuario', error: error.message });
-    }
-}
-
-async function login(req, res) {
-    try {
-        const { email, password } = req.body;
-
-        if (!email || !password) {
-            return res.status(400).json({ message: 'Email y contraseña son obligatorios' });
-        }
-
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(401).json({ message: 'Credenciales inválidas' });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.passwordHash);
-        if (!isMatch) {
-            return res.status(401).json({ message: 'Credenciales inválidas' });
-        }
-
-        const token = generarToken(user);
-
-        return res.json({
-            message: 'Inicio de sesión exitoso',
-            user: sanitizeUser(user),
-            token
-        });
-    } catch (error) {
-        return res.status(500).json({ message: 'Error al iniciar sesión', error: error.message });
-    }
-}
-
-async function obtenerPerfil(req, res) {
-    try {
-        const user = await User.findById(req.user.userId);
-        if (!user) {
-            return res.status(404).json({ message: 'Usuario no encontrado' });
-        }
-
-        return res.json({ user: sanitizeUser(user) });
-    } catch (error) {
-        return res.status(500).json({ message: 'Error al obtener el perfil', error: error.message });
-    }
-}
-
-async function actualizarPerfil(req, res) {
-    try {
-        const updates = {};
-        const { name, email, password } = req.body;
-
-        if (name) updates.name = name;
-        if (email) updates.email = email;
-        if (password) {
-            updates.passwordHash = await bcrypt.hash(password, 10);
-        }
-
-        if (Object.keys(updates).length === 0) {
-            return res.status(400).json({ message: 'No se proporcionaron datos para actualizar' });
-        }
-
-        const user = await User.findByIdAndUpdate(req.user.userId, updates, { new: true });
-
-        if (!user) {
-            return res.status(404).json({ message: 'Usuario no encontrado' });
-        }
-
-        return res.json({
-            message: 'Perfil actualizado correctamente',
-            user: sanitizeUser(user)
-        });
-    } catch (error) {
-        return res.status(500).json({ message: 'Error al actualizar el perfil', error: error.message });
-    }
-}
-
-function invalidateToken(req, res) {
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-    if (!token) {
-        return res.status(400).json({ message: 'No se proporcionó token' });
-    }
-
-    tokenStore.add(token);
-
-    return res.json({ message: 'Token invalidado correctamente' });
-}
-
-export {
-    registrar,
-    login,
-    invalidateToken,
-    obtenerPerfil,
-    actualizarPerfil
-};
-
-
-*/
-
+// src/controllers/authController.js — PostgreSQL version
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import User from '../models/userModel.js';
+import { User, Tenant, AuditLog } from '../models/pgModels.js';
+import { query } from '../config/db.js';
+import { sendPasswordRecoveryEmail } from '../services/emailService.js';
 import * as tokenStore from '../utils/tokenStore.js';
-import AuditLog from '../models/auditLogModel.js';
-import crypto from 'crypto';
 
-/* ===============================
-   CONFIGURACIÓN JWT
-================================ */
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_emergency_only';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
+const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
 
-/* ===============================
-   HELPERS
-================================ */
-function buildPayload(user, academicYear, sessionToken) {
-    return {
-        userId: user._id,
-        tenantId: user.tenantId,
-        role: user.role,
-        profileId: user.profileId,
-        email: user.email,
-        academicYear: academicYear,
-        sessionToken: sessionToken
-    };
+function sanitizeUser(u) {
+    if (!u) return null;
+    const { password_hash, session_token, ...rest } = u;
+    return rest;
 }
 
-function generarToken(user, academicYear, sessionToken) {
-    return jwt.sign(buildPayload(user, academicYear, sessionToken), JWT_SECRET, {
-        expiresIn: JWT_EXPIRES_IN
-    });
-}
-
-function sanitizeUser(user) {
-    return {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        rut: user.rut,
-        role: user.role,
-        profileId: user.profileId,
-        tenantId: user.tenantId,
-        isMaster: user.email === 'yuri@einsmart.cl' || user.role === 'superadmin',
-        mustChangePassword: user.mustChangePassword,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-    };
-}
-
-
-
-/* ===============================
-   REGISTRO
-================================ */
+// ── Registro ────────────────────────────────────────────────
 async function registrar(req, res) {
     try {
-        const { name, email, rut, password, role = 'teacher', tenantId } = req.body;
-
-        if (!name || (!email && !rut) || !password || !tenantId) {
-            return res.status(400).json({
-                message: 'Nombre, email/rut, contraseña y tenantId son obligatorios'
-            });
+        const { name, email, password, role = 'student', tenantId, rut, specialization } = req.body;
+        if (!name || !email || !password) {
+            return res.status(400).json({ message: 'Nombre, email y contraseña son requeridos' });
         }
+        const tid = tenantId || req.user?.tenantId;
+        if (!tid) return res.status(400).json({ message: 'tenantId requerido' });
 
-        const normalizedEmail = email ? email.toLowerCase().trim() : undefined;
-        const normalizedRut = rut ? rut.toLowerCase().trim() : undefined;
+        const exists = await User.findOne({ email: email.toLowerCase().trim(), tenant_id: tid });
+        if (exists) return res.status(400).json({ message: 'Email ya registrado' });
 
-        // Check uniqueness for both if provided
-        const query = { $or: [] };
-        if (normalizedEmail) query.$or.push({ email: normalizedEmail });
-        if (normalizedRut) query.$or.push({ rut: normalizedRut });
-
-        const existingUser = await User.findOne(query);
-        if (existingUser) {
-            return res.status(409).json({ message: 'El correo o RUT ya está registrado' });
-        }
-
-        const passwordHash = await bcrypt.hash(password, 10);
-
+        const password_hash = await bcrypt.hash(password, 10);
         const user = await User.create({
-            name,
-            email: normalizedEmail,
-            rut: normalizedRut,
-            passwordHash,
-            role,
-            tenantId
+            tenant_id: tid, name, email: email.toLowerCase().trim(),
+            password_hash, role, rut, specialization
         });
-
-        const tenant = await Tenant.findById(user.tenantId);
-        const academicYear = tenant?.academicYear || new Date().getFullYear().toString();
-        
-        // Generar sessionToken
-        const sessionToken = crypto.randomBytes(32).toString('hex');
-        user.sessionToken = sessionToken;
-        await user.save();
-
-        const token = generarToken(user, academicYear, sessionToken);
-
-        return res.status(201).json({
-            message: 'Usuario registrado correctamente',
-            user: sanitizeUser(user),
-            token
-        });
-
-    } catch (error) {
-        console.error('❌ Error en registro:', error);
-        return res.status(500).json({
-            message: 'Error al registrar usuario',
-            error: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
+        return res.status(201).json({ message: 'Usuario creado', user: sanitizeUser(user) });
+    } catch (err) {
+        return res.status(500).json({ message: 'Error al registrar', error: err.message });
     }
 }
 
-/* ===============================
-   LOGIN
-================================ */
+// ── Login ────────────────────────────────────────────────────
 async function login(req, res) {
     try {
-        // Security check
-        if (!JWT_SECRET) {
-            return res.status(500).json({ message: 'Configuración del servidor incompleta' });
+        const { email, password, rut } = req.body;
+        let user = null;
+
+        // Find by email or rut
+        if (email) {
+            const r = await query(
+                `SELECT u.*, t.academic_year FROM users u
+                 JOIN tenants t ON t.id = u.tenant_id
+                 WHERE u.email = $1 LIMIT 1`,
+                [email.toLowerCase().trim()]
+            );
+            user = r.rows[0] || null;
+        } else if (rut) {
+            const r = await query(
+                `SELECT u.*, t.academic_year FROM users u
+                 JOIN tenants t ON t.id = u.tenant_id
+                 WHERE u.rut = $1 LIMIT 1`,
+                [rut.trim()]
+            );
+            user = r.rows[0] || null;
         }
 
-        console.log('LOGIN BODY:', req.body); // [DEBUG]
+        if (!user) return res.status(401).json({ message: 'Credenciales inválidas' });
 
-        const { email, rut, password } = req.body;
+        const ok = await bcrypt.compare(password, user.password_hash);
+        if (!ok) return res.status(401).json({ message: 'Credenciales inválidas' });
 
-        if ((!email && !rut) || !password) {
-            return res.status(400).json({
-                message: 'Email/RUT y contraseña son obligatorios'
-            });
-        }
+        const token = jwt.sign(
+            { userId: user.id, role: user.role, tenantId: user.tenant_id,
+              academicYear: user.academic_year || 2026 },
+            JWT_SECRET, { expiresIn: JWT_EXPIRES_IN }
+        );
 
-        const normalizedEmail = email ? email.toLowerCase().trim() : undefined;
-        const normalizedRut = rut ? rut.toLowerCase().trim() : undefined;
-
-        let user;
-        if (normalizedEmail) {
-            user = await User.findOne({ email: normalizedEmail });
-        } else if (normalizedRut) {
-            user = await User.findOne({ rut: normalizedRut });
-        }
-
-        console.log('USER FOUND:', user ? (user.email || user.rut) : null); // [DEBUG]
-
-        if (!user) {
-            return res.status(401).json({ message: 'Credenciales inválidas' });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.passwordHash);
-        console.log('PASSWORD MATCH:', isMatch); // [DEBUG]
-
-        if (!isMatch) {
-            return res.status(401).json({ message: 'Credenciales inválidas' });
-        }
-
-        const tenant = await Tenant.findById(user.tenantId);
-        const academicYear = tenant?.academicYear || new Date().getFullYear().toString();
-        
-        // Invalidar sesiones previas generando un nuevo sessionToken
-        const sessionToken = crypto.randomBytes(32).toString('hex');
-        user.sessionToken = sessionToken;
-        await user.save();
-
-        const token = generarToken(user, academicYear, sessionToken);
-
-        // ── Registro de auditoría de inicio de sesión ──────────────────────
+        // Audit
         try {
             await AuditLog.create({
-                action: 'LOGIN',
-                entityId: user._id,
-                entityType: 'User',
-                user: user._id,
-                tenantId: user.tenantId,
-                details: {
-                    ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown',
-                    userAgent: req.headers['user-agent'] || 'unknown',
-                    email: user.email || user.rut
-                }
+                tenant_id: user.tenant_id, user_id: user.id,
+                action: 'login', entity: 'users', entity_id: user.id,
+                details: { email: user.email }
             });
-        } catch (auditErr) {
-            console.warn('No se pudo registrar login en auditoría:', auditErr.message);
-        }
-        // ──────────────────────────────────────────────────────────────────
+        } catch (_) {}
 
-        return res.json({
-            message: 'Inicio de sesión exitoso',
-            user: sanitizeUser(user),
-            token
-        });
-
-    } catch (error) {
-        return res.status(500).json({
-            message: 'Error al iniciar sesión',
-            error: error.message
-        });
+        return res.json({ message: 'Inicio de sesión exitoso', user: sanitizeUser(user), token });
+    } catch (err) {
+        return res.status(500).json({ message: 'Error al iniciar sesión', error: err.message });
     }
 }
 
-/* ===============================
-   PERFIL
-================================ */
+// ── Perfil ───────────────────────────────────────────────────
 async function obtenerPerfil(req, res) {
     try {
         const user = await User.findById(req.user.userId);
-
-        if (!user) {
-            return res.status(404).json({ message: 'Usuario no encontrado' });
-        }
-
+        if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
         return res.json({ user: sanitizeUser(user) });
-
-    } catch (error) {
-        return res.status(500).json({
-            message: 'Error al obtener el perfil',
-            error: error.message
-        });
+    } catch (err) {
+        return res.status(500).json({ message: 'Error al obtener perfil', error: err.message });
     }
 }
 
 async function actualizarPerfil(req, res) {
     try {
-        const updates = {};
         const { name, email, password } = req.body;
-
+        const updates = {};
         if (name) updates.name = name;
         if (email) updates.email = email.toLowerCase().trim();
-        if (password) {
-            updates.passwordHash = await bcrypt.hash(password, 10);
+        if (password) updates.password_hash = await bcrypt.hash(password, 10);
+        if (!Object.keys(updates).length) {
+            return res.status(400).json({ message: 'No hay datos para actualizar' });
         }
-
-        if (Object.keys(updates).length === 0) {
-            return res.status(400).json({
-                message: 'No se proporcionaron datos para actualizar'
-            });
-        }
-
-        const user = await User.findByIdAndUpdate(
-            req.user.userId,
-            updates,
-            { new: true }
-        );
-
-        if (!user) {
-            return res.status(404).json({ message: 'Usuario no encontrado' });
-        }
-
-        return res.json({
-            message: 'Perfil actualizado correctamente',
-            user: sanitizeUser(user)
-        });
-
-    } catch (error) {
-        return res.status(500).json({
-            message: 'Error al actualizar el perfil',
-            error: error.message
-        });
+        const user = await User.updateById(req.user.userId, updates);
+        if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.json({ message: 'Perfil actualizado', user: sanitizeUser(user) });
+    } catch (err) {
+        return res.status(500).json({ message: 'Error al actualizar perfil', error: err.message });
     }
 }
 
-/* ===============================
-   PASSWORD RECOVERY
-================================ */
-import { sendPasswordRecoveryEmail } from '../services/emailService.js';
-
+// ── Recuperar contraseña ─────────────────────────────────────
 async function recuperarPassword(req, res) {
     try {
         const { email, rut } = req.body;
-
-        // Allow recovery by Email or RUT
-        const query = {};
-        if (email) query.email = email.toLowerCase().trim();
-        else if (rut) query.rut = rut.toLowerCase().trim();
+        let user = null;
+        if (email) user = await User.findOne({ email: email.toLowerCase().trim() });
+        else if (rut) user = await User.findOne({ rut: rut.trim() });
         else return res.status(400).json({ message: 'Email o RUT requerido' });
 
-        const user = await User.findOne(query);
-
         if (!user || !user.email) {
-            // Security: Don't reveal if user exists using 404, just say sent if format is valid.
-            // But for now, returning 404 might be easier for debugging.
-            return res.status(404).json({ message: 'Usuario no encontrado o sin email registrado' });
+            return res.status(404).json({ message: 'Usuario no encontrado' });
         }
-
-        // Generate a recovery token (short lived)
-        const token = jwt.sign(
-            { userId: user._id, type: 'recovery' },
-            JWT_SECRET,
-            { expiresIn: '15m' }
-        );
-
+        const token = jwt.sign({ userId: user.id, type: 'recovery' }, JWT_SECRET, { expiresIn: '15m' });
         await sendPasswordRecoveryEmail(user.email, token);
-
         return res.json({ message: 'Correo de recuperación enviado' });
-
-    } catch (error) {
-        console.error('Recover Password Error:', error);
-        return res.status(500).json({ message: 'Error al procesar recuperación', error: error.message });
+    } catch (err) {
+        return res.status(500).json({ message: 'Error al recuperar contraseña', error: err.message });
     }
 }
 
 async function resetPassword(req, res) {
     try {
         const { token, newPassword } = req.body;
-
         if (!token || !newPassword) {
             return res.status(400).json({ message: 'Token y nueva contraseña requeridos' });
         }
-
         const payload = jwt.verify(token, JWT_SECRET);
         if (payload.type !== 'recovery') {
-            return res.status(400).json({ message: 'Token inválido para recuperación' });
+            return res.status(400).json({ message: 'Token inválido' });
         }
-
-        const user = await User.findById(payload.userId);
-        if (!user) {
-            return res.status(404).json({ message: 'Usuario no encontrado' });
-        }
-
-        user.passwordHash = await bcrypt.hash(newPassword, 10);
-        await user.save();
-
+        const password_hash = await bcrypt.hash(newPassword, 10);
+        await User.updateById(payload.userId, { password_hash });
         return res.json({ message: 'Contraseña actualizada correctamente' });
-
-    } catch (error) {
+    } catch (_) {
         return res.status(400).json({ message: 'Token inválido o expirado' });
     }
-}
-
-function invalidateToken(req, res) {
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-    if (!token) {
-        return res.status(400).json({ message: 'No se proporcionó token' });
-    }
-
-    tokenStore.add(token);
-
-    return res.json({ message: 'Token invalidado correctamente' });
 }
 
 async function cambiarPassword(req, res) {
     try {
         const { currentPassword, newPassword } = req.body;
-        const userId = req.user.userId;
-
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({ message: 'Contraseña actual y nueva son requeridas' });
-        }
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ message: 'Usuario no encontrado' });
-        }
-
-        const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
-        if (!isMatch) {
-            return res.status(401).json({ message: 'La contraseña actual es incorrecta' });
-        }
-
-        user.passwordHash = await bcrypt.hash(newPassword, 10);
-        user.mustChangePassword = false;
-        await user.save();
-
-        res.json({ message: 'Contraseña actualizada correctamente' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error al cambiar la contraseña', error: error.message });
+        const user = await User.findById(req.user.userId);
+        if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+        const ok = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!ok) return res.status(401).json({ message: 'Contraseña actual incorrecta' });
+        await User.updateById(user.id, {
+            password_hash: await bcrypt.hash(newPassword, 10),
+            must_change_password: false
+        });
+        return res.json({ message: 'Contraseña actualizada correctamente' });
+    } catch (err) {
+        return res.status(500).json({ message: 'Error al cambiar contraseña', error: err.message });
     }
 }
-/* ===============================
-   FORCE SEED YURI ADMIN (LOCAL BYPASS)
-================================ */
-import Tenant from '../models/tenantModel.js';
+
+function invalidateToken(req, res) {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    if (!token) return res.status(400).json({ message: 'No se proporcionó token' });
+    tokenStore.add(token);
+    return res.json({ message: 'Token invalidado correctamente' });
+}
 
 async function forceSeedYuriAdmin(req, res) {
     try {
-        const tenants = await Tenant.find();
-        if (tenants.length === 0) {
-            return res.json({ message: 'No hay colegios (tenants) creados todavía. No se pudo enlazar administrador.' });
-        }
-
-        const passwordHash = await bcrypt.hash('123456', 10);
-        let updatedCount = 0;
-
+        const tenants = await Tenant.find({});
+        if (!tenants.length) return res.json({ message: 'No hay colegios creados' });
+        const password_hash = await bcrypt.hash('123456', 10);
         for (const tenant of tenants) {
-            let user = await User.findOne({ email: 'yuri@einsmart.cl', tenantId: tenant._id });
-            if (user) {
-                user.passwordHash = passwordHash;
-                user.role = 'admin';
-                user.rut = '11.222.333-4';
-                user.mustChangePassword = false;
-                await user.save();
-                updatedCount++;
+            const exists = await User.findOne({ email: 'yuri@einsmart.cl', tenant_id: tenant.id });
+            if (exists) {
+                await User.updateById(exists.id, { password_hash, role: 'admin', must_change_password: false });
             } else {
                 await User.create({
-                    name: 'Yuri Admin',
-                    email: 'yuri@einsmart.cl',
-                    passwordHash,
-                    role: 'admin',
-                    tenantId: tenant._id,
-                    rut: '11.222.333-4',
-                    mustChangePassword: false
+                    tenant_id: tenant.id, name: 'Yuri Admin',
+                    email: 'yuri@einsmart.cl', rut: '11.222.333-4',
+                    password_hash, role: 'admin', must_change_password: false
                 });
-                updatedCount++;
             }
         }
-
-        return res.json({ 
-            message: `Usuario Yuri Admin actualizado o creado correctamente en ${updatedCount} colegios con contraseña 123456.`
-        });
-    } catch (error) {
-        console.error('Error on forceSeedYuriAdmin:', error);
-        return res.status(500).json({ message: 'Error en fix de administrador', error: error.message });
+        return res.json({ message: `Admin Yuri configurado en ${tenants.length} colegio(s). Pass: 123456` });
+    } catch (err) {
+        return res.status(500).json({ message: 'Error', error: err.message });
     }
 }
 
 export {
-    registrar,
-    login,
-    obtenerPerfil,
-    actualizarPerfil,
-    invalidateToken,
-    recuperarPassword,
-    resetPassword,
-    cambiarPassword,
-    forceSeedYuriAdmin
+    registrar, login, obtenerPerfil, actualizarPerfil, invalidateToken,
+    recuperarPassword, resetPassword, cambiarPassword, forceSeedYuriAdmin
 };

@@ -4,9 +4,9 @@ import Objective from '../models/objectiveModel.js';
 class ObjectiveController {
     static async createObjective(req, res) {
         try {
-            const { subjectId, code, description, period, covered } = req.body;
+            const { subject_id, code, description, period, covered } = req.body;
             const objective = new Objective({
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 subjectId,
                 code,
                 description,
@@ -22,8 +22,8 @@ class ObjectiveController {
 
     static async getObjectives(req, res) {
         try {
-            const { subjectId } = req.query;
-            const query = { tenantId: req.user.tenantId };
+            const { subject_id } = req.query;
+            const query = { tenant_id: req.user.tenantId };
             if (subjectId) query.subjectId = subjectId;
 
             const objectives = await Objective.find(query).sort({ code: 1 });
@@ -36,7 +36,7 @@ class ObjectiveController {
     static async updateObjective(req, res) {
         try {
             const objective = await Objective.findOneAndUpdate(
-                { _id: req.params.id, tenantId: req.user.tenantId },
+                { _id: req.params.id, tenant_id: req.user.tenantId },
                 req.body,
                 { new: true }
             );
@@ -51,7 +51,7 @@ class ObjectiveController {
         try {
             const objective = await Objective.findOneAndDelete({
                 _id: req.params.id,
-                tenantId: req.user.tenantId
+                tenant_id: req.user.tenantId
             });
             if (!objective) return res.status(404).json({ message: 'Objetivo no encontrado' });
             res.status(204).send();

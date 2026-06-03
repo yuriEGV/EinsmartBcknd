@@ -1,5 +1,4 @@
 import Question from '../models/questionModel.js';
-import mongoose from 'mongoose';
 
 class QuestionController {
     static async create(req, res) {
@@ -8,11 +7,11 @@ class QuestionController {
             if (!staffRoles.includes(req.user.role)) {
                 return res.status(403).json({ message: 'No tienes permisos para crear preguntas.' });
             }
-            const { subjectId, questionText, type, options, difficulty, tags } = req.body;
+            const { subject_id, questionText, type, options, difficulty, tags } = req.body;
 
             // Integrity check: fetch actual grade from subject
             const Subject = await import('../models/subjectModel.js').then(m => m.default);
-            const subject = await Subject.findById(subjectId).populate('courseId');
+            const subject = await Subject.findById(subjectId);
             const grade = subject?.courseId?.name || subject?.grade || req.body.grade;
 
             // Security check: Teacher = pending, Director/UTP/Admin = approved
@@ -20,7 +19,7 @@ class QuestionController {
             const status = isAdmin ? 'approved' : 'pending';
 
             const question = new Question({
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 subjectId,
                 grade,
                 questionText,
@@ -38,7 +37,7 @@ class QuestionController {
             if (status === 'pending') {
                 const NotificationService = await import('../services/notificationService.js').then(m => m.default);
                 await NotificationService.broadcastToAdmins({
-                    tenantId: req.user.tenantId,
+                    tenant_id: req.user.tenantId,
                     title: 'Nueva Pregunta para Revisar',
                     message: `El docente ${req.user.name} ha añadido una pregunta al banco que requiere aprobación.`,
                     type: 'system',
@@ -54,11 +53,11 @@ class QuestionController {
 
     static async list(req, res) {
         try {
-            const { subjectId, grade, type, difficulty, status } = req.query;
-            const query = { tenantId: req.user.tenantId };
+            const { subject_id, grade, type, difficulty, status } = req.query;
+            const query = { tenant_id: req.user.tenantId };
 
             if (subjectId) {
-                if (mongoose.Types.ObjectId.isValid(subjectId)) {
+                if (((v) => /^[0-9a-f-]{36}$/.test(String(v)))(subjectId)) {
                     query.subjectId = subjectId;
                 } else {
                     // Search by subject name if not a valid ID - Case Insensitive
@@ -66,9 +65,9 @@ class QuestionController {
                     // Use regex for flexible matching (case insensitive)
                     const subjects = await Subject.find({
                         name: { $regex: new RegExp(`^${subjectId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
-                        tenantId: req.user.tenantId
+                        tenant_id: req.user.tenantId
                     });
-                    query.subjectId = { $in: subjects.map(s => s._id) };
+                    query.subjectId = { $in: subjects.map(s => s.id) };
                 }
             }
             if (grade) query.grade = grade;
@@ -86,8 +85,8 @@ class QuestionController {
             }
 
             const questions = await Question.find(query)
-                .populate('subjectId', 'name')
-                .populate('createdBy', 'name')
+                
+                
                 .sort({ createdAt: -1 });
 
             res.json(questions);
@@ -104,7 +103,7 @@ class QuestionController {
             }
             const { id } = req.params;
             const question = await Question.findOneAndUpdate(
-                { _id: id, tenantId: req.user.tenantId },
+                { _id: id, tenant_id: req.user.tenantId },
                 req.body,
                 { new: true }
             );
@@ -122,7 +121,7 @@ class QuestionController {
                 return res.status(403).json({ message: 'No tienes permisos para eliminar preguntas.' });
             }
             const { id } = req.params;
-            const question = await Question.findOneAndDelete({ _id: id, tenantId: req.user.tenantId });
+            const question = await Question.findOneAndDelete({ _id: id, tenant_id: req.user.tenantId });
             if (!question) return res.status(404).json({ message: 'Pregunta no encontrada' });
             res.status(204).send();
         } catch (error) {

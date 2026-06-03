@@ -1,5 +1,4 @@
 import express from 'express';
-import mongoose from 'mongoose';
 import connectDB from '../config/db.js';
 
 // Import all routes
@@ -68,7 +67,7 @@ router.get('/health', (req, res) => {
     status: 'UP',
     timestamp: new Date().toISOString(),
     node_env: process.env.NODE_ENV,
-    db_state: mongoose.connection.readyState
+    db_state: pool
   });
 });
 

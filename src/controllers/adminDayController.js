@@ -1,7 +1,6 @@
-import AdminDay from '../models/adminDayModel.js';
-import User from '../models/userModel.js';
-import Event from '../models/eventModel.js';
-import mongoose from 'mongoose';
+import { AdminDay } from '../models/pgModels.js';
+import { User } from '../models/pgModels.js';
+import { Event } from '../models/pgModels.js';
 import connectDB from '../config/db.js';
 import NotificationService from '../services/notificationService.js';
 
@@ -63,8 +62,8 @@ class AdminDayController {
             await connectDB();
             const requests = await AdminDay.find({
                 userId: req.user.userId,
-                tenantId: req.user.tenantId
-            }).populate('userId', 'name role').sort({ date: -1 });
+                tenant_id: req.user.tenantId
+            }).sort({ date: -1 });
 
             res.json(requests);
         } catch (error) {
@@ -75,11 +74,11 @@ class AdminDayController {
     static async getAllRequests(req, res) {
         try {
             await connectDB();
-            const filter = { tenantId: req.user.tenantId };
+            const filter = { tenant_id: req.user.tenantId };
             if (req.query.status) {
                 filter.status = req.query.status;
             }
-            const requests = await AdminDay.find(filter).populate('userId', 'name role').sort({ createdAt: -1 });
+            const requests = await AdminDay.find(filter).sort({ createdAt: -1 });
 
             res.json(requests);
         } catch (error) {
@@ -94,7 +93,7 @@ class AdminDayController {
             const { status, rejectionReason } = req.body;
 
             const request = await AdminDay.findOneAndUpdate(
-                { _id: id, tenantId: req.user.tenantId },
+                { _id: id, tenant_id: req.user.tenantId },
                 {
                     status,
                     rejectionReason,
@@ -108,7 +107,7 @@ class AdminDayController {
 
             // Notify User
             await NotificationService.createInternalNotification({
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 userId: request.userId,
                 title: 'Actualización de Día Administrativo',
                 message: `Tu solicitud para el día ${new Date(request.date).toLocaleDateString()} ha sido ${status}.`,
@@ -120,7 +119,7 @@ class AdminDayController {
             if (status === 'aprobado') {
                 const user = await User.findById(request.userId);
                 await Event.create({
-                    tenantId: req.user.tenantId,
+                    tenant_id: req.user.tenantId,
                     title: `Permiso Administrativo: ${user?.name || 'Funcionario'}`,
                     description: `Ausencia programada por día administrativo del funcionario ${user?.name || ''}.`,
                     date: request.date,
@@ -185,7 +184,7 @@ class AdminDayController {
             const tenantId = req.user.tenantId;
 
             const ranking = await AdminDay.aggregate([
-                { $match: { tenantId: new mongoose.Types.ObjectId(tenantId), status: 'aprobado' } },
+                { $match: { tenant_id: tenantId, status: 'aprobado' } },
                 {
                     $group: {
                         _id: '$userId',

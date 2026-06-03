@@ -1,5 +1,5 @@
 import Transaction from '../models/transactionModel.js';
-import Payment from '../models/paymentModel.js';
+import { Payment } from '../models/pgModels.js';
 import mercadoLibreService from '../services/mercadoLibreService.js';
 import flowService from '../services/flowService.js';
 import webpayService from '../services/webpayService.js';

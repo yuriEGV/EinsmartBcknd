@@ -1,12 +1,11 @@
 import Anotacion from '../models/anotacionModel.js';
-import mongoose from 'mongoose';
 import NotificationService from '../services/notificationService.js';
 
 class AnotacionController {
     // Crear una nueva anotación
     static async createAnotacion(req, res) {
         try {
-            const { estudianteId, cursoId, tipo, titulo, descripcion, fechaOcurrencia, medidas, archivos } = req.body;
+            const { student_id, cursoId, tipo, titulo, descripcion, fechaOcurrencia, medidas, archivos } = req.body;
 
             // Al menos cursoId o estudianteId debe estar (aunque ahora pedimos cursoId siempre para contexto)
             if (!cursoId || !tipo || !titulo || !descripcion) {
@@ -26,7 +25,7 @@ class AnotacionController {
                 const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
                 const enrollment = await Enrollment.findOne({
                     estudianteId,
-                    tenantId: req.user.tenantId,
+                    tenant_id: req.user.tenantId,
                     status: { $in: ['confirmada', 'activo', 'activa'] }
                 });
 
@@ -38,7 +37,7 @@ class AnotacionController {
             }
 
             const anotacion = new Anotacion({
-                estudianteId: estudianteId || null,
+                student_id: estudianteId || null,
                 cursoId,
                 tipo,
                 titulo,
@@ -47,20 +46,20 @@ class AnotacionController {
                 medidas: medidas || '',
                 archivos: archivos || [],
                 creadoPor: req.user.userId,
-                tenantId: req.user.tenantId,
+                tenant_id: req.user.tenantId,
                 academicYear: req.user.academicYear || new Date().getFullYear()
             });
 
             await anotacion.save();
             if (estudianteId) {
-                await anotacion.populate('estudianteId', 'nombres apellidos grado');
+                await anotacion;
             }
-            await anotacion.populate('creadoPor', 'name email role');
+            await anotacion;
 
             // Send notification only if student is present
             if (estudianteId && anotacion.estudianteId) {
                 NotificationService.notifyNewAnnotation(
-                    anotacion.estudianteId._id,
+                    anotacion.estudianteId.id,
                     anotacion.tipo,
                     anotacion.titulo,
                     anotacion.descripcion,
@@ -68,7 +67,7 @@ class AnotacionController {
                 );
 
                 // [NEW] Check if student is at risk (Grades + Annotations)
-                NotificationService.checkAndNotifyAtRisk(anotacion.estudianteId._id, anotacion.tenantId);
+                NotificationService.checkAndNotifyAtRisk(anotacion.estudianteId.id, anotacion.tenantId);
             }
 
             res.status(201).json({
@@ -93,7 +92,7 @@ class AnotacionController {
             let query = (req.user.role === 'admin')
                 ? {}
                 : { 
-                    tenantId: req.user.tenantId,
+                    tenant_id: req.user.tenantId,
                     $or: [
                         { academicYear: currentYear },
                         { academicYear: { $exists: false } }
@@ -123,8 +122,8 @@ class AnotacionController {
             }
 
             const anotaciones = await Anotacion.find(query)
-                .populate('estudianteId', 'nombres apellidos grado')
-                .populate('creadoPor', 'name email role')
+                
+                
                 .sort({ createdAt: -1 });
 
             res.status(200).json(anotaciones);
@@ -136,7 +135,7 @@ class AnotacionController {
     // Obtener anotaciones de un estudiante específico
     static async getAnotacionesByEstudiante(req, res) {
         try {
-            const { estudianteId } = req.params;
+            const { student_id } = req.params;
             const { tipo } = req.query;
 
             // Security: If student, check if they are requesting their own ID
@@ -147,7 +146,7 @@ class AnotacionController {
             // Security: If guardian, check if the student belongs to them
             if (req.user.role === 'apoderado' && req.user.profileId) {
                 const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
-                const vinculation = await Apoderado.findOne({ _id: req.user.profileId, estudianteId: estudianteId });
+                const vinculation = await Apoderado.findOne({ _id: req.user.profileId, student_id: estudianteId });
                 if (!vinculation) {
                     return res.status(403).json({ message: 'Acceso denegado: este estudiante no está vinculado a tu cuenta' });
                 }
@@ -155,7 +154,7 @@ class AnotacionController {
 
             const query = {
                 estudianteId,
-                tenantId: req.user.tenantId
+                tenant_id: req.user.tenantId
             };
 
             if (tipo) {
@@ -163,8 +162,8 @@ class AnotacionController {
             }
 
             const anotaciones = await Anotacion.find(query)
-                .populate('estudianteId', 'nombre apellido grado')
-                .populate('creadoPor', 'name email role')
+                
+                
                 .sort({ fecha: -1 });
 
             res.status(200).json(anotaciones);
@@ -178,10 +177,10 @@ class AnotacionController {
         try {
             const anotacion = await Anotacion.findOne({
                 _id: req.params.id,
-                tenantId: req.user.tenantId
+                tenant_id: req.user.tenantId
             })
-                .populate('estudianteId', 'nombre apellido grado')
-                .populate('creadoPor', 'name email role');
+                
+                ;
 
             if (!anotacion) {
                 return res.status(404).json({ message: 'Anotación no encontrada' });
@@ -200,12 +199,12 @@ class AnotacionController {
             const { creadoPor, ...updateData } = req.body;
 
             const anotacion = await Anotacion.findOneAndUpdate(
-                { _id: req.params.id, tenantId: req.user.tenantId },
+                { _id: req.params.id, tenant_id: req.user.tenantId },
                 updateData,
                 { new: true, runValidators: true }
             )
-                .populate('estudianteId', 'nombre apellido grado')
-                .populate('creadoPor', 'name email role');
+                
+                ;
 
             if (!anotacion) {
                 return res.status(404).json({
@@ -224,7 +223,7 @@ class AnotacionController {
         try {
             const anotacion = await Anotacion.findOneAndDelete({
                 _id: req.params.id,
-                tenantId: req.user.tenantId
+                tenant_id: req.user.tenantId
             });
 
             if (!anotacion) {
@@ -242,7 +241,7 @@ class AnotacionController {
     // Obtener estadísticas de anotaciones de un estudiante
     static async getEstadisticasByEstudiante(req, res) {
         try {
-            const { estudianteId } = req.params;
+            const { student_id } = req.params;
 
             // Security: If student, check if they are requesting their own ID
             if (req.user.role === 'student' && req.user.profileId?.toString() !== estudianteId) {
@@ -252,7 +251,7 @@ class AnotacionController {
             // Security: If guardian, check if the student belongs to them
             if (req.user.role === 'apoderado' && req.user.profileId) {
                 const Apoderado = await import('../models/apoderadoModel.js').then(m => m.default);
-                const vinculation = await Apoderado.findOne({ _id: req.user.profileId, estudianteId: estudianteId });
+                const vinculation = await Apoderado.findOne({ _id: req.user.profileId, student_id: estudianteId });
                 if (!vinculation) {
                     return res.status(403).json({ message: 'Acceso denegado' });
                 }
@@ -261,8 +260,8 @@ class AnotacionController {
             const estadisticas = await Anotacion.aggregate([
                 {
                     $match: {
-                        estudianteId: new mongoose.Types.ObjectId(estudianteId),
-                        tenantId: new mongoose.Types.ObjectId(req.user.tenantId)
+                        student_id: estudianteId,
+                        tenantId: req.user.tenantId
                     }
                 },
                 {
@@ -280,9 +279,9 @@ class AnotacionController {
             };
 
             estadisticas.forEach(stat => {
-                if (stat._id === 'positiva') {
+                if (stat.id === 'positiva') {
                     resultado.positivas = stat.count;
-                } else if (stat._id === 'negativa') {
+                } else if (stat.id === 'negativa') {
                     resultado.negativas = stat.count;
                 }
                 resultado.total += stat.count;

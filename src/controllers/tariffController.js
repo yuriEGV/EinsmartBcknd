@@ -1,4 +1,4 @@
-import Tariff from '../models/tariffModel.js';
+import { Tariff } from '../models/pgModels.js';
 import connectDB from '../config/db.js';
 
 class TariffController {
@@ -8,7 +8,7 @@ class TariffController {
       const { name, description, amount, currency, active } = req.body;
 
       const tariff = new Tariff({
-        tenantId: req.user.tenantId,
+        tenant_id: req.user.tenantId,
         name,
         description,
         amount,
@@ -28,16 +28,16 @@ class TariffController {
     try {
       await connectDB();
       const tid = req.user.tenantId;
-      const query = (req.user.role === 'admin') ? {} : { tenantId: tid };
+      const query = (req.user.role === 'admin') ? {} : { tenant_id: tid };
 
       let tariffs = await Tariff.find(query).sort({ createdAt: -1 });
 
       // Seeding defaults if empty for this tenant (Any educational role can trigger this to avoid empty UI)
       if (tariffs.length === 0 && tid && (['sostenedor', 'admin', 'teacher', 'secretario'].includes(req.user.role))) {
         const defaults = [
-          { tenantId: tid, name: 'Matrícula Anual', description: 'Costo de incorporación y registro', amount: 80000, currency: 'CLP', active: true },
-          { tenantId: tid, name: 'Mensualidad (Colegiatura)', description: 'Pago mensual por servicios educativos', amount: 150000, currency: 'CLP', active: true },
-          { tenantId: tid, name: 'Seguro Escolar', description: 'Cobertura de accidentes anual', amount: 25000, currency: 'CLP', active: true }
+          { tenant_id: tid, name: 'Matrícula Anual', description: 'Costo de incorporación y registro', amount: 80000, currency: 'CLP', active: true },
+          { tenant_id: tid, name: 'Mensualidad (Colegiatura)', description: 'Pago mensual por servicios educativos', amount: 150000, currency: 'CLP', active: true },
+          { tenant_id: tid, name: 'Seguro Escolar', description: 'Cobertura de accidentes anual', amount: 25000, currency: 'CLP', active: true }
         ];
         tariffs = await Tariff.insertMany(defaults);
       }
@@ -53,7 +53,7 @@ class TariffController {
       await connectDB();
       const tariff = await Tariff.findOne({
         _id: req.params.id,
-        tenantId: req.user.tenantId,
+        tenant_id: req.user.tenantId,
       });
 
       if (!tariff) return res.status(404).json({ message: 'Tarifa no encontrada' });
@@ -68,7 +68,7 @@ class TariffController {
     try {
       await connectDB();
       const tariff = await Tariff.findOneAndUpdate(
-        { _id: req.params.id, tenantId: req.user.tenantId },
+        { _id: req.params.id, tenant_id: req.user.tenantId },
         req.body,
         { new: true }
       );
@@ -86,7 +86,7 @@ class TariffController {
       await connectDB();
       const tariff = await Tariff.findOneAndDelete({
         _id: req.params.id,
-        tenantId: req.user.tenantId,
+        tenant_id: req.user.tenantId,
       });
 
       if (!tariff) return res.status(404).json({ message: 'Tarifa no encontrada' });
