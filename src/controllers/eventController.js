@@ -1,8 +1,8 @@
-import { Event } from '../models/pgModels.js';
-import { Enrollment } from '../models/pgModels.js';
-import { Guardian as Apoderado } from '../models/pgModels.js';
-import { Student as Estudiante } from '../models/pgModels.js';
-import { Course } from '../models/pgModels.js';
+import Event from '../models/eventModel.js';
+import Enrollment from '../models/enrollmentModel.js';
+import Apoderado from '../models/apoderadoModel.js';
+import Estudiante from '../models/estudianteModel.js';
+import Course from '../models/courseModel.js';
 import NotificationService from '../services/notificationService.js';
 
 class EventController {
@@ -14,7 +14,7 @@ class EventController {
             const event = new Event({
                 ...req.body,
                 creadoPor: req.user.userId,
-                tenant_id: req.user.tenantId
+                tenantId: req.user.tenantId
             });
             await event.save();
 
@@ -22,7 +22,7 @@ class EventController {
             try {
                 // Alerta general al equipo directivo (Director, UTP, Inspectores)
                 await NotificationService.notifyPlatformChange({
-                    tenant_id: req.user.tenantId,
+                    tenantId: req.user.tenantId,
                     title: `Nuevo Evento: ${event.title}`,
                     message: `Se ha agendado: ${event.description || 'Sin descripción'} para el ${new Date(event.date).toLocaleDateString()}.`,
                     type: 'system',
@@ -40,7 +40,7 @@ class EventController {
 
     static async getEvents(req, res) {
         try {
-            const query = { tenant_id: req.user.tenantId };
+            const query = { tenantId: req.user.tenantId };
 
             // Allow SuperAdmins to see everything (no tenantId) if needed, but current logic enforces it.
             // if (req.user.role === 'admin') delete query.tenantId;
@@ -57,8 +57,8 @@ class EventController {
 
                 if (studentId) {
                     const enrollment = await Enrollment.findOne({
-                        student_id: studentId,
-                        tenant_id: req.user.tenantId,
+                        estudianteId: studentId,
+                        tenantId: req.user.tenantId,
                         status: { $in: ['confirmada', 'activo', 'activa'] }
                     });
 
@@ -80,7 +80,7 @@ class EventController {
                 }
             } else if (req.user.role === 'teacher' || req.user.role === 'admin' || req.user.role === 'sostenedor' || req.user.role === 'director' || req.user.role === 'utp' || req.user.role === 'inspector_general') {
                 // Management and teachers see everything for their tenant
-                // Already handled by base query { tenant_id }
+                // Already handled by base query { tenantId }
             }
 
             const events = await Event.find(query).sort({ date: 1 });
@@ -89,7 +89,7 @@ class EventController {
             const Alternancia = await import('../models/alternanciaModel.js').then(m => m.default);
             // Si es un rol directivo o profesor, ve todas las alternancias del tenant para coordinación
             // Si es alumno o apoderado, se filtrarán las que correspondan (o se asume global según el requerimiento "todos estén alertados")
-            let altQuery = { tenant_id: req.user.tenantId };
+            let altQuery = { tenantId: req.user.tenantId };
 
             // Si es alumno/apoderado, solo ve las suyas/de su pupilo
             if (req.user.role === 'student' || req.user.role === 'apoderado') {
@@ -103,15 +103,15 @@ class EventController {
             }
 
             const alternancias = await Alternancia.find(altQuery)
-                
-                ;
+                .populate('estudianteId', 'firstName lastName nombres apellidos')
+                .populate('careerId', 'name');
 
             const alternanciaEvents = alternancias.map(alt => {
                 const studentName = alt.estudianteId ?
                     (alt.estudianteId.nombres || `${alt.estudianteId.firstName} ${alt.estudianteId.lastName}`) : 'Estudiante';
 
                 return {
-                    _id: alt.id,
+                    _id: alt._id,
                     tenantId: alt.tenantId,
                     title: `Alternancia: ${studentName}`,
                     description: `Actividad en ${alt.empresaInstitucion}. Especialidad: ${alt.careerId?.name || 'TP'}. Estado: ${alt.estado}`,
@@ -129,10 +129,10 @@ class EventController {
             let licenseEvents = [];
             if (['admin', 'sostenedor', 'director', 'utp', 'inspector_general'].includes(req.user.role)) {
                 const licenses = await MedicalLicense.find({
-                    tenant_id: req.user.tenantId,
+                    tenantId: req.user.tenantId,
                     userType: 'Funcionario',
                     estado: 'Aprobado'
-                });
+                }).populate('userId', 'name email');
 
                 // [BUG 4 FIX] Agrupar licencias por fecha de inicio cuando coinciden múltiples funcionarios
                 const licensesByDate = {};
@@ -152,7 +152,7 @@ class EventController {
                         // Licencia individual: evento simple con nombre del funcionario
                         const { lic, userName } = group[0];
                         licenseEvents.push({
-                            _id: lic.id,
+                            _id: lic._id,
                             tenantId: lic.tenantId,
                             title: `🔴 Licencia: ${userName}`,
                             description: `${lic.tipo} — ${lic.diasReposo} días (hasta ${new Date(lic.fechaFin).toLocaleDateString('es-CL')}). ${lic.observaciones || ''}`.trim(),
@@ -214,13 +214,13 @@ class EventController {
             }
             const event = await Event.findOneAndDelete({
                 _id: req.params.id,
-                tenant_id: req.user.tenantId
+                tenantId: req.user.tenantId
             });
             if (!event) return res.status(404).json({ message: 'Evento no encontrado' });
 
             // [NUEVO] Notificar eliminación
             await NotificationService.notifyPlatformChange({
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 title: 'Evento Eliminado',
                 message: `Se ha eliminado el evento: ${event.title}.`,
                 type: 'system'

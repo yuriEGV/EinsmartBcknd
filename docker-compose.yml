@@ -1,6 +1,6 @@
 # =============================================================
 # docker-compose.yml — Einsmart Local Deployment
-# Migrado a PostgreSQL 16 (MongoDB eliminado)
+# Ubicado dentro del repo EinsmartBcknd.
 #
 # Instrucciones:
 #   1. git clone https://github.com/yuriEGV/EinsmartBcknd.git
@@ -10,27 +10,29 @@
 
 services:
 
-  # ── PostgreSQL ─────────────────────────────────────────────
-  postgres:
-    image: postgres:16-alpine
-    container_name: einsmart_postgres
+  # ── MongoDB ────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: einsmart_mongodb
     restart: always
     environment:
-      POSTGRES_DB: einsmart
-      POSTGRES_USER: ${PG_USER:-einsmart_pg}
-      POSTGRES_PASSWORD: ${PG_PASSWORD:-pgpass2024}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-einsmart2024}
+      MONGO_INITDB_DATABASE: Einsmart
     volumes:
-      - pg_data:/var/lib/postgresql/data
-      - ./sql/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
-    # Puerto solo expuesto internamente en la red Docker (no al host)
+      - mongo_data:/data/db
+      - mongo_config:/data/configdb
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    ports:
+      - "127.0.0.1:27017:27017"   # Solo acceso local, NO expuesto a la LAN
     networks:
       - einsmart_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-einsmart_pg} -d einsmart"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 15s
+      timeout: 10s
       retries: 5
-      start_period: 20s
+      start_period: 30s
 
   # ── Backend API (Node.js/Express) ──────────────────────────
   backend:
@@ -44,9 +46,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      PG_URI: postgresql://${PG_USER:-einsmart_pg}:${PG_PASSWORD:-pgpass2024}@postgres:5432/einsmart
+      MONGO_URI: mongodb://${MONGO_APP_USER:-einsmart_app}:${MONGO_APP_PASSWORD:-apppass2024}@mongodb:27017/einsmart?authSource=einsmart
     depends_on:
-      postgres:
+      mongodb:
         condition: service_healthy
     volumes:
       - ./uploads:/app/uploads
@@ -81,7 +83,9 @@ services:
 
 # ── Volúmenes persistentes ───────────────────────────────────
 volumes:
-  pg_data:
+  mongo_data:
+    driver: local
+  mongo_config:
     driver: local
 
 # ── Red interna ──────────────────────────────────────────────

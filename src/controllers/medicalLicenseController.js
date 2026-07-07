@@ -1,6 +1,7 @@
-import { MedicalLicense } from '../models/pgModels.js';
-import { Attendance } from '../models/pgModels.js';
-import { User } from '../models/pgModels.js';
+import MedicalLicense from '../models/medicalLicenseModel.js';
+import Attendance from '../models/attendanceModel.js';
+import User from '../models/userModel.js';
+import mongoose from 'mongoose';
 import NotificationService from '../services/notificationService.js';
 
 class MedicalLicenseController {
@@ -62,7 +63,7 @@ class MedicalLicenseController {
 
                 const pastLicenses = await MedicalLicense.find({
                     userId,
-                    tenant_id: req.user.tenantId,
+                    tenantId: req.user.tenantId,
                     fechaInicio: { $gte: twoYearsAgo }
                 });
 
@@ -77,7 +78,7 @@ class MedicalLicenseController {
             }
 
             const license = new MedicalLicense({
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 userId,
                 userModel: userType === 'Estudiante' ? 'Estudiante' : 'User',
                 userType,
@@ -101,12 +102,12 @@ class MedicalLicenseController {
             if (userType === 'Estudiante') {
                 await Attendance.updateMany(
                     {
-                        student_id: userId,
-                        tenant_id: req.user.tenantId,
+                        estudianteId: userId,
+                        tenantId: req.user.tenantId,
                         fecha: { $gte: start, $lte: end },
                         estado: 'ausente'
                     },
-                    { $set: { estado: 'justificado', observacion: `Justificado por Licencia Médica ID: ${license.id}` } }
+                    { $set: { estado: 'justificado', observacion: `Justificado por Licencia Médica ID: ${license._id}` } }
                 );
             }
 
@@ -139,7 +140,7 @@ class MedicalLicenseController {
             const { userId, userType, startDate, endDate, fecha } = req.query;
             const currentYear = req.user.academicYear || new Date().getFullYear();
             const query = { 
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 $or: [
                     { academicYear: currentYear },
                     { academicYear: { $exists: false } }
@@ -162,7 +163,7 @@ class MedicalLicenseController {
             }
 
             const licenses = await MedicalLicense.find(query)
-                
+                .populate('userId', 'name nombres apellidos role email')
                 .sort({ fechaInicio: -1 });
 
             // [BUG 3 FIX] Asegurar nombre visible en respuesta
@@ -203,10 +204,10 @@ class MedicalLicenseController {
             }
 
             const license = await MedicalLicense.findOneAndUpdate(
-                { _id: req.params.id, tenant_id: req.user.tenantId },
+                { _id: req.params.id, tenantId: req.user.tenantId },
                 { estado },
                 { new: true }
-            );
+            ).populate('userId', 'name role email');
 
             if (!license) return res.status(404).json({ message: 'Licencia no encontrada' });
 
@@ -214,12 +215,12 @@ class MedicalLicenseController {
             if (estado === 'Aprobado' && license.userType === 'Estudiante') {
                 await Attendance.updateMany(
                     {
-                        student_id: license.userId,
-                        tenant_id: req.user.tenantId,
+                        estudianteId: license.userId,
+                        tenantId: req.user.tenantId,
                         fecha: { $gte: license.fechaInicio, $lte: license.fechaFin },
                         estado: 'ausente'
                     },
-                    { $set: { estado: 'justificado', observacion: `Justificado por Licencia Médica ID: ${license.id}` } }
+                    { $set: { estado: 'justificado', observacion: `Justificado por Licencia Médica ID: ${license._id}` } }
                 );
             }
 
@@ -240,8 +241,8 @@ class MedicalLicenseController {
                 return res.status(403).json({ message: 'No tienes permisos para ver esta licencia médica.' });
             }
 
-            const license = await MedicalLicense.findOne({ _id: req.params.id, tenant_id: req.user.tenantId })
-                ;
+            const license = await MedicalLicense.findOne({ _id: req.params.id, tenantId: req.user.tenantId })
+                .populate('userId', 'name role email');
             if (!license) return res.status(404).json({ message: 'Licencia no encontrada' });
             res.json(license);
         } catch (error) {
@@ -257,7 +258,7 @@ class MedicalLicenseController {
                 return res.status(403).json({ message: 'No tienes permisos para eliminar licencias médicas.' });
             }
 
-            const license = await MedicalLicense.findOneAndDelete({ _id: req.params.id, tenant_id: req.user.tenantId });
+            const license = await MedicalLicense.findOneAndDelete({ _id: req.params.id, tenantId: req.user.tenantId });
             if (!license) return res.status(404).json({ message: 'Licencia no encontrada' });
             res.status(204).send();
         } catch (error) {
@@ -281,9 +282,9 @@ class MedicalLicenseController {
     static async listApproved(req, res) {
         try {
             const licenses = await MedicalLicense.find({
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 estado: 'Aprobado'
-            });
+            }).populate('userId', 'name nombres apellidos email');
 
             // Format specialized for calendar consumption if needed
             const formatted = licenses.map(lic => {

@@ -26,7 +26,7 @@ export const create = async (req, res) => {
         const newMaterial = new CurriculumMaterial({
             ...materialData,
             uploadedBy: req.user.id,
-            tenant_id: req.user.tenantId
+            tenantId: req.user.tenantId
         });
 
         await newMaterial.save();
@@ -39,9 +39,9 @@ export const create = async (req, res) => {
 
 export const getAll = async (req, res) => {
     try {
-        const materials = await CurriculumMaterial.find({ tenant_id: req.user.tenantId })
-            
-            
+        const materials = await CurriculumMaterial.find({ tenantId: req.user.tenantId })
+            .populate('courseId', 'name')
+            .populate('subjectId', 'name')
             .sort({ createdAt: -1 });
         res.status(200).json(materials);
     } catch (error) {
@@ -70,7 +70,7 @@ export const update = async (req, res) => {
         }
 
         const updatedMaterial = await CurriculumMaterial.findOneAndUpdate(
-            { _id: id, tenant_id: req.user.tenantId },
+            { _id: id, tenantId: req.user.tenantId },
             materialData,
             { new: true }
         );
@@ -85,7 +85,7 @@ export const update = async (req, res) => {
 export const deleteOne = async (req, res) => {
     try {
         const { id } = req.params;
-        const deletedMaterial = await CurriculumMaterial.findOneAndDelete({ _id: id, tenant_id: req.user.tenantId });
+        const deletedMaterial = await CurriculumMaterial.findOneAndDelete({ _id: id, tenantId: req.user.tenantId });
         if (!deletedMaterial) return res.status(404).json({ message: 'Material not found' });
         res.status(204).send();
     } catch (error) {
@@ -96,9 +96,9 @@ export const deleteOne = async (req, res) => {
 export const getByCourse = async (req, res) => {
     try {
         const materials = await CurriculumMaterial.find({
-            course_id: req.params.courseId,
-            tenant_id: req.user.tenantId
-        }).sort({ createdAt: -1 });
+            courseId: req.params.courseId,
+            tenantId: req.user.tenantId
+        }).populate('subjectId', 'name').sort({ createdAt: -1 });
         res.status(200).json(materials);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -108,8 +108,8 @@ export const getByCourse = async (req, res) => {
 export const getBySubject = async (req, res) => {
     try {
         const materials = await CurriculumMaterial.find({
-            subject_id: req.params.subjectId,
-            tenant_id: req.user.tenantId
+            subjectId: req.params.subjectId,
+            tenantId: req.user.tenantId
         }).sort({ createdAt: -1 });
         res.status(200).json(materials);
     } catch (error) {

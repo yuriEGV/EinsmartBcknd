@@ -1,2 +1,120 @@
-// Auto-generated shim — redirects to pgModels (MongoDB removed)
-export { Citacion as default, Citacion } from './pgModels.js';
+import mongoose from 'mongoose';
+
+const citacionSchema = new mongoose.Schema({
+    tenantId: {
+        type: mongoose.Types.ObjectId,
+        ref: 'Tenant',
+        required: true
+    },
+    estudianteId: {
+        type: mongoose.Types.ObjectId,
+        ref: 'Estudiante',
+        required: true
+    },
+    apoderadoId: {
+        type: mongoose.Types.ObjectId,
+        ref: 'Apoderado',
+        required: true
+    },
+    courseId: {
+        type: mongoose.Types.ObjectId,
+        ref: 'Course',
+        required: true
+    },
+    profesorId: {
+        type: mongoose.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    fecha: {
+        type: Date,
+        required: true
+    },
+    hora: {
+        type: String,
+        required: true
+    },
+    motivo: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    anotacionId: {
+        type: mongoose.Types.ObjectId,
+        ref: 'Anotacion'
+    },
+    estado: {
+        type: String,
+        enum: ['propuesta', 'confirmada', 'rechazada', 'realizada', 'cancelada'],
+        default: 'propuesta'
+    },
+    modalidad: {
+        type: String,
+        enum: ['presencial', 'online'],
+        default: 'presencial'
+    },
+    linkMeeting: {
+        type: String,
+        trim: true
+    },
+    lugar: {
+        type: String,
+        default: 'Sala de Profesores'
+    },
+    observaciones: {
+        type: String,
+        default: ''
+    },
+    comentariosApoderado: {
+        type: String,
+        default: ''
+    },
+    actaReunion: {
+        type: String,
+        default: ''
+    },
+    googleEventId: {
+        type: String
+    },
+    acuerdo: {
+        type: String,
+        default: ''
+    },
+    resultado: {
+        type: String,
+        default: ''
+    },
+    asistioApoderado: {
+        type: Boolean,
+        default: false
+    },
+    tipo: {
+        type: String,
+        enum: ['citacion', 'peticion'],
+        default: 'citacion'
+    },
+    firmaProfesor: {
+        type: String,
+        default: ''
+    },
+    firmaApoderado: {
+        type: String,
+        default: ''
+    },
+    fechaFirmaProfesor: {
+        type: Date
+    },
+    fechaFirmaApoderado: {
+        type: Date
+    },
+    dismissedBy: [{
+        type: mongoose.Types.ObjectId,
+        ref: 'User'
+    }]
+}, {
+    timestamps: true
+});
+
+citacionSchema.index({ studentId: 1, fecha: -1 });
+
+export default mongoose.model('Citacion', citacionSchema);

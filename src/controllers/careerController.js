@@ -1,5 +1,5 @@
 
-import { Career } from '../models/pgModels.js';
+import Career from '../models/careerModel.js';
 import NotificationService from '../services/notificationService.js';
 
 export default class CareerController {
@@ -7,7 +7,7 @@ export default class CareerController {
         try {
             const { name, description, type, code, teachers, headTeacher, profesorJefe } = req.body;
             const career = await Career.create({
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 name,
                 description,
                 type,
@@ -19,7 +19,7 @@ export default class CareerController {
 
             // Notify Administrative team
             await NotificationService.notifyPlatformChange({
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 title: 'Nueva Carrera Registrada',
                 message: `Se ha creado la especialidad: ${name}.`,
                 type: 'career',
@@ -34,10 +34,10 @@ export default class CareerController {
 
     static async getCareers(req, res) {
         try {
-            const careers = await Career.find({ tenant_id: req.user.tenantId })
-                
-                
-                ;
+            const careers = await Career.find({ tenantId: req.user.tenantId })
+                .populate('teachers', 'name email')
+                .populate('headTeacher', 'name email')
+                .populate('profesorJefe', 'name email');
             return res.status(200).json(careers);
         } catch (error) {
             return res.status(500).json({ message: 'Error al obtener carreras', error: error.message });
@@ -50,19 +50,19 @@ export default class CareerController {
             const { name, description, type, code, teachers, headTeacher, profesorJefe } = req.body;
 
             const career = await Career.findOneAndUpdate(
-                { _id: id, tenant_id: req.user.tenantId },
+                { _id: id, tenantId: req.user.tenantId },
                 { name, description, type, code, teachers, headTeacher, profesorJefe },
                 { new: true }
             )
-                
-                
-                ;
+                .populate('teachers', 'name email')
+                .populate('headTeacher', 'name email')
+                .populate('profesorJefe', 'name email');
 
             if (!career) return res.status(404).json({ message: 'Carrera no encontrada' });
 
             // Notify Administrative team
             await NotificationService.notifyPlatformChange({
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 title: 'Carrera Actualizada',
                 message: `Se han modificado los datos de la especialidad: ${name || career.name}.`,
                 type: 'career',
@@ -78,12 +78,12 @@ export default class CareerController {
     static async deleteCareer(req, res) {
         try {
             const { id } = req.params;
-            const career = await Career.findOneAndDelete({ _id: id, tenant_id: req.user.tenantId });
+            const career = await Career.findOneAndDelete({ _id: id, tenantId: req.user.tenantId });
             if (!career) return res.status(404).json({ message: 'Carrera no encontrada' });
 
             // Notify Administrative team
             await NotificationService.notifyPlatformChange({
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 title: 'Carrera Eliminada',
                 message: `Se ha eliminado la especialidad: ${career.name}.`,
                 type: 'career',

@@ -1,6 +1,6 @@
-import { Message } from '../models/pgModels.js';
-import { User } from '../models/pgModels.js';
-import { Alternancia } from '../models/pgModels.js';
+import Message from '../models/messageModel.js';
+import User from '../models/userModel.js';
+import Alternancia from '../models/alternanciaModel.js';
 
 class MessageController {
     static async sendMessage(req, res) {
@@ -44,11 +44,11 @@ class MessageController {
         try {
             const userId = req.user.userId;
             const messages = await Message.find({
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 $or: [{ senderId: userId }, { receiverId: userId }]
             })
-                
-                
+                .populate('senderId', 'name role')
+                .populate('receiverId', 'name role')
                 .sort({ createdAt: -1 });
 
             res.json(messages);
@@ -72,7 +72,7 @@ class MessageController {
                         { tutorId: req.user.userId },
                         { "maestroGuia.email": req.user.email }
                     ]
-                });
+                }).populate('careerId');
                 
                 const careerTeacherIds = [];
                 const supervisorIds = [];
@@ -89,7 +89,7 @@ class MessageController {
                 const users = await User.find({
                     $or: [
                         { _id: { $in: [...new Set([...careerTeacherIds, ...supervisorIds].map(id => id.toString()))] } },
-                        { role: { $in: ['utp', 'director'] }, tenant_id: req.user.tenantId }
+                        { role: { $in: ['utp', 'director'] }, tenantId: req.user.tenantId }
                     ]
                 }).select('name role email');
 
@@ -97,7 +97,7 @@ class MessageController {
             }
             
             const users = await User.find({
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 _id: { $ne: req.user.userId },
                 role: { $nin: staffExcludedRoles }
             }).select('name role email');

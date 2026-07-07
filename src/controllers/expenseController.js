@@ -4,7 +4,7 @@ import Expense from '../models/expenseModel.js';
 export const getExpenses = async (req, res) => {
     try {
         const { category, startDate, endDate } = req.query;
-        const query = { tenant_id: req.user.tenantId };
+        const query = { tenantId: req.user.tenantId };
 
         if (category) query.category = category;
         if (startDate && endDate) {
@@ -23,8 +23,8 @@ export const createExpense = async (req, res) => {
     try {
         const expense = new Expense({
             ...req.body,
-            tenant_id: req.user.tenantId,
-            createdBy: req.user.id
+            tenantId: req.user.tenantId,
+            createdBy: req.user._id
         });
         const savedExpense = await expense.save();
         res.status(201).json(savedExpense);
@@ -37,7 +37,7 @@ export const createExpense = async (req, res) => {
 export const updateExpense = async (req, res) => {
     try {
         const expense = await Expense.findOneAndUpdate(
-            { _id: req.params.id, tenant_id: req.user.tenantId },
+            { _id: req.params.id, tenantId: req.user.tenantId },
             req.body,
             { new: true }
         );
@@ -51,7 +51,7 @@ export const updateExpense = async (req, res) => {
 // Delete an expense
 export const deleteExpense = async (req, res) => {
     try {
-        const expense = await Expense.findOneAndDelete({ _id: req.params.id, tenant_id: req.user.tenantId });
+        const expense = await Expense.findOneAndDelete({ _id: req.params.id, tenantId: req.user.tenantId });
         if (!expense) return res.status(404).json({ message: 'Gasto no encontrado' });
         res.json({ message: 'Gasto eliminado' });
     } catch (error) {
@@ -63,7 +63,7 @@ export const deleteExpense = async (req, res) => {
 export const getExpenseStats = async (req, res) => {
     try {
         const stats = await Expense.aggregate([
-            { $match: { tenant_id: req.user.tenantId } },
+            { $match: { tenantId: req.user.tenantId } },
             {
                 $group: {
                     _id: '$category',

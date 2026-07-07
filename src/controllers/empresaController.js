@@ -1,4 +1,4 @@
-import { Empresa } from '../models/pgModels.js';
+import Empresa from '../models/empresaModel.js';
 import { validarRUT, formatearRUT } from '../utils/rutValidator.js';
 
 class EmpresaController {
@@ -49,7 +49,7 @@ class EmpresaController {
 
     static async getEmpresas(req, res) {
         try {
-            const empresas = await Empresa.find({ tenant_id: req.user.tenantId }).sort({ razonSocial: 1 });
+            const empresas = await Empresa.find({ tenantId: req.user.tenantId }).sort({ razonSocial: 1 });
             res.status(200).json(empresas);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -69,7 +69,7 @@ class EmpresaController {
             }
 
             const empresa = await Empresa.findOneAndUpdate(
-                { _id: id, tenant_id: req.user.tenantId },
+                { _id: id, tenantId: req.user.tenantId },
                 updateData,
                 { new: true }
             );
@@ -91,7 +91,7 @@ class EmpresaController {
             // Aquí podríamos añadir verificaciones pre-eliminación (ej: no eliminar si tiene Alternancias activas)
             // Para simplicidad por ahora lo permitimos
 
-            const empresa = await Empresa.findOneAndDelete({ _id: id, tenant_id: req.user.tenantId });
+            const empresa = await Empresa.findOneAndDelete({ _id: id, tenantId: req.user.tenantId });
             if (!empresa) {
                 return res.status(404).json({ message: 'Empresa no encontrada.' });
             }

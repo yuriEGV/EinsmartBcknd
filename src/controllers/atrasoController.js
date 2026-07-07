@@ -1,4 +1,5 @@
-import { Atraso } from '../models/pgModels.js';
+import Atraso from '../models/atrasoModel.js';
+import mongoose from 'mongoose';
 
 // [BUG 2 FIX] Minutos legales de descuento por bloque según normativa MINEDUC Chile
 // Corresponde al tiempo proporcional del bloque que se pierde por el atraso
@@ -21,8 +22,8 @@ const enrichAtraso = (atraso) => {
 
 export const getAtrasos = async (req, res) => {
     try {
-        const { tenant_id } = req.user;
-        const { course_id } = req.query;
+        const { tenantId } = req.user;
+        const { courseId } = req.query;
         const currentYear = req.user.academicYear || new Date().getFullYear();
         let query = { 
             tenantId,
@@ -34,14 +35,14 @@ export const getAtrasos = async (req, res) => {
 
         if (courseId) {
             const Enrollment = await import('../models/enrollmentModel.js').then(m => m.default);
-            const enrollments = await Enrollment.find({ course_id, tenantId }).select('estudianteId');
+            const enrollments = await Enrollment.find({ courseId, tenantId }).select('estudianteId');
             const studentIds = enrollments.map(e => e.estudianteId);
             query.estudianteId = { $in: studentIds };
         }
 
         const atrasos = await Atraso.find(query)
-            
-            
+            .populate('estudianteId', 'nombres apellidos rut')
+            .populate('registradoPor', 'name')
             .sort({ fecha: -1 });
 
         // [BUG 2 FIX] Enriquecer con minutosLegales por bloque
@@ -53,11 +54,11 @@ export const getAtrasos = async (req, res) => {
 
 export const getAtrasosByEstudiante = async (req, res) => {
     try {
-        const { tenant_id } = req.user;
-        const { student_id } = req.params;
-        const atrasos = await Atraso.find({ tenant_id, estudianteId })
-            
-            
+        const { tenantId } = req.user;
+        const { estudianteId } = req.params;
+        const atrasos = await Atraso.find({ tenantId, estudianteId })
+            .populate('estudianteId', 'nombres apellidos rut')
+            .populate('registradoPor', 'name')
             .sort({ fecha: -1 });
         // [BUG 2 FIX] Enriquecer con minutosLegales por bloque
         res.status(200).json(atrasos.map(enrichAtraso));
@@ -68,8 +69,8 @@ export const getAtrasosByEstudiante = async (req, res) => {
 
 export const createAtraso = async (req, res) => {
     try {
-        const { tenant_id, _id: userId } = req.user;
-        const { student_id, fecha, bloque, minutosAtraso, motivo, estado } = req.body;
+        const { tenantId, _id: userId } = req.user;
+        const { estudianteId, fecha, bloque, minutosAtraso, motivo, estado } = req.body;
 
         const newAtraso = new Atraso({
             tenantId,
@@ -93,7 +94,7 @@ export const createAtraso = async (req, res) => {
 
 export const updateAtraso = async (req, res) => {
     try {
-        const { tenant_id } = req.user;
+        const { tenantId } = req.user;
         const { id } = req.params;
         const updates = req.body;
 
@@ -114,7 +115,7 @@ export const updateAtraso = async (req, res) => {
 
 export const deleteAtraso = async (req, res) => {
     try {
-        const { tenant_id } = req.user;
+        const { tenantId } = req.user;
         const { id } = req.params;
 
         const deletedAtraso = await Atraso.findOneAndDelete({ _id: id, tenantId });

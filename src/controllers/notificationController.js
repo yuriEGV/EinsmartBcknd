@@ -1,8 +1,8 @@
 
-import { User } from '../models/pgModels.js';
-import { Student as Estudiante } from '../models/pgModels.js';
-import { Guardian as Apoderado } from '../models/pgModels.js';
-import { Tenant } from '../models/pgModels.js';
+import User from '../models/userModel.js';
+import Estudiante from '../models/estudianteModel.js';
+import Apoderado from '../models/apoderadoModel.js';
+import Tenant from '../models/tenantModel.js';
 
 // Stub for email service. Replace with Nodemailer or SendGrid.
 const sendEmail = async (to, subject, html) => {
@@ -24,7 +24,7 @@ class NotificationController {
 
             // Find Guardian (assuming linked via Apoderado model or student fields)
             // Need to find Apoderado linked to student
-            const apoderado = await Apoderado.findOne({ student_id: studentId, tipo: 'principal', tenantId });
+            const apoderado = await Apoderado.findOne({ estudianteId: studentId, tipo: 'principal', tenantId });
 
             // Find Finance Secretary (Secretaries or generic admin email)
             // Or Sostenedor

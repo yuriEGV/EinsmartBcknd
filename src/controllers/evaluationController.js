@@ -1,7 +1,8 @@
-import { Evaluation } from '../models/pgModels.js';
+import Evaluation from '../models/evaluationModel.js';
 import NotificationService from '../services/notificationService.js';
 import PDFDocument from 'pdfkit';
-import { Schedule } from '../models/pgModels.js';
+import mongoose from 'mongoose';
+import Schedule from '../models/scheduleModel.js';
 
 class EvaluationController {
     // Create a new evaluation
@@ -13,7 +14,7 @@ class EvaluationController {
             }
 
             // Validate required fields
-            const { course_id, subjectId, title, date } = req.body;
+            const { courseId, subjectId, title, date } = req.body;
 
             if (!title || !title.trim()) {
                 return res.status(400).json({ message: 'El título es obligatorio.' });
@@ -23,11 +24,11 @@ class EvaluationController {
                 return res.status(400).json({ message: 'Debe seleccionar un curso, una asignatura y una fecha.' });
             }
 
-            if (!((v) => /^[0-9a-f-]{36}$/.test(String(v)))(courseId)) {
+            if (!mongoose.Types.ObjectId.isValid(courseId)) {
                 return res.status(400).json({ message: 'El ID del curso no es válido.' });
             }
 
-            if (!((v) => /^[0-9a-f-]{36}$/.test(String(v)))(subjectId)) {
+            if (!mongoose.Types.ObjectId.isValid(subjectId)) {
                 return res.status(400).json({ message: 'El ID de la asignatura no es válido.' });
             }
 
@@ -37,8 +38,8 @@ class EvaluationController {
                 courseId,
                 subjectId,
                 title: title.trim(),
-                tenant_id: req.user.tenantId
-            });
+                tenantId: req.user.tenantId
+            }).populate('courseId', 'name code');
 
             if (existing) {
                 return res.status(200).json(existing);
@@ -51,17 +52,17 @@ class EvaluationController {
 
             const evaluation = new Evaluation({
                 ...evaluationData,
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 academicYear: req.user.academicYear || new Date().getFullYear(),
                 status: (['admin', 'director', 'utp'].includes(req.user.role)) ? 'approved' : 'draft'
             });
             await evaluation.save();
-            await evaluation;
+            await evaluation.populate('courseId', 'name code');
 
             // Notify Students ONLY if approved
             if (evaluation.status === 'approved') {
                 NotificationService.notifyCourseAssessment(
-                    evaluation.courseId.id,
+                    evaluation.courseId._id,
                     evaluation.title,
                     evaluation.date,
                     evaluation.tenantId
@@ -77,10 +78,10 @@ class EvaluationController {
     // Get all evaluations (Secure) with filters
     static async getEvaluations(req, res) {
         try {
-            const { course_id, subjectId, studentId, guardianId } = req.query;
+            const { courseId, subjectId, studentId, guardianId } = req.query;
             const currentYear = req.user.academicYear || new Date().getFullYear();
             const query = { 
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 $or: [
                     { academicYear: currentYear },
                     { academicYear: { $exists: false } }
@@ -103,8 +104,8 @@ class EvaluationController {
 
                 if (targetStudentId) {
                     const enrollment = await Enrollment.findOne({
-                        student_id: targetStudentId,
-                        tenant_id: req.user.tenantId,
+                        estudianteId: targetStudentId,
+                        tenantId: req.user.tenantId,
                         status: { $in: ['confirmada', 'activo', 'activa'] }
                     });
                     if (enrollment) {
@@ -121,13 +122,13 @@ class EvaluationController {
                 const Subject = await import('../models/subjectModel.js').then(m => m.default);
 
                 // Courses as Head Teacher
-                const headCourses = await Course.find({ teacher_id: req.user.userId, tenant_id: req.user.tenantId }).select('_id');
+                const headCourses = await Course.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('_id');
 
                 // Courses as Subject Teacher
-                const subjectAssignments = await Subject.find({ teacher_id: req.user.userId, tenant_id: req.user.tenantId }).select('courseId');
+                const subjectAssignments = await Subject.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('courseId');
 
                 const courseIds = [
-                    ...headCourses.map(c => c.id),
+                    ...headCourses.map(c => c._id),
                     ...subjectAssignments.map(s => s.courseId)
                 ];
 
@@ -167,10 +168,10 @@ class EvaluationController {
             }
 
             const evaluations = await Evaluation.find(query)
-                
-                
-                
-                ;
+                .populate('courseId', 'name code')
+                .populate('subjectId', 'name')
+                .populate('questions')
+                .populate('rubricId');
 
             res.status(200).json(evaluations);
         } catch (error) {
@@ -183,12 +184,12 @@ class EvaluationController {
     static async getEvaluationsByCourse(req, res) {
         try {
             const evaluations = await Evaluation.find({
-                course_id: req.params.courseId,
-                tenant_id: req.user.tenantId
+                courseId: req.params.courseId,
+                tenantId: req.user.tenantId
             })
-                
-                
-                ;
+                .populate('courseId', 'name code')
+                .populate('subjectId', 'name')
+                .populate('rubricId');
             res.status(200).json(evaluations);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -203,10 +204,10 @@ class EvaluationController {
                 return res.status(403).json({ message: 'Acceso denegado' });
             }
 
-            const evaluations = await Evaluation.find({ tenant_id: targetTenant })
-                
-                
-                ;
+            const evaluations = await Evaluation.find({ tenantId: targetTenant })
+                .populate('courseId', 'name code')
+                .populate('subjectId', 'name')
+                .populate('rubricId');
             res.status(200).json(evaluations);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -218,11 +219,11 @@ class EvaluationController {
         try {
             const evaluation = await Evaluation.findOne({
                 _id: req.params.id,
-                tenant_id: req.user.tenantId
+                tenantId: req.user.tenantId
             })
-                
-                
-                ;
+                .populate('courseId', 'name code')
+                .populate('subjectId', 'name')
+                .populate('rubricId');
             if (!evaluation) {
                 return res.status(404).json({ message: 'Evaluación no encontrada' });
             }
@@ -240,7 +241,7 @@ class EvaluationController {
                 return res.status(403).json({ message: 'No tienes permisos para modificar evaluaciones.' });
             }
 
-            const evaluation = await Evaluation.findOne({ _id: req.params.id, tenant_id: req.user.tenantId });
+            const evaluation = await Evaluation.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
             if (!evaluation) {
                 return res.status(404).json({ message: 'Evaluación no encontrada' });
             }
@@ -254,10 +255,10 @@ class EvaluationController {
             }
 
             const updatedEvaluation = await Evaluation.findOneAndUpdate(
-                { _id: req.params.id, tenant_id: req.user.tenantId },
+                { _id: req.params.id, tenantId: req.user.tenantId },
                 updateData,
                 { new: true }
-            ).populate('subjectId', 'name').populate('rubricId');
+            ).populate('courseId', 'name code').populate('subjectId', 'name').populate('rubricId');
 
             res.status(200).json(updatedEvaluation);
         } catch (error) {
@@ -275,7 +276,7 @@ class EvaluationController {
 
             const evaluation = await Evaluation.findOneAndDelete({
                 _id: req.params.id,
-                tenant_id: req.user.tenantId
+                tenantId: req.user.tenantId
             });
             if (!evaluation) {
                 return res.status(404).json({ message: 'Evaluación no encontrada' });
@@ -283,7 +284,7 @@ class EvaluationController {
 
             // Cleanup associated grades
             const Grade = await import('../models/gradeModel.js').then(m => m.default);
-            await Grade.deleteMany({ evaluation_id: evaluation.id, tenant_id: req.user.tenantId });
+            await Grade.deleteMany({ evaluationId: evaluation._id, tenantId: req.user.tenantId });
 
             res.status(204).send();
         } catch (error) {
@@ -297,12 +298,12 @@ class EvaluationController {
             const { difficulty } = req.query;
             const evaluation = await Evaluation.findOne({
                 _id: req.params.id,
-                tenant_id: req.user.tenantId
+                tenantId: req.user.tenantId
             })
-                
-                
-                
-                ;
+                .populate('courseId', 'name level')
+                .populate('subjectId', 'name')
+                .populate('questions')
+                .populate('rubricId');
 
             if (!evaluation) {
                 return res.status(404).json({ message: 'Evaluación no encontrada' });
@@ -379,7 +380,7 @@ class EvaluationController {
     static async submitEvaluation(req, res) {
         try {
             const evaluation = await Evaluation.findOneAndUpdate(
-                { _id: req.params.id, tenant_id: req.user.tenantId, status: { $in: ['draft', 'rejected'] } },
+                { _id: req.params.id, tenantId: req.user.tenantId, status: { $in: ['draft', 'rejected'] } },
                 { status: 'submitted' },
                 { new: true }
             );
@@ -400,7 +401,7 @@ class EvaluationController {
             }
 
             const evaluation = await Evaluation.findOneAndUpdate(
-                { _id: req.params.id, tenant_id: req.user.tenantId },
+                { _id: req.params.id, tenantId: req.user.tenantId },
                 { status, feedback, approvedBy: req.user.userId },
                 { new: true }
             );

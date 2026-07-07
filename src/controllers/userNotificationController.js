@@ -7,7 +7,7 @@ class UserNotificationController {
         try {
             await connectDB();
             const query = {
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 userId: req.user.userId
             };
 
@@ -32,7 +32,7 @@ class UserNotificationController {
             await connectDB();
             const { id } = req.params;
             const notification = await UserNotification.findOneAndUpdate(
-                { _id: id, userId: req.user.userId, tenant_id: req.user.tenantId },
+                { _id: id, userId: req.user.userId, tenantId: req.user.tenantId },
                 { isRead: true },
                 { new: true }
             );
@@ -52,7 +52,7 @@ class UserNotificationController {
         try {
             await connectDB();
             await UserNotification.updateMany(
-                { userId: req.user.userId, tenant_id: req.user.tenantId, isRead: false },
+                { userId: req.user.userId, tenantId: req.user.tenantId, isRead: false },
                 { isRead: true }
             );
 
@@ -72,7 +72,7 @@ class UserNotificationController {
             }
 
             const notification = await UserNotification.create({
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 userId: req.user.userId,
                 title,
                 message,

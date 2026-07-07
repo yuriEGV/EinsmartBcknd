@@ -1,6 +1,6 @@
-import { Subject } from '../models/pgModels.js';
-import { Enrollment } from '../models/pgModels.js';
-import { Guardian as Apoderado } from '../models/pgModels.js';
+import Subject from '../models/subjectModel.js';
+import Enrollment from '../models/enrollmentModel.js';
+import Apoderado from '../models/apoderadoModel.js';
 
 export default class SubjectController {
 
@@ -29,7 +29,7 @@ export default class SubjectController {
                 tenantId
             });
 
-            console.log(`[AUDIT] Subject created by ${role}: ${name} (${subject.id})`);
+            console.log(`[AUDIT] Subject created by ${role}: ${name} (${subject._id})`);
 
             return res.status(201).json(subject);
         } catch (error) {
@@ -41,7 +41,7 @@ export default class SubjectController {
     // Get all subjects (filtered by tenant)
     static async getSubjects(req, res) {
         try {
-            const query = { tenant_id: req.user.tenantId };
+            const query = { tenantId: req.user.tenantId };
             
             if (req.query.courseId) {
                 query.courseId = req.query.courseId;
@@ -58,15 +58,15 @@ export default class SubjectController {
                 const Career = await import('../models/careerModel.js').then(m => m.default);
 
                 // 1. Subjects they teach
-                const teacherSubjectQuery = { teacher_id: req.user.userId, tenant_id: req.user.tenantId };
+                const teacherSubjectQuery = { teacherId: req.user.userId, tenantId: req.user.tenantId };
 
                 // 2. Subjects of courses where they are Profesor Jefe or Collaborator
                 const directCourses = await Course.find({
                     $or: [
-                        { teacher_id: req.user.userId },
+                        { teacherId: req.user.userId },
                         { collaborators: req.user.userId }
                     ],
-                    tenant_id: req.user.tenantId
+                    tenantId: req.user.tenantId
                 }).select('_id');
 
                 // 3. Subjects of courses in careers they lead
@@ -75,18 +75,18 @@ export default class SubjectController {
                         { headTeacher: req.user.userId },
                         { profesorJefe: req.user.userId }
                     ],
-                    tenant_id: req.user.tenantId
+                    tenantId: req.user.tenantId
                 }).select('_id');
 
                 const careerCourseIds = await Course.find({
-                    career_id: { $in: ledCareers.map(c => c.id) },
-                    tenant_id: req.user.tenantId
+                    careerId: { $in: ledCareers.map(c => c._id) },
+                    tenantId: req.user.tenantId
                 }).select('_id');
 
                 const allowedCourseIds = [
                     ...new Set([
-                        ...directCourses.map(c => c.id.toString()),
-                        ...careerCourseIds.map(c => c.id.toString())
+                        ...directCourses.map(c => c._id.toString()),
+                        ...careerCourseIds.map(c => c._id.toString())
                     ])
                 ];
 
@@ -100,8 +100,8 @@ export default class SubjectController {
                 } else {
                     // If no specific course requested, show subjects they teach OR subjects in courses they manage
                     query.$or = [
-                        { teacher_id: req.user.userId },
-                        { course_id: { $in: allowedCourseIds } }
+                        { teacherId: req.user.userId },
+                        { courseId: { $in: allowedCourseIds } }
                     ];
                 }
             } else if (req.user.role === 'student' || req.user.role === 'apoderado') {
@@ -115,8 +115,8 @@ export default class SubjectController {
 
                 if (studentId) {
                     const enrollment = await Enrollment.findOne({
-                        student_id: studentId,
-                        tenant_id: req.user.tenantId,
+                        estudianteId: studentId,
+                        tenantId: req.user.tenantId,
                         status: { $in: ['confirmada', 'activo', 'activa'] }
                     });
                     if (enrollment) {
@@ -132,8 +132,8 @@ export default class SubjectController {
             console.log(`[Subjects] User: ${req.user.userId} (${req.user.role}) - Query:`, query);
 
             const subjects = await Subject.find(query)
-                
-                
+                .populate('courseId', 'name')
+                .populate('teacherId', 'name email')
                 .sort({ name: 1 });
 
             return res.json(subjects);
@@ -146,7 +146,7 @@ export default class SubjectController {
     static async updateSubject(req, res) {
         try {
             const { id } = req.params;
-            const subject = await Subject.findOne({ _id: id, tenant_id: req.user.tenantId });
+            const subject = await Subject.findOne({ _id: id, tenantId: req.user.tenantId });
             if (!subject) return res.status(404).json({ message: 'Asignatura no encontrada' });
 
             // [STRICT ISOLATION] Only assigned teacher or management roles can update
@@ -173,7 +173,7 @@ export default class SubjectController {
     static async deleteSubject(req, res) {
         try {
             const { id } = req.params;
-            const subject = await Subject.findOne({ _id: id, tenant_id: req.user.tenantId });
+            const subject = await Subject.findOne({ _id: id, tenantId: req.user.tenantId });
             if (!subject) return res.status(404).json({ message: 'Asignatura no encontrada' });
 
             // [STRICT ISOLATION] Only assigned teacher or management (admin/director/etc) can delete
@@ -184,7 +184,7 @@ export default class SubjectController {
                 return res.status(403).json({ message: 'Acceso denegado: no eres el profesor asignado a esta asignatura' });
             }
 
-            const deleted = await Subject.deleteById(id);
+            const deleted = await Subject.findByIdAndDelete(id);
 
             return res.status(204).send();
         } catch (error) {
@@ -216,7 +216,7 @@ export default class SubjectController {
                 return res.status(401).json({ message: 'PIN personal incorrecto. No se pudo validar la firma.' });
             }
 
-            const subject = await Subject.findOne({ _id: id, tenant_id: req.user.tenantId });
+            const subject = await Subject.findOne({ _id: id, tenantId: req.user.tenantId });
             if (!subject) {
                 return res.status(404).json({ message: 'Asignatura no encontrada.' });
             }
@@ -232,7 +232,7 @@ export default class SubjectController {
 
             subject.utpValidated = true;
             subject.utpValidatedAt = new Date();
-            subject.utpValidatedBy = user.id;
+            subject.utpValidatedBy = user._id;
             subject.utpSignatureLog = `FIRMADO DIGITALMENTE POR UTP: ${user.name.toUpperCase()} (RUT: ${user.rut || 'N/A'}) EL ${new Date().toLocaleString()}`;
             await subject.save();
 

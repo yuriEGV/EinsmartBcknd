@@ -1,4 +1,4 @@
-import { User } from '../models/pgModels.js';
+import User from '../models/userModel.js';
 import bcrypt from 'bcryptjs';
 import { validarRUT, formatearRUT } from '../utils/rutValidator.js';
 import NotificationService from '../services/notificationService.js';
@@ -124,7 +124,7 @@ class UserController {
                 phone,
                 address,
                 specialization,
-                must_change_password: finalRole === 'teacher',
+                mustChangePassword: finalRole === 'teacher',
                 mustChangePin: finalRole === 'teacher'
             });
 
@@ -136,7 +136,7 @@ class UserController {
                         title: 'Nuevo Personal Registrado',
                         message: `Se ha registrado a ${finalName} con el rol de ${finalRole}.`,
                         type: 'system',
-                        link: `/users/${user.id}`
+                        link: `/users/${user._id}`
                     });
                 } catch (notifyErr) {
                     console.error('Error broadcasting user notification:', notifyErr);
@@ -147,7 +147,7 @@ class UserController {
             if (finalRole === 'teacher') {
                 try {
                     await NotificationService.createInternalNotification({
-                        userId: user.id,
+                        userId: user._id,
                         tenantId: targetTenantId,
                         title: 'Cambio de Credenciales Requerido',
                         message: 'Por seguridad, debe cambiar su contraseña y PIN de firma digital en su perfil.',
@@ -221,7 +221,7 @@ class UserController {
         try {
             const user = await User.findOne({
                 _id: req.params.id,
-                tenant_id: req.user.tenantId
+                tenantId: req.user.tenantId
             }).select('-passwordHash');
 
             if (!user) {
@@ -250,7 +250,7 @@ class UserController {
             }
 
             if (req.body.password) {
-                updateData.password_hash = await bcrypt.hash(req.body.password, 10);
+                updateData.passwordHash = await bcrypt.hash(req.body.password, 10);
             }
 
             if (req.body.specialization || req.body.especialidad) {
@@ -333,7 +333,7 @@ class UserController {
             // [NUEVO] Notificar actualización de perfil
             try {
                 await NotificationService.createInternalNotification({
-                    userId: user.id,
+                    userId: user._id,
                     tenantId: user.tenantId,
                     title: 'Perfil Actualizado',
                     message: 'Su información de perfil ha sido actualizada por un administrador.',
@@ -396,7 +396,7 @@ class UserController {
                 req.user.userId,
                 {
                     passwordHash,
-                    must_change_password: false
+                    mustChangePassword: false
                 },
                 { new: true }
             );
@@ -436,9 +436,9 @@ class UserController {
 
             const passwordHash = await bcrypt.hash(password, 10);
 
-            targetUser.password_hash = passwordHash;
+            targetUser.passwordHash = passwordHash;
             // Force the user to change this temporary administrative password on next login
-            targetUser.must_change_password = true;
+            targetUser.mustChangePassword = true;
 
             await targetUser.save();
 
@@ -517,7 +517,7 @@ class UserController {
             // [NUEVO] Notificar cambio en plataforma (Bulk)
             if (result.deletedCount > 0) {
                 await NotificationService.notifyPlatformChange({
-                    tenant_id: req.user.tenantId,
+                    tenantId: req.user.tenantId,
                     title: 'Eliminación Masiva de Usuarios',
                     message: `Se han eliminado ${result.deletedCount} usuarios del sistema.`,
                     type: 'system'

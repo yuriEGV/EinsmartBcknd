@@ -1,14 +1,15 @@
-import { Alternancia } from '../models/pgModels.js';
-import { Enrollment } from '../models/pgModels.js';
-import { Career } from '../models/pgModels.js';
-import { Empresa } from '../models/pgModels.js';
+import Alternancia from '../models/alternanciaModel.js';
+import Enrollment from '../models/enrollmentModel.js';
+import Career from '../models/careerModel.js';
+import Empresa from '../models/empresaModel.js';
 import AlternanciaLocation from '../models/alternanciaLocationModel.js';
-import { User } from '../models/pgModels.js';
+import User from '../models/userModel.js';
+import mongoose from 'mongoose';
 
 export const getAlternancias = async (req, res) => {
     try {
-        const { tenant_id, userId, role } = req.user;
-        let query = { tenant_id };
+        const { tenantId, userId, role } = req.user;
+        let query = { tenantId };
 
         // Data Isolation: Teachers see their assigned supervisions OR alternancias for careers they lead (jefe de carrera)
         if (role === 'teacher') {
@@ -19,12 +20,12 @@ export const getAlternancias = async (req, res) => {
                 ],
                 tenantId
             }).select('_id');
-            const careerIds = careersHeaded.map(c => c.id);
+            const careerIds = careersHeaded.map(c => c._id);
             
             if (careerIds.length > 0) {
                 query.$or = [
                     { profesorSupervisor: userId },
-                    { career_id: { $in: careerIds } }
+                    { careerId: { $in: careerIds } }
                 ];
             } else {
                 query.profesorSupervisor = userId;
@@ -38,7 +39,7 @@ export const getAlternancias = async (req, res) => {
 
         // Data Isolation: Guardians only see their children's alternancias
         if (role === 'apoderado') {
-            const apoderados = await Guardian.find({ 
+            const apoderados = await mongoose.model('Apoderado').find({ 
                 $or: [
                     { _id: req.user.profileId },
                     { correo: req.user.email }
@@ -58,7 +59,7 @@ export const getAlternancias = async (req, res) => {
         }
 
         // Feature: Filter by CourseId for Reports
-        const { course_id } = req.query;
+        const { courseId } = req.query;
         if (courseId) {
             const enrollments = await Enrollment.find({
                 courseId,
@@ -80,20 +81,20 @@ export const getAlternancias = async (req, res) => {
         console.log(`[DEBUG] getAlternancias - User: ${userId}, Role: ${role}, Query:`, JSON.stringify(query));
 
         const alternancias = await Alternancia.find(query)
-            
-            
-            
-            
-            
-            
+            .populate('estudianteId', 'nombres apellidos rut photoUrl')
+            .populate('empresa', 'razonSocial rut emailContacto')
+            .populate('careerId', 'name headTeacher profesorJefe')
+            .populate('profesorSupervisor', 'nombres apellidos name email')
+            .populate('tutorId', 'nombres apellidos name email')
+            .populate('modulosDual.subjectId', 'name')
             .sort({ fechaInicio: -1 });
 
         // [PRO FEATURE] Detect active medical licenses for each student
-        const MedicalLicense = MedicalLicense;
+        const MedicalLicense = mongoose.model('MedicalLicense');
         const enrichedAlternancias = await Promise.all(alternancias.map(async (alt) => {
             const doc = alt.toObject();
             const activeLicense = await MedicalLicense.findOne({
-                userId: alt.estudianteId?.id,
+                userId: alt.estudianteId?._id,
                 tenantId,
                 fechaInicio: { $lte: new Date() },
                 fechaFin: { $gte: new Date() },
@@ -115,7 +116,7 @@ export const getAlternancias = async (req, res) => {
 
 export const getAlternanciaById = async (req, res) => {
     try {
-        const { tenant_id, userId, role } = req.user;
+        const { tenantId, userId, role } = req.user;
         const { id } = req.params;
         let query = { _id: id, tenantId };
 
@@ -127,14 +128,14 @@ export const getAlternanciaById = async (req, res) => {
                 ],
                 tenantId
             }).select('_id');
-            const careerIds = careersHeaded.map(c => c.id);
+            const careerIds = careersHeaded.map(c => c._id);
             
             query = {
                 _id: id,
                 tenantId,
                 $or: [
                     { profesorSupervisor: userId },
-                    { career_id: { $in: careerIds } }
+                    { careerId: { $in: careerIds } }
                 ]
             };
         }
@@ -144,7 +145,7 @@ export const getAlternanciaById = async (req, res) => {
         }
 
         if (role === 'apoderado') {
-            const apoderados = await Guardian.find({ 
+            const apoderados = await mongoose.model('Apoderado').find({ 
                 $or: [
                     { _id: req.user.profileId },
                     { correo: req.user.email }
@@ -167,12 +168,12 @@ export const getAlternanciaById = async (req, res) => {
         }
 
         const alternancia = await Alternancia.findOne(query)
-            
-            
-            
-            
-            
-            ;
+            .populate('estudianteId', 'nombres apellidos rut photoUrl')
+            .populate('empresa', 'razonSocial rut tutor emailContacto')
+            .populate('careerId', 'name headTeacher profesorJefe')
+            .populate('profesorSupervisor', 'name')
+            .populate('tutorId', 'name email')
+            .populate('modulosDual.subjectId', 'name');
         if (!alternancia) return res.status(404).json({ message: 'Alternancia no encontrada o no tiene permisos para verla' });
         res.status(200).json(alternancia);
     } catch (error) {
@@ -182,10 +183,10 @@ export const getAlternanciaById = async (req, res) => {
 
 export const getAlternanciasByEstudiante = async (req, res) => {
     try {
-        const { tenant_id, role, userId } = req.user;
-        const { student_id } = req.params;
+        const { tenantId, role, userId } = req.user;
+        const { estudianteId } = req.params;
         
-        let query = { tenant_id, estudianteId };
+        let query = { tenantId, estudianteId };
         if (role === 'teacher') {
             const careersHeaded = await Career.find({
                 $or: [
@@ -194,11 +195,11 @@ export const getAlternanciasByEstudiante = async (req, res) => {
                 ],
                 tenantId
             }).select('_id');
-            const careerIds = careersHeaded.map(c => c.id);
+            const careerIds = careersHeaded.map(c => c._id);
             
             query.$or = [
                 { profesorSupervisor: userId },
-                { career_id: { $in: careerIds } }
+                { careerId: { $in: careerIds } }
             ];
         }
 
@@ -210,11 +211,11 @@ export const getAlternanciasByEstudiante = async (req, res) => {
         }
 
         const alternancias = await Alternancia.find(query)
-            
-            
-            
-            
-            
+            .populate('estudianteId', 'nombres apellidos rut photoUrl')
+            .populate('empresa', 'razonSocial')
+            .populate('careerId', 'name headTeacher profesorJefe')
+            .populate('profesorSupervisor', 'name')
+            .populate('tutorId', 'name email')
             .sort({ fechaInicio: -1 });
         res.status(200).json(alternancias);
     } catch (error) {
@@ -224,7 +225,7 @@ export const getAlternanciasByEstudiante = async (req, res) => {
 
 export const createAlternancia = async (req, res) => {
     try {
-        const { tenant_id, userId, role } = req.user;
+        const { tenantId, userId, role } = req.user;
         const data = req.body;
 
         if (role === 'teacher') {
@@ -258,7 +259,7 @@ export const createAlternancia = async (req, res) => {
 
 export const updateAlternancia = async (req, res) => {
     try {
-        const { tenant_id, userId, role } = req.user;
+        const { tenantId, userId, role } = req.user;
         const { id } = req.params;
         const updates = req.body;
 
@@ -294,7 +295,7 @@ export const updateAlternancia = async (req, res) => {
 
 export const deleteAlternancia = async (req, res) => {
     try {
-        const { tenant_id, userId, role } = req.user;
+        const { tenantId, userId, role } = req.user;
         const { id } = req.params;
 
         if (role === 'teacher') {
@@ -322,7 +323,7 @@ export const deleteAlternancia = async (req, res) => {
 
 export const addBitacoraEntry = async (req, res) => {
     try {
-        const { tenant_id } = req.user;
+        const { tenantId } = req.user;
         const { id } = req.params;
         const entryData = req.body;
         const alternancia = await Alternancia.findOne({ _id: id, tenantId });
@@ -338,7 +339,7 @@ export const addBitacoraEntry = async (req, res) => {
 
 export const signBitacoraEntry = async (req, res) => {
     try {
-        const { tenant_id, userId, role } = req.user;
+        const { tenantId, userId, role } = req.user;
         const { id, bitacoraId } = req.params;
         const { pin } = req.body;
 
@@ -388,7 +389,7 @@ export const signBitacoraEntry = async (req, res) => {
 
 export const recordLocation = async (req, res) => {
     try {
-        const { tenant_id, userId, role } = req.user;
+        const { tenantId, userId, role } = req.user;
         const { id } = req.params;
         const { lat, lng, accuracy } = req.body;
 
@@ -412,11 +413,11 @@ export const recordLocation = async (req, res) => {
 
 export const getActiveLocations = async (req, res) => {
     try {
-        const { tenant_id } = req.user;
+        const { tenantId } = req.user;
         const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
         const locations = await AlternanciaLocation.aggregate([
-            { $match: { tenant_id: tenantId, timestamp: { $gte: twoHoursAgo } } },
+            { $match: { tenantId: new mongoose.Types.ObjectId(tenantId), timestamp: { $gte: twoHoursAgo } } },
             { $sort: { timestamp: -1 } },
             {
                  $group: {
@@ -452,8 +453,8 @@ export const getActiveLocations = async (req, res) => {
 
 export const getHorariosProfesores = async (req, res) => {
     try {
-        const { tenant_id } = req.user;
-        const { course_id } = req.query;
+        const { tenantId } = req.user;
+        const { courseId } = req.query;
 
         if (!courseId) {
             return res.status(400).json({ message: 'El ID del curso es obligatorio.' });
@@ -463,11 +464,11 @@ export const getHorariosProfesores = async (req, res) => {
             courseId,
             tenantId,
             status: { $in: ['confirmada', 'activo', 'activa'] }
-        })
-         ;
+        }).populate('profesorId', 'nombres apellidos name email horarios horariosAula')
+         .populate('courseId', 'name codigo');
 
         const horarios = enrollments.map(e => ({
-            _id: e.profesorId.id,
+            _id: e.profesorId._id,
             profesor: e.profesorId.name || `${e.profesorId.nombres} ${e.profesorId.apellidos}`,
             email: e.profesorId.email,
             curso: e.courseId.name,
@@ -476,7 +477,7 @@ export const getHorariosProfesores = async (req, res) => {
         }));
 
         // Remove duplicates by profesor ID
-        const uniqueHorarios = Array.from(new Map(horarios.map(h => [h.id.toString(), h])).values());
+        const uniqueHorarios = Array.from(new Map(horarios.map(h => [h._id.toString(), h])).values());
 
         res.status(200).json(uniqueHorarios);
     } catch (error) {
@@ -487,28 +488,28 @@ export const getHorariosProfesores = async (req, res) => {
 
 export const getDocentesDisponiblesPorCarrera = async (req, res) => {
     try {
-        const { tenant_id, userId } = req.user;
-        const { career_id } = req.query;
+        const { tenantId, userId } = req.user;
+        const { careerId } = req.query;
 
         if (!careerId) {
             return res.status(400).json({ message: 'El ID de la carrera es obligatorio.' });
         }
 
         const career = await Career.findOne({ _id: careerId, tenantId })
-            
-            ;
+            .populate('cursos', '_id')
+            .exec();
 
         if (!career) {
             return res.status(404).json({ message: 'Carrera no encontrada' });
         }
 
-        const courseIds = career.cursos?.map(c => c.id) || [];
+        const courseIds = career.cursos?.map(c => c._id) || [];
 
         const enrollments = await Enrollment.find({
-            course_id: { $in: courseIds },
+            courseId: { $in: courseIds },
             tenantId,
             status: { $in: ['confirmada', 'activo', 'activa'] }
-        }).distinct('profesorId');
+        }).populate('profesorId', 'nombres apellidos name email role').distinct('profesorId');
 
         const docentes = enrollments.filter(prof => prof.role === 'teacher' || prof.role === 'docente');
 

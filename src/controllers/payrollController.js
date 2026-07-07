@@ -1,5 +1,6 @@
-import { PayrollPayment } from '../models/pgModels.js';
-import { User } from '../models/pgModels.js';
+import PayrollPayment from '../models/payrollPaymentModel.js';
+import User from '../models/userModel.js';
+import mongoose from 'mongoose';
 
 class PayrollController {
 
@@ -55,7 +56,7 @@ class PayrollController {
             }
 
             const payments = await PayrollPayment.find(query)
-                 // Obtener info del usuario al que se le paga
+                .populate('userId', 'name email role') // Obtener info del usuario al que se le paga
                 .sort({ paymentDate: -1 });
 
             const totalAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -83,7 +84,7 @@ class PayrollController {
                 query.tenantId = req.user.tenantId;
             }
 
-            const payment = await PayrollPayment.findOne(query);
+            const payment = await PayrollPayment.findOne(query).populate('userId', 'name email role');
 
             if (!payment) {
                 return res.status(404).json({ message: 'Pago de nómina no encontrado.' });

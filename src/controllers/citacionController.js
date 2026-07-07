@@ -1,24 +1,25 @@
 import NotificationService from '../services/notificationService.js';
-import { Citacion } from '../models/pgModels.js';
-import { User } from '../models/pgModels.js';
+import Citacion from '../models/citacionModel.js';
+import User from '../models/userModel.js';
+import mongoose from 'mongoose';
 
 class CitacionController {
     static async create(req, res) {
         try {
-            const { student_id } = req.body;
+            const { estudianteId } = req.body;
 
             // Auto-lookup the apoderado for this student
-            const student = await Student.findById(estudianteId);
+            const student = await mongoose.model('Estudiante').findById(estudianteId);
             if (!student) return res.status(404).json({ message: 'Estudiante no encontrado' });
 
-            const apoderado = await Guardian.findOne({ student_id, tipo: 'principal' });
+            const apoderado = await mongoose.model('Apoderado').findOne({ estudianteId, tipo: 'principal' });
 
             if (!apoderado) return res.status(400).json({ message: 'El estudiante no tiene un apoderado principal asignado. No se puede crear la citación.' });
 
             // [NUEVO] Obtener el curso actual del estudiante desde su matricula activa
-            const enrollment = await Enrollment.findOne({
+            const enrollment = await mongoose.model('Enrollment').findOne({
                 estudianteId,
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 status: { $in: ['confirmada', 'activo', 'activa'] }
             });
 
@@ -26,9 +27,9 @@ class CitacionController {
 
             const citacion = new Citacion({
                 ...req.body,
-                guardian_id: apoderado.id,
-                course_id: enrollment.courseId,
-                tenant_id: req.user.tenantId,
+                apoderadoId: apoderado._id,
+                courseId: enrollment.courseId,
+                tenantId: req.user.tenantId,
                 profesorId: req.user.userId
             });
             await citacion.save();
@@ -41,7 +42,7 @@ class CitacionController {
                 citacion.hora,
                 citacion.observaciones || citacion.motivo,
                 req.user.tenantId,
-                citacion.id,
+                citacion._id,
                 citacion.courseId
             );
 
@@ -53,8 +54,8 @@ class CitacionController {
 
     static async list(req, res) {
         try {
-            const { course_id, cursoId } = req.query;
-            const query = { tenant_id: req.user.tenantId };
+            const { courseId, cursoId } = req.query;
+            const query = { tenantId: req.user.tenantId };
 
             const finalCourseId = courseId || cursoId;
             if (finalCourseId) {
@@ -64,20 +65,20 @@ class CitacionController {
             // Privacy Logic: Stricter for teachers
             if (req.user.role === 'teacher') {
                 // [FIX] Teachers only see their OWN citations, not all teachers in the course
-                query.profesorId = req.user.userId;
+                query.profesorId = new mongoose.Types.ObjectId(req.user.userId);
 
                 // Additionally, restrict to courses they teach if no courseId given
                 if (!courseId) {
-                    const Subject = Subject;
-                    const Course = Course;
+                    const Subject = mongoose.model('Subject');
+                    const Course = mongoose.model('Course');
                     const [teacherSubjects, headCourses] = await Promise.all([
-                        Subject.find({ teacher_id: req.user.userId, tenant_id: req.user.tenantId }).select('courseId'),
-                        Course.find({ teacher_id: req.user.userId, tenant_id: req.user.tenantId }).select('_id')
+                        Subject.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('courseId'),
+                        Course.find({ teacherId: req.user.userId, tenantId: req.user.tenantId }).select('_id')
                     ]);
                     const allowedCourseIds = [
                         ...new Set([
                             ...teacherSubjects.map(s => s.courseId.toString()),
-                            ...headCourses.map(c => c.id.toString())
+                            ...headCourses.map(c => c._id.toString())
                         ])
                     ];
                     query.courseId = { $in: allowedCourseIds };
@@ -86,26 +87,26 @@ class CitacionController {
                 }
             } else if (['director', 'inspector_general', 'utp', 'admin', 'sostenedor'].includes(req.user.role)) {
                 // For admin/directors, do not show citations they have dismissed
-                query.dismissedBy = { $ne: req.user.userId };
+                query.dismissedBy = { $ne: new mongoose.Types.ObjectId(req.user.userId) };
             } else if (req.user.role === 'apoderado') {
-                const apoderados = await Guardian.find({ 
+                const apoderados = await mongoose.model('Apoderado').find({ 
                     $or: [
                         { _id: req.user.profileId },
                         { correo: req.user.email }
                     ],
-                    tenant_id: req.user.tenantId 
+                    tenantId: req.user.tenantId 
                 });
                 const studentIds = apoderados.map(a => a.estudianteId);
                 query.estudianteId = { $in: studentIds };
             } else if (req.user.role === 'student' || req.user.role === 'alumno') {
-                query.estudianteId = req.user.userId;
+                query.estudianteId = new mongoose.Types.ObjectId(req.user.userId);
             }
 
             const citaciones = await Citacion.find(query)
-                
-                
-                
-                
+                .populate('estudianteId', 'nombres apellidos')
+                .populate('profesorId', 'name email')
+                .populate('apoderadoId', 'nombre apellidos correo telefono')
+                .populate('courseId', 'name level letter')
                 .sort({ fecha: 1, hora: 1 });
 
             res.json(citaciones);
@@ -131,7 +132,7 @@ class CitacionController {
             }
 
             const citacion = await Citacion.findOneAndUpdate(
-                { _id: id, tenant_id: req.user.tenantId },
+                { _id: id, tenantId: req.user.tenantId },
                 updateFields,
                 { new: true }
             );
@@ -151,7 +152,7 @@ class CitacionController {
             // I'll comment out the delete logic to keep history.
             /*
             if (estado === 'realizada' && actaReunion && actaReunion.trim().length > 0) {
-                await Citacion.deleteById(id);
+                await Citacion.findByIdAndDelete(id);
                 return res.json({ message: 'Acta registrada. Citación finalizada y eliminada del sistema.', deleted: true });
             }
             */
@@ -165,7 +166,7 @@ class CitacionController {
     static async delete(req, res) {
         try {
             const { id } = req.params;
-            const citacion = await Citacion.findOneAndDelete({ _id: id, tenant_id: req.user.tenantId });
+            const citacion = await Citacion.findOneAndDelete({ _id: id, tenantId: req.user.tenantId });
             if (!citacion) return res.status(404).json({ message: 'Citación no encontrada' });
             res.json({ message: 'Citación eliminada correctamente' });
         } catch (error) {
@@ -178,7 +179,7 @@ class CitacionController {
             const { id } = req.params;
             const userId = req.user.userId;
             const citacion = await Citacion.findOneAndUpdate(
-                { _id: id, tenant_id: req.user.tenantId },
+                { _id: id, tenantId: req.user.tenantId },
                 { $addToSet: { dismissedBy: userId } },
                 { new: true }
             );
@@ -212,7 +213,7 @@ class CitacionController {
             }
 
             const citacion = await Citacion.findOneAndUpdate(
-                { _id: id, tenant_id: req.user.tenantId },
+                { _id: id, tenantId: req.user.tenantId },
                 updateFields,
                 { new: true }
             );

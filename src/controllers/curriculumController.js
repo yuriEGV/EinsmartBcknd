@@ -1,13 +1,14 @@
-import { Subject } from '../models/pgModels.js';
+import Subject from '../models/subjectModel.js';
 import Planning from '../models/planningModel.js';
 import Rubric from '../models/rubricModel.js';
 import Question from '../models/questionModel.js';
-import { Evaluation } from '../models/pgModels.js';
-import { Grade } from '../models/pgModels.js';
-import { Enrollment } from '../models/pgModels.js';
-import { Student as Estudiante } from '../models/pgModels.js';
-import { Course } from '../models/pgModels.js';
-import { Career } from '../models/pgModels.js';
+import Evaluation from '../models/evaluationModel.js';
+import Grade from '../models/gradeModel.js';
+import Enrollment from '../models/enrollmentModel.js';
+import Estudiante from '../models/estudianteModel.js';
+import Course from '../models/courseModel.js';
+import Career from '../models/careerModel.js';
+import mongoose from 'mongoose';
 
 // PREDEFINED TP CURRICULUM SEED DATA BASED ON OFFICIAL DOCUMENTATION
 const TP_CURRICULUM_DATA = {
@@ -90,7 +91,7 @@ class CurriculumController {
 
     static async populateTechnicalCurriculum(req, res) {
         try {
-            const { course_id, careerName } = req.body;
+            const { courseId, careerName } = req.body;
             const tenantId = req.user.tenantId;
             const teacherId = req.user.userId;
 
@@ -105,8 +106,8 @@ class CurriculumController {
 
             // 1. Fetch enrolled students
             const enrolled = await Enrollment.find({
-                course_id: courseId,
-                tenantId: tenantId,
+                courseId: new mongoose.Types.ObjectId(courseId),
+                tenantId: new mongoose.Types.ObjectId(tenantId),
                 status: { $in: ['confirmada', 'activo', 'activa'] }
             }).select('estudianteId');
 
@@ -117,7 +118,7 @@ class CurriculumController {
             const studentIds = enrolled.filter(e => e && e.estudianteId).map(e => e.estudianteId);
 
             // Find or create Career
-            let career = await Career.findOne({ tenant_id, name: careerName });
+            let career = await Career.findOne({ tenantId, name: careerName });
             if (!career) {
                 career = new Career({
                     tenantId,
@@ -129,7 +130,7 @@ class CurriculumController {
             }
 
             // Update course's careerId
-            await Course.findByIdAndUpdate(courseId, { career_id: career.id });
+            await Course.findByIdAndUpdate(courseId, { careerId: career._id });
 
             let createdSubjectsCount = 0;
             let createdPlanningsCount = 0;
@@ -164,7 +165,7 @@ class CurriculumController {
                 const rubric = new Rubric({
                     tenantId,
                     teacherId,
-                    subject_id: subject.id,
+                    subjectId: subject._id,
                     title: `Rúbrica de Desempeño: ${mod.name}`,
                     description: `Evaluación sumativa de competencias prácticas del módulo ${mod.name}`,
                     levels: [
@@ -192,24 +193,24 @@ class CurriculumController {
                 // 3. Create Plannings
                 const p1 = new Planning({
                     tenantId,
-                    subject_id: subject.id,
+                    subjectId: subject._id,
                     teacherId,
                     type: "unidad",
                     title: "Unidad 1: Fundamentos de la Especialidad",
                     description: `Introducción teórica y práctica a los conceptos de ${mod.name}.`,
                     status: "approved",
-                    rubricId: rubric.id,
+                    rubricId: rubric._id,
                     unitNumber: 1
                 });
                 const p2 = new Planning({
                     tenantId,
-                    subject_id: subject.id,
+                    subjectId: subject._id,
                     teacherId,
                     type: "unidad",
                     title: "Unidad 2: Procesos Industriales Avanzados",
                     description: `Aplicaciones de campo y simulación laboral del módulo ${mod.name}.`,
                     status: "approved",
-                    rubricId: rubric.id,
+                    rubricId: rubric._id,
                     unitNumber: 2
                 });
                 await Promise.all([p1.save(), p2.save()]);
@@ -218,7 +219,7 @@ class CurriculumController {
                 // 4. Create sample questions
                 const q1 = new Question({
                     tenantId,
-                    subject_id: subject.id,
+                    subjectId: subject._id,
                     questionText: "¿Cuál es el protocolo de seguridad obligatorio al ingresar a la faena del módulo?",
                     type: "multiple_choice",
                     options: [
@@ -233,7 +234,7 @@ class CurriculumController {
                 });
                 const q2 = new Question({
                     tenantId,
-                    subject_id: subject.id,
+                    subjectId: subject._id,
                     questionText: "¿Cuál es el principio regulador o norma de calidad aplicable a este proceso?",
                     type: "multiple_choice",
                     options: [
@@ -252,28 +253,28 @@ class CurriculumController {
                 const ev1 = new Evaluation({
                     tenantId,
                     courseId,
-                    subject_id: subject.id,
+                    subjectId: subject._id,
                     title: "Evaluación Teórica 1",
                     type: "sumativa",
                     category: "planificada",
                     maxScore: 7.0,
                     date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
-                    rubricId: rubric.id,
+                    rubricId: rubric._id,
                     status: "approved",
-                    questions: [q1.id, q2.id]
+                    questions: [q1._id, q2._id]
                 });
                 const ev2 = new Evaluation({
                     tenantId,
                     courseId,
-                    subject_id: subject.id,
+                    subjectId: subject._id,
                     title: "Práctica de Taller / Laboratorio",
                     type: "sumativa",
                     category: "planificada",
                     maxScore: 7.0,
                     date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-                    rubricId: rubric.id,
+                    rubricId: rubric._id,
                     status: "approved",
-                    questions: [q1.id]
+                    questions: [q1._id]
                 });
                 await Promise.all([ev1.save(), ev2.save()]);
                 createdEvaluationsCount += 2;
@@ -296,16 +297,16 @@ class CurriculumController {
 
                     gradesToSave.push({
                         tenantId,
-                        evaluation_id: ev1.id,
-                        student_id: studentId,
+                        evaluationId: ev1._id,
+                        estudianteId: studentId,
                         score: score1,
                         status: "graded",
                         academicYear: new Date().getFullYear()
                     });
                     gradesToSave.push({
                         tenantId,
-                        evaluation_id: ev2.id,
-                        student_id: studentId,
+                        evaluationId: ev2._id,
+                        estudianteId: studentId,
                         score: score2,
                         status: "graded",
                         academicYear: new Date().getFullYear()
@@ -338,13 +339,13 @@ class CurriculumController {
 
     static async getTechnicalCurriculumReport(req, res) {
         try {
-            const { course_id } = req.params;
+            const { courseId } = req.params;
             const tenantId = req.user.tenantId;
 
             // 1. Fetch enrolled students
             const enrollments = await Enrollment.find({
-                course_id: courseId,
-                tenantId: tenantId,
+                courseId: new mongoose.Types.ObjectId(courseId),
+                tenantId: new mongoose.Types.ObjectId(tenantId),
                 status: { $in: ['confirmada', 'activo', 'activa'] }
             }).populate({
                 path: 'estudianteId',
@@ -367,8 +368,8 @@ class CurriculumController {
 
             // 2. Fetch technical subjects
             const subjects = await Subject.find({
-                course_id: courseId,
-                tenantId: tenantId,
+                courseId: new mongoose.Types.ObjectId(courseId),
+                tenantId: new mongoose.Types.ObjectId(tenantId),
                 isTechnical: true
             });
 
@@ -380,21 +381,21 @@ class CurriculumController {
                 });
             }
 
-            const subjectIds = subjects.map(s => s.id);
+            const subjectIds = subjects.map(s => s._id);
 
             // 3. Fetch evaluations for these subjects
             const evaluations = await Evaluation.find({
-                course_id: courseId,
-                tenantId: tenantId,
-                subject_id: { $in: subjectIds }
+                courseId: new mongoose.Types.ObjectId(courseId),
+                tenantId: new mongoose.Types.ObjectId(tenantId),
+                subjectId: { $in: subjectIds }
             });
 
-            const evalIds = evaluations.map(e => e.id);
+            const evalIds = evaluations.map(e => e._id);
 
             // 4. Fetch grades
             const grades = await Grade.find({
-                tenantId: tenantId,
-                evaluation_id: { $in: evalIds },
+                tenantId: new mongoose.Types.ObjectId(tenantId),
+                evaluationId: { $in: evalIds },
                 status: 'graded'
             });
 
@@ -414,8 +415,8 @@ class CurriculumController {
 
             // Calculations per module
             const modulesStats = subjects.map(sub => {
-                const subEvals = evaluations.filter(e => e.subjectId.toString() === sub.id.toString());
-                const subEvalIds = subEvals.map(e => e.id.toString());
+                const subEvals = evaluations.filter(e => e.subjectId.toString() === sub._id.toString());
+                const subEvalIds = subEvals.map(e => e._id.toString());
                 const subGrades = grades.filter(g => subEvalIds.includes(g.evaluationId.toString()));
 
                 let sumScores = 0;
@@ -438,7 +439,7 @@ class CurriculumController {
                     : 100;
 
                 return {
-                    id: sub.id,
+                    id: sub._id,
                     name: sub.name,
                     description: sub.description || '',
                     evaluationsCount: subEvals.length,
@@ -456,10 +457,10 @@ class CurriculumController {
                 let studentGradesCount = 0;
 
                 subjects.forEach(sub => {
-                    const subEvals = evaluations.filter(e => e.subjectId.toString() === sub.id.toString());
-                    const subEvalIds = subEvals.map(e => e.id.toString());
+                    const subEvals = evaluations.filter(e => e.subjectId.toString() === sub._id.toString());
+                    const subEvalIds = subEvals.map(e => e._id.toString());
                     const studentSubGrades = grades.filter(g => 
-                        g.estudianteId.toString() === student.id.toString() &&
+                        g.estudianteId.toString() === student._id.toString() &&
                         subEvalIds.includes(g.evaluationId.toString())
                     );
 
@@ -478,7 +479,7 @@ class CurriculumController {
                         ? parseFloat((sumScores / count).toFixed(1))
                         : null;
 
-                    modularScores[sub.id] = avg;
+                    modularScores[sub._id] = avg;
                 });
 
                 const approvalPct = studentGradesCount > 0
@@ -486,7 +487,7 @@ class CurriculumController {
                     : 100;
 
                 return {
-                    id: student.id,
+                    id: student._id,
                     fullName: `${student.apellidos}, ${student.nombres}`,
                     rut: student.rut || 'S/I',
                     modularScores,

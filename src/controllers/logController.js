@@ -1,11 +1,11 @@
-import { ClassBookLog } from '../models/pgModels.js';
+import ClassBookLog from '../models/classBookLogModel.js';
 
 class LogController {
     static async logAccess(req, res) {
         try {
-            const { course_id, action, details } = req.body;
+            const { courseId, action, details } = req.body;
             const log = new ClassBookLog({
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 userId: req.user.userId,
                 courseId,
                 action,
@@ -20,16 +20,16 @@ class LogController {
 
     static async getLogs(req, res) {
         try {
-            const { course_id, limit = 50 } = req.query;
-            const query = { tenant_id: req.user.tenantId };
+            const { courseId, limit = 50 } = req.query;
+            const query = { tenantId: req.user.tenantId };
 
             if (courseId) {
                 query.courseId = courseId;
             }
 
             const logs = await ClassBookLog.find(query)
-                
-                
+                .populate('userId', 'name role')
+                .populate('courseId', 'name level letter')
                 .sort({ createdAt: -1 })
                 .limit(parseInt(limit));
 

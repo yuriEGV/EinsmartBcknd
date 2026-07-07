@@ -1,4 +1,4 @@
-import { EventRequest } from '../models/pgModels.js';
+import EventRequest from '../models/eventRequestModel.js';
 import NotificationService from '../services/notificationService.js';
 import connectDB from '../config/db.js';
 
@@ -42,7 +42,7 @@ class EventRequestController {
             await connectDB();
             const requests = await EventRequest.find({
                 userId: req.user.userId,
-                tenant_id: req.user.tenantId
+                tenantId: req.user.tenantId
             }).sort({ createdAt: -1 });
 
             res.json(requests);
@@ -56,8 +56,8 @@ class EventRequestController {
             await connectDB();
             // Admins/Directors can see all requests for their tenant
             const requests = await EventRequest.find({
-                tenant_id: req.user.tenantId
-            }).sort({ createdAt: -1 });
+                tenantId: req.user.tenantId
+            }).populate('userId', 'name role').sort({ createdAt: -1 });
 
             res.json(requests);
         } catch (error) {
@@ -72,7 +72,7 @@ class EventRequestController {
             const { status, rejectionReason } = req.body;
 
             const request = await EventRequest.findOneAndUpdate(
-                { _id: id, tenant_id: req.user.tenantId },
+                { _id: id, tenantId: req.user.tenantId },
                 {
                     status,
                     rejectionReason,
@@ -101,7 +101,7 @@ class EventRequestController {
 
             // Notify Teacher (User)
             await NotificationService.createInternalNotification({
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 userId: request.userId,
                 title: 'Actualización de Solicitud de Evento',
                 message: `Tu solicitud para el evento "${request.title}" ha sido ${status}.`,
@@ -113,7 +113,7 @@ class EventRequestController {
             const UserNotification = await import('../models/userNotificationModel.js').then(m => m.default);
             await UserNotification.updateMany(
                 {
-                    tenant_id: req.user.tenantId,
+                    tenantId: req.user.tenantId,
                     type: 'event_request',
                     message: { $regex: request.title, $options: 'i' },
                     isRead: false
@@ -134,7 +134,7 @@ class EventRequestController {
             // Only can delete if pending or if it's their own
             const request = await EventRequest.findOneAndDelete({
                 _id: id,
-                tenant_id: req.user.tenantId,
+                tenantId: req.user.tenantId,
                 $or: [
                     { userId: req.user.userId, status: 'pendiente' },
                     { _id: { $exists: true } && (req.user.role === 'admin' || req.user.role === 'sostenedor' || req.user.role === 'director' ? {} : { _id: null }) }
